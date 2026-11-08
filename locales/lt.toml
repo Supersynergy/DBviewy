@@ -1187,6 +1187,8 @@ placeholder_auto = "(automatiškai)"
 pick = "(pasirinkti...)"
 
 [header]
+enrich_column = "Praturtinti iš žiniatinklio"
+enrich_column_hint = "Fone atsisiunčia kiekvienos eilutės URL ir įrašo HTTP būseną į naują *_live stulpelį. Rezultatai patenka į pakeitimų žurnalą."
 rename = "Pervadinti"
 copy = "Kopijuoti"
 cut = "Iškirpti"

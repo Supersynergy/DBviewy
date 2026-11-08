@@ -1190,6 +1190,8 @@ placeholder_auto = "(automatisch)"
 pick = "(kies...)"
 
 [header]
+enrich_column = "Verrijken vanaf web"
+enrich_column_hint = "Haalt de URL van elke rij op in de achtergrond en schrijft de HTTP-status in een nieuwe *_live-kolom. Resultaten komen in het bewerkingslogboek."
 rename = "Naam wijzigen"
 copy = "Kopiëren"
 cut = "Knippen"

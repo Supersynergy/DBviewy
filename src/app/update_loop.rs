@@ -141,6 +141,7 @@ impl eframe::App for OctaApp {
         self.drain_instance_handover(&ctx);
         self.drain_pending_open_queue();
         self.drain_pending_tab_edits();
+        self.drain_pending_status_msgs();
         self.drain_cloud_pending_open(&ctx);
         self.drain_cloud_sign_ins(&ctx);
         self.drain_db_sign_ins(&ctx);

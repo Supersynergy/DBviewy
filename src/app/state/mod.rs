@@ -880,6 +880,10 @@ pub(crate) struct OctaApp {
     /// Recently opened database objects (most recent first) - the
     /// File -> Recent databases submenu.
     pub(crate) recent_dbs: Vec<octa::recent::RecentDbEntry>,
+    /// One-line messages background workers want shown in the status bar.
+    /// Drained on the UI thread once per frame - a worker can never touch
+    /// `status_message` directly.
+    pub(crate) pending_status_msgs: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
     /// Zoom level in percent (100 = default, steps of 5).
     pub(crate) zoom_percent: u32,
     /// Status bar navigation input buffer.

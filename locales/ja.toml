@@ -1180,6 +1180,8 @@ placeholder_auto = "(自動)"
 pick = "(選択...)"
 
 [header]
+enrich_column = "ウェブからエンリッチ"
+enrich_column_hint = "各行のURLをバックグラウンドで取得し、HTTPステータスを新しい *_live 列に書き込みます。結果は編集オーディットトレイルに入ります。"
 rename = "名前を変更"
 copy = "コピー"
 cut = "切り取り"

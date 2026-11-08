@@ -785,6 +785,12 @@ pub struct TableInteraction {
     /// column-header right-click menu's "Number format..." entry (numeric
     /// columns only).
     pub ctx_column_format: Option<usize>,
+    /// Enrich this URL-holding column from the web on a worker thread:
+    /// each row's page is fetched and the extracted value lands in a
+    /// `*_live` column via the pending-edit queue (audit-trail review).
+    /// Fired by the column-header right-click menu's "Enrich from web..."
+    /// entry, shown only when a sampled cell holds a URL.
+    pub ctx_enrich_column: Option<usize>,
     /// The big logo on the welcome screen (rendered when the active tab has
     /// no columns) was just clicked. Counted by the snow easter egg -
     /// three within 1.5s triggers a 5-second snowfall.

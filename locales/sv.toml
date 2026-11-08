@@ -1190,6 +1190,8 @@ placeholder_auto = "(auto)"
 pick = "(välj...)"
 
 [header]
+enrich_column = "Berika från webben"
+enrich_column_hint = "Hämtar varje rads URL i bakgrunden och skriver HTTP-statusen till en ny *_live-kolumn. Resultat hamnar i redigeringsloggen."
 rename = "Byt namn"
 copy = "Kopiera"
 cut = "Klipp ut"

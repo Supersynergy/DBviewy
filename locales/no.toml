@@ -1190,6 +1190,8 @@ placeholder_auto = "(auto)"
 pick = "(velg...)"
 
 [header]
+enrich_column = "Berik fra nettet"
+enrich_column_hint = "Henter hver rads URL i bakgrunnen og skriver HTTP-statusen til en ny *_live-kolonne. Resultatene havner i redigeringsloggen."
 rename = "Gi nytt navn"
 copy = "Kopier"
 cut = "Klipp ut"

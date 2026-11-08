@@ -853,3 +853,38 @@ with each other, so a `;` file with a title line opens with every field in
 place. Columns that are empty in every row, because each line ends in a
 separator, are left out as before.
 "#;
+
+pub const WEB_ENRICH: &str = r#"# Enrich from web
+
+Columns that hold a URL per row - product pages, listing links, source
+references - can be fetched in bulk without leaving the grid.
+
+## How it works
+
+Right-click a column header. When a sampled cell holds a URL, the menu
+shows **Enrich from web**. Octa fetches each row's URL on a background
+worker (up to 500 rows, several at a time) and writes the HTTP status of
+every page into a new `<name>_live` column - "200" for a live listing,
+"404" for a gone one, an error note where the fetch itself failed.
+
+## What lands where
+
+Nothing is written silently. The whole run arrives as one batch in the
+**Edit Audit Trail**, where you review every value before it counts, and
+a single undo removes the run. The status bar reports progress and the
+final tally (values written, pages fetched, failures).
+
+## Guards
+
+The entry refuses politely instead of surprising you: with Write
+protection on, on a read-only tab, or on a large-file window. Fetching is
+capped and bounded so a right-click can never turn into an uncontrolled
+crawl.
+
+## Richer extracts
+
+The GUI default answers "is this link alive?". Pulling the page text or a
+regex capture - "extract the live price into `live_price`" - is a job for
+the Assistant's `enrich_rows` tool, which shares the same queue and
+audit trail.
+"#;

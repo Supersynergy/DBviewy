@@ -1191,6 +1191,8 @@ placeholder_auto = "(otomatis)"
 pick = "(pilih...)"
 
 [header]
+enrich_column = "Perkaya dari web"
+enrich_column_hint = "Mengambil URL setiap baris di latar belakang dan menulis status HTTP ke kolom *_live baru. Hasil masuk ke jejak audit edit."
 rename = "Ganti nama"
 copy = "Salin"
 cut = "Potong"

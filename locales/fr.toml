@@ -1190,6 +1190,8 @@ placeholder_auto = "(auto)"
 pick = "(choisir...)"
 
 [header]
+enrich_column = "Enrichir depuis le web"
+enrich_column_hint = "Télécharge l'URL de chaque ligne en arrière-plan et écrit le statut HTTP dans une nouvelle colonne *_live. Résultats dans le journal d'édition."
 rename = "Renommer"
 copy = "Copier"
 cut = "Couper"

@@ -99,6 +99,7 @@ fn sections(shortcuts: &ui::shortcuts::Shortcuts) -> Vec<(&'static str, String)>
         ("Header row", HEADER_ROW.to_string()),
         ("Bookmarks", BOOKMARKS.to_string()),
         ("Transform Column", TRANSFORMS.to_string()),
+        ("Enrich from web", WEB_ENRICH.to_string()),
         ("Anonymise Columns", ANONYMIZE.to_string()),
         ("Hash Columns", HASH_COLUMNS.to_string()),
         ("Detect Outliers", OUTLIERS.to_string()),

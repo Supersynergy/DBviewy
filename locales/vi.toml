@@ -1191,6 +1191,8 @@ placeholder_auto = "(tự động)"
 pick = "(chọn...)"
 
 [header]
+enrich_column = "Làm giàu từ web"
+enrich_column_hint = "Tải URL của mỗi hàng trong nền và ghi trạng thái HTTP vào cột *_live mới. Kết quả vào nhật ký chỉnh sửa."
 rename = "Đổi tên"
 copy = "Sao chép"
 cut = "Cắt"

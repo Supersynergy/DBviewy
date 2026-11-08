@@ -1190,6 +1190,8 @@ placeholder_auto = "(automaattinen)"
 pick = "(valitse...)"
 
 [header]
+enrich_column = "Rikasta verkosta"
+enrich_column_hint = "Hakee jokaisen rivin URL-osoitteen taustalla ja kirjoittaa HTTP-tilan uuteen *_live-sarakkeeseen. Tulokset menevät muokkauslokiin."
 rename = "Nimeä uudelleen"
 copy = "Kopioi"
 cut = "Leikkaa"

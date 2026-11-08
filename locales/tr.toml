@@ -1190,6 +1190,8 @@ placeholder_auto = "(oto)"
 pick = "(seç...)"
 
 [header]
+enrich_column = "Web'den zenginleştir"
+enrich_column_hint = "Her satırın URL'sini arka planda indirir ve HTTP durumunu yeni bir *_live sütununa yazar. Sonuçlar düzenleme günlüğüne gider."
 rename = "Yeniden adlandır"
 copy = "Kopyala"
 cut = "Kes"

@@ -1187,6 +1187,8 @@ placeholder_auto = "(samodejno)"
 pick = "(izberi...)"
 
 [header]
+enrich_column = "Obogati iz spleta"
+enrich_column_hint = "V ozadju prenese URL vsake vrstice in zapiše stanje HTTP v nov stolpec *_live. Rezultati pristanejo v dnevniku urejanj."
 rename = "Preimenuj"
 copy = "Kopiraj"
 cut = "Izreži"

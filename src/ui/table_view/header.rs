@@ -567,6 +567,23 @@ pub(super) fn draw_header_direct(
                     interaction.ctx_value_frequency = Some(col_idx);
                     ui.close();
                 }
+                // Worth offering only where fetching rows makes sense: a
+                // column whose sampled cells hold a URL.
+                let has_urls = (0..table.row_count().min(50)).any(|r| {
+                    table
+                        .get(r, col_idx)
+                        .map(|c| crate::data::links::detect_url(&c.to_string()).is_some())
+                        .unwrap_or(false)
+                });
+                if has_urls
+                    && ui
+                        .button(crate::i18n::t("header.enrich_column"))
+                        .on_hover_text(crate::i18n::t("header.enrich_column_hint"))
+                        .clicked()
+                {
+                    interaction.ctx_enrich_column = Some(col_idx);
+                    ui.close();
+                }
                 if crate::data::is_numeric_data_type(&col.data_type)
                     && ui
                         .button(crate::i18n::t("edit_menu.number_format"))

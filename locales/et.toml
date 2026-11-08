@@ -1187,6 +1187,8 @@ placeholder_auto = "(automaatne)"
 pick = "(vali...)"
 
 [header]
+enrich_column = "Riigasta veebist"
+enrich_column_hint = "Laadib iga rea URL-i taustal ja kirjutab HTTP-oleku uude *_live-veergu. Tulemused jõuavad muudatuste logisse."
 rename = "Nimeta ümber"
 copy = "Kopeeri"
 cut = "Lõika"

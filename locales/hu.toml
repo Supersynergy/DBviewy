@@ -1191,6 +1191,8 @@ placeholder_auto = "(automatikus)"
 pick = "(válasszon...)"
 
 [header]
+enrich_column = "Dúsítás a webről"
+enrich_column_hint = "Letölti minden sor URL-jét a háttérben, és a HTTP-állapotot egy új *_live-oszlopba írja. Az eredmények a szerkesztési naplóba kerülnek."
 rename = "Átnevezés"
 copy = "Másolás"
 cut = "Kivágás"

@@ -1191,6 +1191,8 @@ placeholder_auto = "(automat)"
 pick = "(alegeți...)"
 
 [header]
+enrich_column = "Îmbogățire din web"
+enrich_column_hint = "Descarcă URL-ul fiecărui rând în fundal și scrie starea HTTP într-o nouă coloană *_live. Rezultatele ajung în jurnalul de editări."
 rename = "Redenumește"
 copy = "Copiază"
 cut = "Decupează"

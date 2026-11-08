@@ -393,6 +393,11 @@ impl OctaApp {
             self.tabs[self.active_tab].hidden_columns.insert(col_idx);
         }
 
+        // --- Enrich a URL column from the web (right-click) ---
+        if let Some(col_idx) = interaction.ctx_enrich_column {
+            self.start_enrich_column(col_idx);
+        }
+
         // --- Value frequency (right-click "Value frequency...") ---
         if let Some(col_idx) = interaction.ctx_value_frequency {
             let tab = &mut self.tabs[self.active_tab];

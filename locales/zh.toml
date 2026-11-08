@@ -1180,6 +1180,8 @@ placeholder_auto = "(自动)"
 pick = "(选择...)"
 
 [header]
+enrich_column = "从网络中丰富"
+enrich_column_hint = "在后台获取每一行的 URL，将 HTTP 状态写入新的 *_live 列。结果会进入编辑审计追踪。"
 rename = "重命名"
 copy = "复制"
 cut = "剪切"

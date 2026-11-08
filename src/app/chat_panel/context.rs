@@ -110,6 +110,20 @@ impl OctaApp {
     /// one undo entry. Aborts a batch (with a status message) if the target tab
     /// is gone or its row count drifted from the snapshot the ops were computed
     /// against, so data can never misalign.
+    /// Show one-line messages background workers left for the status bar.
+    /// Last one wins per frame - a burst reports its tail, not its flood.
+    pub(crate) fn drain_pending_status_msgs(&mut self) {
+        let msgs: Vec<String> = {
+            let Ok(mut q) = self.pending_status_msgs.lock() else {
+                return;
+            };
+            std::mem::take(&mut *q)
+        };
+        if let Some(last) = msgs.into_iter().last() {
+            self.status_message = Some((last, std::time::Instant::now()));
+        }
+    }
+
     pub(crate) fn drain_pending_tab_edits(&mut self) {
         let batches: Vec<crate::mcp::tools::PendingTabEdit> = {
             let mut q = self.pending_tab_edits.lock().unwrap();

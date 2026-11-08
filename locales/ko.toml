@@ -1180,6 +1180,8 @@ placeholder_auto = "(자동)"
 pick = "(선택...)"
 
 [header]
+enrich_column = "웹에서 보강"
+enrich_column_hint = "각 행의 URL을 백그라운드로 가져와 HTTP 상태를 새 *_live 열에 기록합니다. 결과는 편집 감사 추적에 들어갑니다."
 rename = "이름 바꾸기"
 copy = "복사"
 cut = "잘라내기"

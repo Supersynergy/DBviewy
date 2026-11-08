@@ -1190,6 +1190,8 @@ placeholder_auto = "(automatisch)"
 pick = "(wählen...)"
 
 [header]
+enrich_column = "Aus dem Web anreichern"
+enrich_column_hint = "Die URL jeder Zeile im Hintergrund abrufen und den HTTP-Status in eine neue *_live-Spalte schreiben. Ergebnisse landen im Bearbeitungs-Protokoll."
 rename = "Umbenennen"
 copy = "Kopieren"
 cut = "Ausschneiden"

@@ -1187,6 +1187,8 @@ placeholder_auto = "(auto)"
 pick = "(pick...)"
 
 [header]
+enrich_column = "Enrich from web"
+enrich_column_hint = "Fetch every row's URL on a worker and write the HTTP status into a new *_live column. Results land in the edit audit trail."
 rename = "Rename"
 copy = "Copy"
 cut = "Cut"

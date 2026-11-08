@@ -155,6 +155,7 @@ nav:
           - Date / Time Calculation: usage/date-time-calculation.md
           - Times and durations: usage/times-and-durations.md
           - Transform Column: usage/transform-column.md
+          - Enrich from web: usage/web-enrichment.md
           - Rename columns: usage/rename-columns.md
           - Change column type: usage/change-column-type.md
           - Pivot / Unpivot: usage/pivot.md

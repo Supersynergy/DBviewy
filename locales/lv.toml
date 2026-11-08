@@ -1187,6 +1187,8 @@ placeholder_auto = "(automātiski)"
 pick = "(izvēlēties...)"
 
 [header]
+enrich_column = "Bagātināt no tīmekļa"
+enrich_column_hint = "Fonā ielādē katras rindas URL un ieraksta HTTP statusu jaunā *_live kolonnā. Rezultāti nonāk labojumu žurnālā."
 rename = "Pārdēvēt"
 copy = "Kopēt"
 cut = "Izgriezt"

@@ -306,6 +306,7 @@ impl OctaApp {
             recipe_key_dialog: None,
             api_pending_open: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
             pending_tab_edits: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
+            pending_status_msgs: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
             cloud_browser: super::cloud_browser::CloudBrowserState::default(),
             db_browser: super::db_browser::DbBrowserState::default(),
             db_conn_cache: super::db_conn_cache::DbConnCache::default(),

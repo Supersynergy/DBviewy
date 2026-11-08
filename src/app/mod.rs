@@ -30,6 +30,7 @@ pub(crate) mod dialogs;
 pub(crate) mod easter_eggs;
 pub(crate) mod edit_audit;
 pub(crate) mod edit_ops;
+pub(crate) mod enrich;
 pub(crate) mod file_io;
 pub(crate) mod find_replace;
 pub(crate) mod flag_guard;
