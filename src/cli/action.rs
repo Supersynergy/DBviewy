@@ -188,6 +188,10 @@ pub enum Action {
         dedupe_on: Option<String>,
         dedupe_keep: Option<String>,
     },
+    Enrich {
+        path: PathBuf,
+        opts: super::enrich::Options,
+    },
     Impute {
         path: PathBuf,
         specs: Vec<String>,

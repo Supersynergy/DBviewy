@@ -484,6 +484,15 @@ fn timeseries_actions_bucket_and_roll() {
     let out = fx.run(&["--rolling", "amount", &ts]);
     assert_eq!(out.code, Some(1), "--rolling without --order-by must fail");
     assert!(out.stderr.contains("--order-by"), "{}", out.stderr);
+
+    // `--enrich` cannot run without its source column, and with no URLs in
+    // the column it passes the table through unchanged (offline-safe).
+    let out = fx.run(&["--enrich", &fx.path("a.csv")]);
+    assert_eq!(out.code, Some(1), "--enrich without --enrich-on must fail");
+    assert!(out.stderr.contains("--enrich-on"), "{}", out.stderr);
+    let out = fx.run(&["--enrich", &fx.path("a.csv"), "--enrich-on", "city"]);
+    out.ok("--enrich");
+    assert_eq!(out.first_line(), "id\tcity\tamount", "{}", out.stdout);
 }
 
 /// `--batch-convert` converts N positional files into --out-dir and exits 1

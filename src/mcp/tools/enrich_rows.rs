@@ -117,7 +117,7 @@ pub enum Extract {
 /// new pages (fetches in flight finish), `progress` counts processed rows so
 /// the status bar can show "12/340". The plain `run` wrapper passes inert
 /// defaults, so the chat path and tests are unchanged.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct RunCtl {
     pub cancel: Arc<AtomicBool>,
     pub progress: Arc<AtomicUsize>,
@@ -128,7 +128,7 @@ pub struct RunCtl {
 
 /// What one page gave back, kept separate from the extracted value so
 /// provenance can travel with it.
-struct PageResult {
+pub(crate) struct PageResult {
     final_url: String,
     status: u16,
     content_type: String,
@@ -140,7 +140,7 @@ struct PageResult {
 
 /// Why one target produced nothing. `Http` carries the page's status so the
 /// worker can back off a rate-limiting host; `Other` is everything else.
-enum ResolveFail {
+pub(crate) enum ResolveFail {
     Http(u16),
     Other(String),
 }
@@ -291,7 +291,7 @@ fn extract_value(
 /// Emit the column op for one output column: SetCells onto an existing
 /// column, or AddColumn with NULLs where no row produced a value. Returns
 /// the number of real (non-NULL) values emitted.
-fn push_column_op(
+pub(crate) fn push_column_op(
     ops: &mut Vec<ResolvedOp>,
     table: &octa::data::DataTable,
     name: &str,
@@ -320,6 +320,235 @@ fn push_column_op(
         }
     }
     written
+}
+
+/// What `pair_results` produced, kept together so both surfaces (pending
+/// edits on the live tab, direct column write for the CLI) consume it.
+pub(crate) struct Paired {
+    pub values: BTreeMap<usize, CellValue>,
+    pub srcs: BTreeMap<usize, CellValue>,
+    pub ats: BTreeMap<usize, CellValue>,
+    pub failures: Vec<(usize, String)>,
+    pub fetched: usize,
+    pub cached: usize,
+    pub cancelled: usize,
+}
+
+/// Rows worth processing: `(storage row, url-or-query input)`. When `view`
+/// carries the user's display order (sorted/filtered) the first `limit`
+/// targets are the first *visible* ones; `None` means table order. Rows
+/// whose `only_missing_col` cell is already filled are skipped - a top-up
+/// run must not re-fetch answered rows.
+pub(crate) fn collect_targets(
+    table: &octa::data::DataTable,
+    url_col: usize,
+    is_search: bool,
+    limit: usize,
+    view: Option<&[usize]>,
+    only_missing_col: Option<usize>,
+) -> (Vec<(usize, String)>, usize) {
+    let n = table.row_count();
+    let mut targets = Vec::new();
+    let mut scanned = 0usize;
+    let order: Vec<usize> = view.map(|v| v.to_vec()).unwrap_or_else(|| (0..n).collect());
+    for row in order {
+        if row >= n {
+            continue;
+        }
+        if targets.len() >= limit {
+            break;
+        }
+        scanned += 1;
+        if let Some(t) = only_missing_col {
+            let filled = table
+                .get(row, t)
+                .map(|c| !matches!(c, CellValue::Null) && !c.to_string().trim().is_empty())
+                .unwrap_or(false);
+            if filled {
+                continue;
+            }
+        }
+        let text = table
+            .get(row, url_col)
+            .map(|c| c.to_string())
+            .unwrap_or_default();
+        let usable = if is_search {
+            !text.trim().is_empty()
+        } else {
+            detect_url(&text).is_some()
+        };
+        if usable {
+            let input = if is_search {
+                text.chars().take(MAX_QUERY_CHARS).collect()
+            } else {
+                detect_url(&text).unwrap_or("").to_string()
+            };
+            targets.push((row, input));
+        }
+    }
+    (targets, scanned)
+}
+
+/// The bounded-parallel fetch: workers share an index into `targets`,
+/// results land by target position so row order is preserved regardless of
+/// completion order. Per-host semaphore + cooldown keep a single-domain
+/// batch polite; `ctl.cancel` stops dispatch, `ctl.progress` counts rows.
+/// Returns one slot per target - `None` where cancel won the race.
+pub(crate) fn run_fetch(
+    targets: &[(usize, String)],
+    is_search: bool,
+    for_content: bool,
+    refresh: bool,
+    regex: Option<&regex::Regex>,
+    top_k: usize,
+    ctl: &RunCtl,
+) -> Vec<Option<Result<PageResult, ResolveFail>>> {
+    let results: Vec<Mutex<Option<Result<PageResult, ResolveFail>>>> =
+        (0..targets.len()).map(|_| Mutex::new(None)).collect();
+    {
+        let next = AtomicUsize::new(0);
+        let host_slots = Mutex::new(std::collections::HashMap::<String, usize>::new());
+        let host_blocked =
+            Mutex::new(std::collections::HashMap::<String, std::time::Instant>::new());
+        let host_free = Condvar::new();
+        let workers = FETCH_WORKERS.min(targets.len().max(1));
+        std::thread::scope(|scope| {
+            for _ in 0..workers {
+                scope.spawn(|| {
+                    loop {
+                        if ctl.cancel.load(Ordering::Relaxed) {
+                            return;
+                        }
+                        let i = next.fetch_add(1, Ordering::Relaxed);
+                        if i >= targets.len() {
+                            return;
+                        }
+                        let host = host_of(&targets[i].1);
+                        {
+                            let mut slots = host_slots.lock().unwrap();
+                            loop {
+                                if ctl.cancel.load(Ordering::Relaxed) {
+                                    return;
+                                }
+                                let blocked = host_blocked
+                                    .lock()
+                                    .unwrap()
+                                    .get(&host)
+                                    .map(|t| t.saturating_duration_since(std::time::Instant::now()))
+                                    .unwrap_or_default();
+                                if blocked.is_zero()
+                                    && slots.get(&host).copied().unwrap_or(0) < PER_HOST_LIMIT
+                                {
+                                    break;
+                                }
+                                let (guard, _timeout) = host_free
+                                    .wait_timeout(
+                                        slots,
+                                        blocked
+                                            .min(std::time::Duration::from_millis(200))
+                                            .max(std::time::Duration::from_millis(50)),
+                                    )
+                                    .unwrap();
+                                slots = guard;
+                            }
+                            *slots.entry(host.clone()).or_default() += 1;
+                        }
+                        let out = resolve_target(
+                            &targets[i].1,
+                            is_search,
+                            for_content,
+                            refresh,
+                            regex,
+                            top_k,
+                        );
+                        if let Err(ResolveFail::Http(s)) = &out {
+                            if is_backoff_status(*s) {
+                                host_blocked.lock().unwrap().insert(
+                                    host.clone(),
+                                    std::time::Instant::now() + std::time::Duration::from_secs(20),
+                                );
+                            }
+                        }
+                        *results[i].lock().unwrap() = Some(out);
+                        {
+                            let mut slots = host_slots.lock().unwrap();
+                            if let Some(c) = slots.get_mut(&host) {
+                                *c = c.saturating_sub(1);
+                            }
+                        }
+                        host_free.notify_all();
+                        ctl.progress.fetch_add(1, Ordering::Relaxed);
+                    }
+                });
+            }
+        });
+    }
+    if let Some(cache) = super::fetch_cache::global() {
+        cache.flush();
+    }
+    results
+        .into_iter()
+        .map(|m| m.into_inner().unwrap())
+        .collect()
+}
+
+/// Pair page results back to rows: `results[i]` belongs to `targets[i].0`,
+/// so failed, skipped and unfinished (cancelled) rows can never shift a
+/// value onto the wrong row.
+pub(crate) fn pair_results(
+    results: Vec<Option<Result<PageResult, ResolveFail>>>,
+    targets: &[(usize, String)],
+    extract: Extract,
+    search_has_pattern: bool,
+    regex: Option<&regex::Regex>,
+    cell_chars: usize,
+) -> Paired {
+    let is_search = matches!(extract, Extract::Search);
+    let run_stamp = chrono::Utc::now().to_rfc3339();
+    let mut out = Paired {
+        values: BTreeMap::new(),
+        srcs: BTreeMap::new(),
+        ats: BTreeMap::new(),
+        failures: Vec::new(),
+        fetched: 0,
+        cached: 0,
+        cancelled: 0,
+    };
+    for (i, slot) in results.into_iter().enumerate() {
+        let row = targets[i].0;
+        match slot {
+            Some(Ok(page)) => {
+                out.fetched += 1;
+                // A cache hit carries its entry's fetch time - the _at
+                // column must say how old the answer really is.
+                let fetched_at = page
+                    .fetched_at
+                    .and_then(|t| chrono::DateTime::from_timestamp(t, 0))
+                    .map(|t| t.to_rfc3339())
+                    .unwrap_or_else(|| run_stamp.clone());
+                if page.fetched_at.is_some() {
+                    out.cached += 1;
+                }
+                let mode = if is_search {
+                    if search_has_pattern {
+                        Extract::Pattern
+                    } else {
+                        Extract::Text
+                    }
+                } else {
+                    extract
+                };
+                let value = extract_value(mode, regex, &page, cell_chars);
+                out.values.insert(row, CellValue::String(value));
+                out.srcs
+                    .insert(row, CellValue::String(page.final_url.clone()));
+                out.ats.insert(row, CellValue::String(fetched_at));
+            }
+            Some(Err(e)) => out.failures.push((row, e.to_string())),
+            None => out.cancelled += 1,
+        }
+    }
+    out
 }
 
 pub fn run(ctx: &ToolContext, p: &Params) -> anyhow::Result<Value> {
@@ -397,199 +626,50 @@ pub fn run_ctl(ctx: &ToolContext, p: &Params, ctl: &RunCtl) -> anyhow::Result<Va
     } else {
         None
     };
-    let view: Vec<usize> = snap.view_rows.clone().unwrap_or_else(|| (0..n).collect());
-    let mut targets: Vec<(usize, String)> = Vec::new();
-    let mut scanned = 0usize;
-    for row in view {
-        if row >= n {
-            continue;
-        }
-        if targets.len() >= limit {
-            break;
-        }
-        scanned += 1;
-        if let Some(t) = target_col_idx {
-            let filled = table
-                .get(row, t)
-                .map(|c| !matches!(c, CellValue::Null) && !c.to_string().trim().is_empty())
-                .unwrap_or(false);
-            if filled {
-                continue;
-            }
-        }
-        let text = table
-            .get(row, url_col)
-            .map(|c| c.to_string())
-            .unwrap_or_default();
-        let usable = if is_search {
-            !text.trim().is_empty()
-        } else {
-            detect_url(&text).is_some()
-        };
-        if usable {
-            let input = if is_search {
-                text.chars().take(MAX_QUERY_CHARS).collect()
-            } else {
-                detect_url(&text).unwrap_or("").to_string()
-            };
-            targets.push((row, input));
-        }
-    }
+    let (targets, scanned) = collect_targets(
+        table,
+        url_col,
+        is_search,
+        limit,
+        snap.view_rows.as_deref(),
+        target_col_idx,
+    );
     ctl.total.store(targets.len(), Ordering::Relaxed);
 
-    // Bounded-parallel work: worker threads share an index into `targets`,
-    // results land by target position so row order is preserved regardless
-    // of completion order. A per-host semaphore keeps a single-domain batch
-    // polite, a per-host cooldown pauses dispatch onto a host that answered
-    // 429/5xx instead of burning the remaining rows into failures, `cancel`
-    // stops dispatch (in-flight pages finish), `progress` counts processed
-    // rows for the GUI's status pill.
-    let results: Vec<Mutex<Option<Result<PageResult, ResolveFail>>>> =
-        (0..targets.len()).map(|_| Mutex::new(None)).collect();
-    {
-        let next = AtomicUsize::new(0);
-        let host_slots = Mutex::new(std::collections::HashMap::<String, usize>::new());
-        let host_blocked =
-            Mutex::new(std::collections::HashMap::<String, std::time::Instant>::new());
-        let host_free = Condvar::new();
-        let for_content = !matches!(p.extract, Extract::Status);
-        let workers = FETCH_WORKERS.min(targets.len());
-        std::thread::scope(|scope| {
-            for _ in 0..workers {
-                scope.spawn(|| {
-                    loop {
-                        if ctl.cancel.load(Ordering::Relaxed) {
-                            return;
-                        }
-                        let i = next.fetch_add(1, Ordering::Relaxed);
-                        if i >= targets.len() {
-                            return;
-                        }
-                        let host = host_of(&targets[i].1);
-                        // Hold at most PER_HOST_LIMIT slots per host, and
-                        // none while the host is in cooldown. The cancel flag
-                        // is re-checked while waiting so a held task can exit.
-                        {
-                            let mut slots = host_slots.lock().unwrap();
-                            loop {
-                                if ctl.cancel.load(Ordering::Relaxed) {
-                                    return;
-                                }
-                                let blocked = host_blocked
-                                    .lock()
-                                    .unwrap()
-                                    .get(&host)
-                                    .map(|t| t.saturating_duration_since(std::time::Instant::now()))
-                                    .unwrap_or_default();
-                                if blocked.is_zero()
-                                    && slots.get(&host).copied().unwrap_or(0) < PER_HOST_LIMIT
-                                {
-                                    break;
-                                }
-                                let (guard, _timeout) = host_free
-                                    .wait_timeout(
-                                        slots,
-                                        blocked
-                                            .min(std::time::Duration::from_millis(200))
-                                            .max(std::time::Duration::from_millis(50)),
-                                    )
-                                    .unwrap();
-                                slots = guard;
-                            }
-                            *slots.entry(host.clone()).or_default() += 1;
-                        }
-                        let out = resolve_target(
-                            &targets[i].1,
-                            is_search,
-                            for_content,
-                            p.refresh,
-                            regex.as_ref(),
-                            top_k_of(p),
-                        );
-                        // A rate-limited or buckling host earns a cooldown:
-                        // further rows on it wait instead of failing fast.
-                        if let Err(ResolveFail::Http(s)) = &out {
-                            if is_backoff_status(*s) {
-                                host_blocked.lock().unwrap().insert(
-                                    host.clone(),
-                                    std::time::Instant::now() + std::time::Duration::from_secs(20),
-                                );
-                            }
-                        }
-                        *results[i].lock().unwrap() = Some(out);
-                        {
-                            let mut slots = host_slots.lock().unwrap();
-                            if let Some(c) = slots.get_mut(&host) {
-                                *c = c.saturating_sub(1);
-                            }
-                        }
-                        host_free.notify_all();
-                        ctl.progress.fetch_add(1, Ordering::Relaxed);
-                    }
-                });
-            }
-        });
-    }
-    if let Some(cache) = super::fetch_cache::global() {
-        cache.flush();
-    }
-
-    // Pair results back to rows: `results[i]` belongs to `targets[i].0`, so
-    // failed, skipped and unfinished (cancelled) rows can never shift values
-    // onto the wrong row - the pre-parallel version's positional re-walk had
-    // exactly that hazard.
-    let mut values: BTreeMap<usize, CellValue> = BTreeMap::new();
-    let mut srcs: BTreeMap<usize, CellValue> = BTreeMap::new();
-    let mut ats: BTreeMap<usize, CellValue> = BTreeMap::new();
-    let mut failures: Vec<Value> = Vec::new();
-    let (mut fetched, mut cached, mut cancelled) = (0usize, 0usize, 0usize);
-    let run_stamp = chrono::Utc::now().to_rfc3339();
-
-    for (i, slot) in results.iter().enumerate() {
-        let row = targets[i].0;
-        match slot.lock().unwrap().take() {
-            Some(Ok(page)) => {
-                fetched += 1;
-                // A cache hit carries its entry's fetch time - the _at column
-                // must say how old the answer really is, not stamp it "now".
-                let fetched_at = page
-                    .fetched_at
-                    .and_then(|t| chrono::DateTime::from_timestamp(t, 0))
-                    .map(|t| t.to_rfc3339())
-                    .unwrap_or_else(|| run_stamp.clone());
-                if page.fetched_at.is_some() {
-                    cached += 1;
-                }
-                let value = extract_value(
-                    if is_search {
-                        // Search mode extracts pattern-or-text from the hit's
-                        // page; "status" still means the page's HTTP status.
-                        if p.pattern.is_some() {
-                            Extract::Pattern
-                        } else {
-                            Extract::Text
-                        }
-                    } else {
-                        p.extract
-                    },
-                    regex.as_ref(),
-                    &page,
-                    cell_chars,
-                );
-                values.insert(row, CellValue::String(value));
-                srcs.insert(row, CellValue::String(page.final_url.clone()));
-                ats.insert(row, CellValue::String(fetched_at.clone()));
-            }
-            Some(Err(e)) => failures.push(serde_json::json!({"row": row, "error": e.to_string()})),
-            None => cancelled += 1,
-        }
-    }
+    let for_content = !matches!(p.extract, Extract::Status);
+    let results = run_fetch(
+        &targets,
+        is_search,
+        for_content,
+        p.refresh,
+        regex.as_ref(),
+        top_k_of(p),
+        ctl,
+    );
+    let paired = pair_results(
+        results,
+        &targets,
+        p.extract,
+        p.pattern.is_some(),
+        regex.as_ref(),
+        cell_chars,
+    );
 
     let mut ops = Vec::new();
-    let mut cells_set = push_column_op(&mut ops, table, &p.target_column, &values);
+    let mut cells_set = push_column_op(&mut ops, table, &p.target_column, &paired.values);
     if p.provenance {
-        cells_set += push_column_op(&mut ops, table, &format!("{}_src", p.target_column), &srcs);
-        cells_set += push_column_op(&mut ops, table, &format!("{}_at", p.target_column), &ats);
+        cells_set += push_column_op(
+            &mut ops,
+            table,
+            &format!("{}_src", p.target_column),
+            &paired.srcs,
+        );
+        cells_set += push_column_op(
+            &mut ops,
+            table,
+            &format!("{}_at", p.target_column),
+            &paired.ats,
+        );
     }
 
     if !ops.is_empty() {
@@ -603,18 +683,33 @@ pub fn run_ctl(ctx: &ToolContext, p: &Params, ctl: &RunCtl) -> anyhow::Result<Va
     let mut out = Map::new();
     out.insert("applied_to".to_string(), Value::String(snap.handle.clone()));
     out.insert("rows_scanned".to_string(), Value::from(scanned));
-    out.insert("pages_fetched".to_string(), Value::from(fetched));
-    out.insert("cache_hits".to_string(), Value::from(cached));
-    out.insert("values_written".to_string(), Value::from(values.len()));
+    out.insert("pages_fetched".to_string(), Value::from(paired.fetched));
+    out.insert("cache_hits".to_string(), Value::from(paired.cached));
+    out.insert(
+        "values_written".to_string(),
+        Value::from(paired.values.len()),
+    );
     out.insert(
         "target_column".to_string(),
         Value::String(p.target_column.clone()),
     );
     out.insert("provenance".to_string(), Value::from(p.provenance));
     out.insert("cells_set".to_string(), Value::from(cells_set));
-    out.insert("failures".to_string(), Value::Array(failures));
-    if cancelled > 0 {
-        out.insert("cancelled_remaining".to_string(), Value::from(cancelled));
+    out.insert(
+        "failures".to_string(),
+        Value::Array(
+            paired
+                .failures
+                .iter()
+                .map(|(row, err)| serde_json::json!({"row": row, "error": err}))
+                .collect(),
+        ),
+    );
+    if paired.cancelled > 0 {
+        out.insert(
+            "cancelled_remaining".to_string(),
+            Value::from(paired.cancelled),
+        );
     }
     out.insert(
         "note".to_string(),

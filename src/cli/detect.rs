@@ -581,6 +581,27 @@ impl Cli {
                 dedupe_keep: self.dedupe_keep.clone(),
             }));
         }
+        if let Some(p) = &self.enrich {
+            let on = self
+                .enrich_on
+                .clone()
+                .ok_or("--enrich requires --enrich-on COL")?;
+            return Ok(Some(Action::Enrich {
+                path: p.clone(),
+                opts: super::enrich::Options {
+                    on,
+                    target: self.enrich_target.clone(),
+                    extract: self.enrich_extract.clone(),
+                    pattern: self.enrich_pattern.clone(),
+                    limit: self.enrich_limit,
+                    cell_chars: self.enrich_cell_chars,
+                    top_k: self.enrich_top_k,
+                    provenance: self.enrich_provenance,
+                    refresh: self.enrich_refresh,
+                    only_missing: self.enrich_only_missing,
+                },
+            }));
+        }
         if let Some(columns) = &self.hash_columns {
             let path = self
                 .files

@@ -121,7 +121,9 @@ pub(crate) fn search(query: &str, max_results: usize) -> anyhow::Result<Vec<Hit>
         urlencoded(query),
         max + 4 // extra headroom: some blocks are ads/news, not results
     );
-    let (_, status, _, body) = web_fetch::fetch(&url)?;
+    // SERPs go through the shared page cache: a batch whose rows repeat a
+    // title queries Bing once per unique query per TTL, not once per row.
+    let (_, status, _, body, _) = web_fetch::fetch_cached_stamped(&url, false)?;
     if status != 200 {
         anyhow::bail!("search returned HTTP {status}");
     }

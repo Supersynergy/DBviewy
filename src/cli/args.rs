@@ -791,6 +791,66 @@ pub struct Cli {
     #[arg(long = "dedupe-keep", value_name = "first|last")]
     pub dedupe_keep: Option<String>,
 
+    /// Enrich a column of FILE from the web: fetch each cell's URL (or
+    /// search the web for it) and write what comes back into a new column.
+    ///
+    /// `--enrich-on` names the source column (name or index). The result
+    /// column is `--enrich-target` (default `<on>_live`). `--enrich-extract`
+    /// picks what is kept: `status` (the HTTP code - "does the listing still
+    /// exist"), `text` (readable page text), `pattern` (first capture group
+    /// of `--enrich-pattern`) or `search` (the cell is a query; the top
+    /// hit's page is mined, `pattern` when given). Tune with
+    /// `--enrich-limit`, `--enrich-top-k`, `--enrich-cell-chars`,
+    /// `--enrich-provenance`, `--enrich-refresh` and `--enrich-only-missing`.
+    #[arg(long, value_name = "FILE", group = "action")]
+    pub enrich: Option<PathBuf>,
+
+    /// Source column for `--enrich`: a column name or index holding URLs,
+    /// or plain text when `--enrich-extract search` is used.
+    #[arg(long = "enrich-on", value_name = "COL")]
+    pub enrich_on: Option<String>,
+
+    /// Column the extracted values land in (default `<on>_live`).
+    #[arg(long = "enrich-target", value_name = "NAME")]
+    pub enrich_target: Option<String>,
+
+    /// What `--enrich` keeps from each page: `status` (default), `text`,
+    /// `pattern` or `search`.
+    #[arg(long = "enrich-extract", value_name = "status|text|pattern|search")]
+    pub enrich_extract: Option<String>,
+
+    /// Regex whose first capture group is kept for `--enrich-extract
+    /// pattern` (or to pick the winning hit under `search`).
+    #[arg(long = "enrich-pattern", value_name = "REGEX")]
+    pub enrich_pattern: Option<String>,
+
+    /// Maximum rows to process (default 50, hard cap 500).
+    #[arg(long = "enrich-limit", value_name = "N")]
+    pub enrich_limit: Option<usize>,
+
+    /// Character cap per cell for `text`/`search` extraction (default 500).
+    #[arg(long = "enrich-cell-chars", value_name = "N")]
+    pub enrich_cell_chars: Option<usize>,
+
+    /// Search hits tried per row under `--enrich-extract search`
+    /// (default 1, cap 5).
+    #[arg(long = "enrich-top-k", value_name = "N")]
+    pub enrich_top_k: Option<usize>,
+
+    /// Also write `<target>_src` (the page the value came from) and
+    /// `<target>_at` (when it was fetched).
+    #[arg(long = "enrich-provenance")]
+    pub enrich_provenance: bool,
+
+    /// Skip the six-hour page cache and fetch every URL live.
+    #[arg(long = "enrich-refresh")]
+    pub enrich_refresh: bool,
+
+    /// Only process rows whose target cell is still empty - a top-up run
+    /// for rows a previous pass failed on.
+    #[arg(long = "enrich-only-missing")]
+    pub enrich_only_missing: bool,
+
     /// Fill missing/empty cells in one or more columns of FILE.
     ///
     /// Each flag takes a `COL=STRATEGY` pair. Strategies: `mean`, `median`,

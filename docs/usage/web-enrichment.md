@@ -70,4 +70,11 @@ tool, which shares the same queue and audit trail - handy when a
 chat-driven run should batch the same extraction. `web_search` finds
 candidate pages by hand before `web_fetch` or `enrich_rows` reads them.
 
+On the command line, [`--enrich`](../cli/enrich.md) runs the same pipeline
+over a file and prints the enriched table to stdout - no app needed:
+
+```
+octa --enrich lots.csv --enrich-on url --enrich-provenance > live.csv
+```
+
 In the app: column header right-click, **Enrich from web...**.

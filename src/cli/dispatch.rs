@@ -313,6 +313,7 @@ pub fn dispatch(action: Action, format: OutputFormat, rows_override: Option<usiz
             dedupe_on,
             dedupe_keep,
         } => dedupe::run(path, dedupe_on, dedupe_keep, format),
+        Action::Enrich { path, opts } => enrich::run(path, opts, format),
         Action::Impute { path, specs } => impute::run(path, specs, format),
         Action::HashColumns {
             path,

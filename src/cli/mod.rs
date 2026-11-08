@@ -31,6 +31,7 @@ pub mod diff;
 pub mod dispatch;
 pub mod distribution_compare;
 pub mod drift;
+pub mod enrich;
 pub mod export_schema;
 pub mod forecast;
 pub mod fuzzy_join;
