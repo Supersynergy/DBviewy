@@ -86,26 +86,34 @@ pub fn detect_delimiter(path: &Path) -> Option<u8> {
     detect_delimiter_in(&text)
 }
 
-/// The delimiter the first 20 lines agree on.
+/// The delimiter the first 20 records agree on.
 ///
-/// Per candidate, `C` is its most common non-zero count per line. From the
-/// first line holding `C` on, every line must hold `C` or none; lines
-/// **before** it may hold fewer, which is what a title block above the real
-/// header looks like (`Report generated 03.10.2026`). At least two lines
-/// must hold `C` (a lone title line with a comma is not a table), unless the
-/// text is a single line. Among the candidates that pass, the one whose run
-/// starts earliest wins: the header is the first structured line, while
-/// decimal commas only start in the data below it. Then the larger `C`,
-/// then the order `,;|\t`.
+/// Counting happens per parsed record, not per physical line, so a quoted
+/// field that spans several lines stays one record and its embedded
+/// delimiters stay inside it. Per candidate, `C` is its most common
+/// non-zero delimiter count per record. From the first record holding `C`
+/// on, every record must hold `C` or none; records **before** it may hold
+/// fewer, which is what a title block above the real header looks like
+/// (`Report generated 03.10.2026`). At least two records must hold `C` (a
+/// lone title line with a comma is not a table), unless the text is a
+/// single line. Among the candidates that pass, the one whose run starts
+/// earliest wins: the header is the first structured record, while decimal
+/// commas only start in the data below it. Then the larger `C`, then the
+/// order `,;|\t`.
 pub fn detect_delimiter_in(content: &str) -> Option<u8> {
-    let lines: Vec<&str> = content.lines().take(20).collect();
-    let non_empty = lines.iter().filter(|l| !l.trim().is_empty()).count();
-    // (first line of the run, count per line, delimiter)
+    let non_empty = content.lines().filter(|l| !l.trim().is_empty()).count();
+    // (first record of the run, count per record, delimiter)
     let mut best: Option<(usize, usize, u8)> = None;
     for &delim in b",;|\t" {
-        let counts: Vec<usize> = lines
-            .iter()
-            .map(|l| l.matches(delim as char).count())
+        let counts: Vec<usize> = csv::ReaderBuilder::new()
+            .delimiter(delim)
+            .has_headers(false)
+            .flexible(true)
+            .from_reader(content.as_bytes())
+            .records()
+            .take(20)
+            .filter_map(|r| r.ok())
+            .map(|r| r.len().saturating_sub(1))
             .collect();
         let Some(c) = most_common_nonzero(&counts) else {
             continue;

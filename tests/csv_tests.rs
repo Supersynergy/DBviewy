@@ -174,6 +174,32 @@ fn test_detect_delimiter_in_needs_two_agreeing_lines() {
     assert_eq!(detect_delimiter_in("a,b,c\n"), Some(b','));
 }
 
+#[test]
+fn test_detect_semicolon_with_quoted_multiline_fields() {
+    // A quoted field spanning several physical lines splits every row into
+    // fragments; line-wise counting can never see a consistent run, but the
+    // records still agree on ';'.
+    let mut f = NamedTempFile::new().unwrap();
+    writeln!(f, "id;name;note").unwrap();
+    writeln!(f, "1;one;\"line one").unwrap();
+    writeln!(f, "line two").unwrap();
+    writeln!(f, "line three\"").unwrap();
+    writeln!(f, "2;two;\"x").unwrap();
+    writeln!(f, "y\"").unwrap();
+    assert_eq!(detect_delimiter(f.path()), Some(b';'));
+}
+
+#[test]
+fn test_detect_comma_with_quoted_multiline_fields() {
+    let mut f = NamedTempFile::new().unwrap();
+    writeln!(f, "id,name,note").unwrap();
+    writeln!(f, "1,one,\"line one").unwrap();
+    writeln!(f, "line two\"").unwrap();
+    writeln!(f, "2,two,\"x").unwrap();
+    writeln!(f, "y\"").unwrap();
+    assert_eq!(detect_delimiter(f.path()), Some(b','));
+}
+
 // --- read/write round-trip ---
 
 #[test]
