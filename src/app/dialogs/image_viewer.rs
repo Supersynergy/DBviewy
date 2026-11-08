@@ -10,14 +10,18 @@
 //! and nothing is downloaded twice between cells and viewer.
 //!
 //! `zoom` is `None` for fit-to-window and `Some(factor)` for an exact
-//! multiple of the pixel size; the scroll bars pan the zoomed picture.
+//! multiple of the pixel size; Ctrl+wheel zooms at the cursor, the scroll
+//! bars and a plain drag pan the zoomed picture, and a double click jumps
+//! between fit and 100%. The film strip under the picture clicks straight
+//! to any item; **D** folds the details column away for a bigger picture.
 
 use eframe::egui;
 use egui::RichText;
 
 use octa::data::CellValue;
-use octa::data::links::detect_image_url;
+use octa::data::links::{detect_image_url, detect_url};
 use octa::i18n::t;
+use octa::ui::icons::{self, Icon};
 use octa::ui::settings::{
     DialogSize, dialog_header, draw_result_message, remember_dialog_rect, size_dialog_window,
 };
@@ -29,8 +33,12 @@ use crate::app::state::{ImageViewerState, OctaApp};
 const PREFETCH: usize = 2;
 /// Zoom step per key press or button click.
 const ZOOM_STEP: f32 = 1.25;
+/// Zoom factor per wheel notch while Ctrl/Cmd is held.
+const WHEEL_ZOOM: f32 = 0.0016;
 /// Details panel width; the picture keeps the rest.
 const DETAILS_W: f32 = 250.0;
+/// Film strip height (one thumbnail row); hidden for a single picture.
+const STRIP_H: f32 = 56.0;
 /// Row-detail values are cut here; the cell itself may hold a paragraph.
 const DETAIL_VALUE_MAX: usize = 80;
 /// Row details stop after this many non-empty cells.
@@ -73,6 +81,7 @@ impl OctaApp {
             items,
             pos,
             zoom: None,
+            show_details: true,
             message: None,
         });
     }
@@ -83,24 +92,37 @@ pub(crate) fn render_image_viewer(app: &mut OctaApp, ctx: &egui::Context) {
         return;
     };
     let mut close = false;
+    let mut open_url = false;
 
     // Arrow keys walk the pictures, whatever has focus - unless a text
     // field owns the keyboard (the SQL panel, the chat input), where the
-    // keys belong to the caret. Esc closes; 0 fits; +/- zoom.
+    // keys belong to the caret. Esc closes; 0 fits; +/- zoom; Space and
+    // Home/End move like a gallery; D folds the details column; O opens.
     if !ctx.egui_wants_keyboard_input() {
         let key = |k: egui::Key| ctx.input(|i| i.key_pressed(k) && i.modifiers.is_none());
+        let shift = ctx.input(|i| i.modifiers.shift);
         if key(egui::Key::Escape) {
             close = true;
         } else {
-            let prev =
-                key(egui::Key::ArrowLeft) || key(egui::Key::ArrowUp) || key(egui::Key::PageUp);
-            let next =
-                key(egui::Key::ArrowRight) || key(egui::Key::ArrowDown) || key(egui::Key::PageDown);
+            let prev = key(egui::Key::ArrowLeft)
+                || key(egui::Key::ArrowUp)
+                || key(egui::Key::PageUp)
+                || (key(egui::Key::Space) && shift);
+            let next = key(egui::Key::ArrowRight)
+                || key(egui::Key::ArrowDown)
+                || key(egui::Key::PageDown)
+                || (key(egui::Key::Space) && !shift);
             if prev && st.pos > 0 {
                 st.pos -= 1;
             }
             if next && st.pos + 1 < st.items.len() {
                 st.pos += 1;
+            }
+            if key(egui::Key::Home) {
+                st.pos = 0;
+            }
+            if key(egui::Key::End) {
+                st.pos = st.items.len().saturating_sub(1);
             }
             if key(egui::Key::Num0) {
                 st.zoom = None;
@@ -109,10 +131,19 @@ pub(crate) fn render_image_viewer(app: &mut OctaApp, ctx: &egui::Context) {
             } else if key(egui::Key::Minus) {
                 st.zoom = Some((st.zoom.unwrap_or(1.0) / ZOOM_STEP).max(0.02));
             }
+            if key(egui::Key::D) {
+                st.show_details = !st.show_details;
+            }
+            if key(egui::Key::O) {
+                open_url = true;
+            }
         }
     }
     st.pos = st.pos.min(st.items.len().saturating_sub(1));
     let item = st.items.get(st.pos).cloned();
+    if open_url && let Some(it) = &item {
+        ctx.open_url(egui::OpenUrl::new_tab(&it.url));
+    }
 
     // Warm the cache for the current picture and its neighbours; `request`
     // deduplicates, so repeating this every frame costs a hash lookup.
@@ -163,7 +194,7 @@ pub(crate) fn render_image_viewer(app: &mut OctaApp, ctx: &egui::Context) {
                     draw_result_message(ui, *ok, msg);
                 }
             });
-        draw_body(ui, app, &st, &item);
+        draw_body(ui, app, &mut st, &item);
     });
     if let Some(inner) = inner.as_ref() {
         remember_dialog_rect(ctx, dialog_id, size, inner.response.rect);
@@ -175,58 +206,78 @@ pub(crate) fn render_image_viewer(app: &mut OctaApp, ctx: &egui::Context) {
     }
 }
 
-/// Prev/next, zoom and the way out, in one control row. Every button names
-/// its keys in the hover, so the keyboard hints are discoverable.
+/// Prev/next, zoom and the way out, in one control row. Icons are painted,
+/// not glyphs, so no font can lack them; the hover names the action and
+/// its keys, so the shortcuts stay discoverable.
 fn draw_toolbar(ui: &mut egui::Ui, st: &mut ImageViewerState, close: &mut bool) {
+    let mut first = false;
     let mut prev = false;
     let mut next = false;
+    let mut last = false;
     let mut zoom_in = false;
     let mut zoom_out = false;
     let mut fit = false;
+    let mut pct = false;
     let mut open_url = false;
     octa::ui::control_row::control_line(ui, |ui| {
-        prev = ui
-            .add_enabled(st.pos > 0, egui::Button::new("<"))
-            .on_hover_text(t("imgview.prev_hint"))
-            .clicked();
-        next = ui
-            .add_enabled(st.pos + 1 < st.items.len(), egui::Button::new(">"))
-            .on_hover_text(t("imgview.next_hint"))
-            .clicked();
+        first = icons::icon_button(ui, st.pos > 0, Icon::First, t("imgview.first_hint"));
+        prev = icons::icon_button(ui, st.pos > 0, Icon::Prev, t("imgview.prev_hint"));
+        next = icons::icon_button(
+            ui,
+            st.pos + 1 < st.items.len(),
+            Icon::Next,
+            t("imgview.next_hint"),
+        );
+        last = icons::icon_button(
+            ui,
+            st.pos + 1 < st.items.len(),
+            Icon::Last,
+            t("imgview.last_hint"),
+        );
         ui.separator();
-        zoom_out = ui
-            .add_enabled(st.zoom.is_some_and(|z| z > 0.021), egui::Button::new("-"))
-            .on_hover_text(t("imgview.zoom_out_hint"))
-            .clicked();
-        let pct = st
+        zoom_out = icons::icon_button(
+            ui,
+            st.zoom.is_some_and(|z| z > 0.021),
+            Icon::ZoomOut,
+            t("imgview.zoom_out_hint"),
+        );
+        let label = st
             .zoom
             .map(|z| format!("{:.0}%", z * 100.0))
             .unwrap_or_else(|| t("imgview.fit"));
-        ui.weak(pct);
-        zoom_in = ui
-            .add_enabled(st.zoom.is_none_or(|z| z < 15.9), egui::Button::new("+"))
-            .on_hover_text(t("imgview.zoom_in_hint"))
+        pct = ui
+            .selectable_label(false, label)
+            .on_hover_text(t("imgview.pct_hint"))
             .clicked();
-        fit = ui
-            .selectable_label(st.zoom.is_none(), t("imgview.fit"))
-            .on_hover_text(t("imgview.fit_hint"))
-            .clicked();
+        zoom_in = icons::icon_button(
+            ui,
+            st.zoom.is_none_or(|z| z < 15.9),
+            Icon::ZoomIn,
+            t("imgview.zoom_in_hint"),
+        );
+        fit = icons::icon_button(ui, st.zoom.is_some(), Icon::Fit, t("imgview.fit_hint"));
         ui.separator();
-        open_url = ui
-            .button(t("imgview.open_url"))
-            .on_hover_text(t("imgview.open_url_hint"))
-            .clicked();
+        open_url = icons::icon_button(ui, true, Icon::OpenUrl, t("imgview.open_url_hint"));
+        if icons::icon_button(ui, true, Icon::Details, t("imgview.details_hint")) {
+            st.show_details = !st.show_details;
+        }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if ui.button(t("common.close")).clicked() {
+            if icons::icon_button(ui, true, Icon::Close, t("common.close")) {
                 *close = true;
             }
         });
     });
+    if first {
+        st.pos = 0;
+    }
     if prev && st.pos > 0 {
         st.pos -= 1;
     }
     if next && st.pos + 1 < st.items.len() {
         st.pos += 1;
+    }
+    if last {
+        st.pos = st.items.len().saturating_sub(1);
     }
     if zoom_in {
         st.zoom = Some((st.zoom.unwrap_or(1.0) * ZOOM_STEP).min(16.0));
@@ -237,21 +288,31 @@ fn draw_toolbar(ui: &mut egui::Ui, st: &mut ImageViewerState, close: &mut bool) 
     if fit {
         st.zoom = None;
     }
+    if pct {
+        // The percentage doubles as the fit/100% switch, like a browser's
+        // zoom readout.
+        st.zoom = if st.zoom.is_none() { Some(1.0) } else { None };
+    }
     if open_url && let Some(it) = st.items.get(st.pos) {
         ui.ctx().open_url(egui::OpenUrl::new_tab(&it.url));
     }
 }
 
-/// Picture left, details right. The picture area is a both-way scroll area
-/// so a zoomed image pans with the bars or a drag; the details column
+/// Picture left, details right (when shown). The picture area is a
+/// both-way scroll area so a zoomed image pans with the bars or a drag;
+/// the film strip underneath jumps to any item, and the details column
 /// scrolls on its own.
 fn draw_body(
     ui: &mut egui::Ui,
     app: &OctaApp,
-    st: &ImageViewerState,
+    st: &mut ImageViewerState,
     item: &Option<crate::app::state::ImageItem>,
 ) {
-    let details_w = DETAILS_W.min(ui.available_width() * 0.45).max(160.0);
+    let details_w = if st.show_details {
+        DETAILS_W.min(ui.available_width() * 0.45).max(160.0)
+    } else {
+        0.0
+    };
     let img_w = (ui.available_width() - details_w - 8.0).max(80.0);
     let body_h = ui.available_height();
     ui.horizontal(|ui| {
@@ -260,25 +321,63 @@ fn draw_body(
             egui::Layout::top_down(egui::Align::Min),
             |ui| draw_picture(ui, app, st, item),
         );
-        ui.allocate_ui_with_layout(
-            egui::vec2(details_w, body_h),
-            egui::Layout::top_down(egui::Align::Min),
-            |ui| draw_details(ui, app, st, item),
-        );
+        if st.show_details {
+            ui.allocate_ui_with_layout(
+                egui::vec2(details_w, body_h),
+                egui::Layout::top_down(egui::Align::Min),
+                |ui| draw_details(ui, app, st, item),
+            );
+        }
     });
 }
 
 fn draw_picture(
     ui: &mut egui::Ui,
     app: &OctaApp,
-    st: &ImageViewerState,
+    st: &mut ImageViewerState,
     item: &Option<crate::app::state::ImageItem>,
 ) {
     let Some(it) = item else { return };
+    let scroll_id = ui.id().with("imgview_pan");
+    // Ctrl/Cmd + wheel zooms at the cursor instead of scrolling; the
+    // delta is consumed so the scroll area does not also pan.
+    let wheel = ui.input(|i| i.smooth_scroll_delta.y);
+    let wheel_area = ui
+        .max_rect()
+        .contains(ui.ctx().pointer_hover_pos().unwrap_or_default());
+    if wheel != 0.0 && wheel_area && ui.input(|i| i.modifiers.command) {
+        ui.ctx()
+            .input_mut(|i| i.smooth_scroll_delta = egui::Vec2::ZERO);
+        if let Some(tex) = app.image_cache.texture(&it.url) {
+            let avail = ui.available_size() - egui::vec2(0.0, STRIP_H + 20.0);
+            let old = st.zoom.unwrap_or_else(|| fit_zoom(avail, tex.size_vec2()));
+            let new = (old * (1.0 + wheel * WHEEL_ZOOM)).clamp(0.02, 16.0);
+            st.zoom = Some(new);
+            // Keep the pixel under the cursor fixed: scale the scroll
+            // offset by the same ratio the content just scaled by.
+            if let (Some(mut sstate), Some(hp)) = (
+                egui::scroll_area::State::load(ui.ctx(), scroll_id),
+                ui.ctx().pointer_hover_pos(),
+            ) {
+                let min = ui.max_rect().min;
+                let rel = sstate.offset + (hp - min);
+                sstate.offset = (rel * (new / old) - (hp - min)).max(egui::Vec2::ZERO);
+                sstate.store(ui.ctx(), scroll_id);
+            }
+        }
+    }
     let texture = app.image_cache.texture(&it.url);
     let failure = app.image_cache.failure(&it.url);
+    // The scroll area expands to whatever is free, so the strip and the
+    // key hint reserve their share first - otherwise the picture would
+    // push them off the bottom of the window.
+    let strip_h = if st.items.len() > 1 { STRIP_H } else { 0.0 };
+    let hint_h = ui.text_style_height(&egui::TextStyle::Small) + 4.0;
+    let pic_h = (ui.available_height() - strip_h - hint_h).max(40.0);
     egui::ScrollArea::both()
+        .id_salt(scroll_id)
         .auto_shrink([false, false])
+        .max_height(pic_h)
         .show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 match (texture, failure) {
@@ -291,11 +390,19 @@ fn draw_picture(
                             None => fit_zoom(ui.available_size(), natural),
                         };
                         let size = natural * scale;
-                        ui.add(
+                        // Vertically centred as well: a picture smaller
+                        // than the viewport should float, not hug the top.
+                        ui.add_space(((ui.available_height() - size.y) / 2.0).max(0.0));
+                        let resp = ui.add(
                             egui::Image::from_texture(&tex)
                                 .fit_to_exact_size(size)
                                 .sense(egui::Sense::click()),
                         );
+                        // Double click toggles fit <-> 100%, the gesture
+                        // every picture viewer teaches first.
+                        if resp.double_clicked() {
+                            st.zoom = if st.zoom.is_none() { Some(1.0) } else { None };
+                        }
                     }
                     (None, Some(err)) => {
                         ui.label(
@@ -312,7 +419,72 @@ fn draw_picture(
                 }
             });
         });
+    draw_filmstrip(ui, app, st);
     ui.weak(t("imgview.keys"));
+}
+
+/// The thumbnail strip under the picture: every item as a tiny button so
+/// a click jumps straight there; the current one carries the accent ring.
+/// Only items actually scrolled into view request their texture.
+fn draw_filmstrip(ui: &mut egui::Ui, app: &OctaApp, st: &mut ImageViewerState) {
+    if st.items.len() < 2 {
+        return;
+    }
+    let mut jump = None;
+    egui::ScrollArea::horizontal()
+        .id_salt("imgview_strip")
+        .auto_shrink([false, false])
+        .max_height(STRIP_H)
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                for (i, it) in st.items.iter().enumerate() {
+                    let (rect, resp) = ui.allocate_exact_size(
+                        egui::vec2(STRIP_H - 10.0, STRIP_H - 10.0),
+                        egui::Sense::click(),
+                    );
+                    if !ui.is_rect_visible(rect) {
+                        continue;
+                    }
+                    app.image_cache.request(ui.ctx(), &it.url);
+                    let frame = rect.shrink(1.0);
+                    ui.painter().rect_stroke(
+                        frame,
+                        3.0,
+                        egui::Stroke::new(1.0, ui.visuals().widgets.noninteractive.bg_stroke.color),
+                        egui::StrokeKind::Inside,
+                    );
+                    if let Some(tex) = app.image_cache.texture(&it.url) {
+                        let size = tex.size_vec2();
+                        let scale = (frame.width() / size.x.max(size.y)).min(1.0);
+                        let draw = egui::Rect::from_center_size(frame.center(), size * scale);
+                        ui.painter().with_clip_rect(frame).image(
+                            tex.id(),
+                            draw,
+                            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                            egui::Color32::WHITE,
+                        );
+                    }
+                    if i == st.pos {
+                        ui.painter().rect_stroke(
+                            rect,
+                            3.0,
+                            egui::Stroke::new(2.0, ui.visuals().selection.stroke.color),
+                            egui::StrokeKind::Inside,
+                        );
+                    }
+                    if resp.hovered() {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                        resp.clone().on_hover_text(&it.url);
+                    }
+                    if resp.clicked() {
+                        jump = Some(i);
+                    }
+                }
+            });
+        });
+    if let Some(i) = jump {
+        st.pos = i;
+    }
 }
 
 /// The scale that fits `natural` inside `avail`, aspect kept, never
@@ -325,12 +497,13 @@ fn fit_zoom(avail: egui::Vec2, natural: egui::Vec2) -> f32 {
 }
 
 /// What the picture belongs to: the cell's column, where it sits in the
-/// sheet, the address itself, and the row's other values so the picture is
-/// never seen without its context.
+/// sheet, the address itself (a real hyperlink, not just selectable text),
+/// and the row's other values so the picture is never seen without its
+/// context.
 fn draw_details(
     ui: &mut egui::Ui,
     app: &OctaApp,
-    st: &ImageViewerState,
+    st: &mut ImageViewerState,
     item: &Option<crate::app::state::ImageItem>,
 ) {
     let Some(it) = item else { return };
@@ -364,15 +537,23 @@ fn draw_details(
                 ));
             }
             ui.add_space(4.0);
-            ui.label(RichText::new(t("imgview.url")).weak());
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(t("imgview.url")).weak());
+                if icons::icon_button(ui, true, Icon::Copy, t("imgview.copy_hint")) {
+                    ui.ctx().copy_text(it.url.clone());
+                    st.message = Some((true, t("imgview.copied")));
+                }
+            });
             egui::ScrollArea::horizontal()
                 .id_salt("imgview_url")
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
-                    ui.add(
-                        egui::Label::new(RichText::new(&it.url).monospace().size(11.0))
-                            .selectable(true),
-                    );
+                    // A real hyperlink: click opens the address, Ctrl/Cmd is
+                    // not needed. Monospace so it still reads like data.
+                    ui.add(egui::Hyperlink::from_label_and_url(
+                        RichText::new(&it.url).monospace().size(11.0),
+                        it.url.clone(),
+                    ));
                 });
             ui.separator();
             draw_row_details(ui, app, it);
@@ -382,7 +563,8 @@ fn draw_details(
 /// The row's other non-empty cells, so a picture can be judged against its
 /// title, price and notes without leaving the viewer. Only drawn while the
 /// cell still resolves to the same address - after a sort or a tab switch
-/// the row index may point somewhere else entirely.
+/// the row index may point somewhere else entirely. Values that are URLs
+/// stay live links; everything else is plain text.
 fn draw_row_details(ui: &mut egui::Ui, app: &OctaApp, it: &crate::app::state::ImageItem) {
     let tab = &app.tabs[app.active_tab];
     let fresh = matches!(
@@ -424,7 +606,20 @@ fn draw_row_details(ui: &mut egui::Ui, app: &OctaApp, it: &crate::app::state::Im
                 .monospace()
                 .size(11.0),
         );
-        ui.label(RichText::new(value).monospace().size(11.0));
+        // A cell whose whole text is a link stays a link - the auction
+        // page is one click away, not a copy-paste round-trip. Detection
+        // runs on the untruncated text so a long URL still resolves.
+        if let Some(url) = detect_url(text) {
+            ui.add(
+                egui::Hyperlink::from_label_and_url(
+                    RichText::new(value).monospace().size(11.0),
+                    url.to_string(),
+                )
+                .open_in_new_tab(true),
+            );
+        } else {
+            ui.label(RichText::new(value).monospace().size(11.0));
+        }
         shown += 1;
     }
 }

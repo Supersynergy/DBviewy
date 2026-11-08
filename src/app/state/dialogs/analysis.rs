@@ -560,5 +560,7 @@ pub(crate) struct ImageViewerState {
     /// `None` = fit the picture into the view; `Some(z)` = `z` times its
     /// pixel size, panned with the scroll bars.
     pub(crate) zoom: Option<f32>,
+    /// Whether the details column (cell position, URL, row values) shows.
+    pub(crate) show_details: bool,
     pub(crate) message: Option<(bool, String)>,
 }

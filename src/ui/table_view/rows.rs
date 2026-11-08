@@ -617,75 +617,115 @@ pub(super) fn draw_data_row_direct(
                     None => response,
                 };
 
-                if response.clicked() {
-                    let modifiers = ui.input(|i| i.modifiers);
-                    state.editing_cell = None;
-                    if modifiers.command && cell_link.is_some() {
-                        // Ctrl/Cmd+click on a link cell opens the URL and takes
-                        // precedence over the disjoint multi-select toggle for
-                        // that cell. Selection is left as it was.
-                        if let Some(url) = &cell_link {
-                            ui.ctx().open_url(egui::OpenUrl::new_tab(url));
-                        }
-                    } else if modifiers.command {
-                        // Ctrl/Cmd+click toggles the clicked cell in the
-                        // disjoint multi-cell selection. Promote the prior
-                        // single `selected_cell` into the set on the first
-                        // toggle so the original anchor isn't lost.
-                        if let Some(prev) = state.selected_cell
-                            && state.selected_cells.is_empty()
-                        {
-                            state.selected_cells.insert(prev);
-                        }
-                        let target = (actual_row, col_idx);
-                        if state.selected_cells.contains(&target) {
-                            state.selected_cells.remove(&target);
-                        } else {
-                            state.selected_cells.insert(target);
-                        }
-                        // Keyboard navigation should continue from the most
-                        // recent click even when we just removed it.
-                        state.selected_cell = Some(target);
-                        // Disjoint cell selection lives separately from row /
-                        // column selection - drop those so the precedence is
-                        // unambiguous.
-                        state.selected_rows.clear();
-                        state.selected_cols.clear();
-                        state.selection_anchor_display = None;
-                    } else {
-                        state.selected_cell = Some((actual_row, col_idx));
-                        // Plain click resets to a single-cell selection.
-                        state.selected_rows.clear();
-                        state.selected_cols.clear();
-                        state.selected_cells.clear();
-                        state.selection_anchor_display = None;
-                    }
-                }
-                // Clicking the thumbnail opens the image viewer; a click
-                // anywhere else in the cell keeps its usual meaning.
-                if let Some(tr) = thumb_rect {
-                    let thumb_response = ui.interact(
-                        tr.intersect(col_clip),
-                        ui.id().with(("imgcell", actual_row, col_idx)),
-                        Sense::click(),
+                // The thumbnail is a hotspot inside the cell's single
+                // interact, not a second widget on top of it: overlapping
+                // interacts hand the click to whichever egui resolves as
+                // top, which made the picture area dead for left clicks
+                // and swallowed the context menu on it. One widget keeps
+                // click, right-click and double-click consistent.
+                let tr_clipped = thumb_rect.map(|tr| tr.intersect(col_clip));
+                let pointer = ui.ctx().pointer_hover_pos();
+                let over_thumb = tr_clipped.is_some_and(|trc| {
+                    response.hovered() && pointer.is_some_and(|p| trc.contains(p))
+                });
+                let response = if over_thumb {
+                    ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+                    let badge = egui::Rect::from_min_size(
+                        tr_clipped.unwrap().right_top() + Vec2::new(-19.0, 3.0),
+                        egui::vec2(16.0, 16.0),
                     );
-                    if thumb_response.hovered() {
-                        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
-                    }
-                    let thumb_response =
-                        thumb_response.on_hover_text(cell_image_url.clone().unwrap_or_default());
-                    if thumb_response.clicked() {
+                    let p = ui.painter().with_clip_rect(col_clip);
+                    p.circle_filled(
+                        badge.center(),
+                        8.0,
+                        ui.visuals().panel_fill.gamma_multiply(0.9),
+                    );
+                    crate::ui::icons::paint_icon(
+                        &p,
+                        badge.shrink(3.0),
+                        crate::ui::icons::Icon::ZoomIn,
+                        ui.visuals().strong_text_color(),
+                    );
+                    response.on_hover_text(format!(
+                        "{}\n{}",
+                        cell_image_url.clone().unwrap_or_default(),
+                        crate::i18n::t("imgview.thumb_hint")
+                    ))
+                } else {
+                    response
+                };
+                if response.clicked() {
+                    let on_thumb = tr_clipped.is_some_and(|trc| {
+                        response
+                            .interact_pointer_pos()
+                            .is_some_and(|p| trc.contains(p))
+                    });
+                    // A click on the thumbnail opens the image viewer; a
+                    // click anywhere else keeps its usual meaning.
+                    if on_thumb {
                         interaction.ctx_view_image = Some((actual_row, col_idx));
+                    } else {
+                        let modifiers = ui.input(|i| i.modifiers);
+                        state.editing_cell = None;
+                        if modifiers.command && cell_link.is_some() {
+                            // Ctrl/Cmd+click on a link cell opens the URL and takes
+                            // precedence over the disjoint multi-select toggle for
+                            // that cell. Selection is left as it was.
+                            if let Some(url) = &cell_link {
+                                ui.ctx().open_url(egui::OpenUrl::new_tab(url));
+                            }
+                        } else if modifiers.command {
+                            // Ctrl/Cmd+click toggles the clicked cell in the
+                            // disjoint multi-cell selection. Promote the prior
+                            // single `selected_cell` into the set on the first
+                            // toggle so the original anchor isn't lost.
+                            if let Some(prev) = state.selected_cell
+                                && state.selected_cells.is_empty()
+                            {
+                                state.selected_cells.insert(prev);
+                            }
+                            let target = (actual_row, col_idx);
+                            if state.selected_cells.contains(&target) {
+                                state.selected_cells.remove(&target);
+                            } else {
+                                state.selected_cells.insert(target);
+                            }
+                            // Keyboard navigation should continue from the most
+                            // recent click even when we just removed it.
+                            state.selected_cell = Some(target);
+                            // Disjoint cell selection lives separately from row /
+                            // column selection - drop those so the precedence is
+                            // unambiguous.
+                            state.selected_rows.clear();
+                            state.selected_cols.clear();
+                            state.selection_anchor_display = None;
+                        } else {
+                            state.selected_cell = Some((actual_row, col_idx));
+                            // Plain click resets to a single-cell selection.
+                            state.selected_rows.clear();
+                            state.selected_cols.clear();
+                            state.selected_cells.clear();
+                            state.selection_anchor_display = None;
+                        }
                     }
                 }
-                if response.double_clicked() && !readonly {
-                    state.selected_cell = Some((actual_row, col_idx));
-                    let current_text = table
-                        .get(actual_row, col_idx)
-                        .map(|v| v.display_with_binary_mode(binary_display_mode))
-                        .unwrap_or_default();
-                    state.editing_cell = Some((actual_row, col_idx, current_text));
-                    state.edit_needs_focus = true;
+                // Double-click on an image cell opens the viewer once
+                // viewing is the cell's main job: always in read-only mode
+                // (double-click has no edit to win against there) and when
+                // a thumbnail already makes the address a picture. With
+                // thumbnails off and edits allowed it still starts editing.
+                if response.double_clicked() {
+                    if cell_image_url.is_some() && (readonly || thumb_rect.is_some()) {
+                        interaction.ctx_view_image = Some((actual_row, col_idx));
+                    } else if !readonly {
+                        state.selected_cell = Some((actual_row, col_idx));
+                        let current_text = table
+                            .get(actual_row, col_idx)
+                            .map(|v| v.display_with_binary_mode(binary_display_mode))
+                            .unwrap_or_default();
+                        state.editing_cell = Some((actual_row, col_idx, current_text));
+                        state.edit_needs_focus = true;
+                    }
                 }
 
                 // Right-click context menu on cell
