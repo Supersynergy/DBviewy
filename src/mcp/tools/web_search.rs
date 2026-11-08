@@ -38,10 +38,10 @@ pub struct Params {
 
 /// One parsed result line.
 #[derive(Debug)]
-struct Hit {
-    title: String,
-    url: String,
-    snippet: String,
+pub(crate) struct Hit {
+    pub(crate) title: String,
+    pub(crate) url: String,
+    pub(crate) snippet: String,
 }
 
 /// Result blocks in a Bing SERP are `<li class="b_algo">` elements; the title
@@ -112,15 +112,10 @@ fn collapse(text: &str) -> String {
         .join(" ")
 }
 
-pub fn run(_ctx: &ToolContext, p: &Params) -> anyhow::Result<Value> {
-    let query = p.query.trim();
-    if query.is_empty() {
-        anyhow::bail!("query must not be empty");
-    }
-    let max = p
-        .max_results
-        .unwrap_or(DEFAULT_MAX_RESULTS)
-        .clamp(1, HARD_MAX_RESULTS);
+/// Search and return the parsed hits - the tool wrapper and `enrich_rows`
+/// (query column -> top hit -> fetch) share this.
+pub(crate) fn search(query: &str, max_results: usize) -> anyhow::Result<Vec<Hit>> {
+    let max = max_results.clamp(1, HARD_MAX_RESULTS);
     let url = format!(
         "https://www.bing.com/search?q={}&count={}",
         urlencoded(query),
@@ -130,7 +125,15 @@ pub fn run(_ctx: &ToolContext, p: &Params) -> anyhow::Result<Value> {
     if status != 200 {
         anyhow::bail!("search returned HTTP {status}");
     }
-    let hits = parse_results(&body, max);
+    Ok(parse_results(&body, max))
+}
+
+pub fn run(_ctx: &ToolContext, p: &Params) -> anyhow::Result<Value> {
+    let query = p.query.trim();
+    if query.is_empty() {
+        anyhow::bail!("query must not be empty");
+    }
+    let hits = search(query, p.max_results.unwrap_or(DEFAULT_MAX_RESULTS))?;
 
     let mut out = Map::new();
     out.insert("query".to_string(), Value::String(query.to_string()));

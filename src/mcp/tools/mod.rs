@@ -32,6 +32,7 @@ pub mod edit_table;
 pub mod enrich_rows;
 pub mod export_db_tables;
 pub mod export_schema;
+pub(crate) mod fetch_cache;
 pub mod find_duplicates;
 pub mod find_lookups;
 pub mod find_overlaps;
