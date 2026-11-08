@@ -581,6 +581,9 @@ impl Cli {
                 dedupe_keep: self.dedupe_keep.clone(),
             }));
         }
+        if let Some(json) = &self.rpc {
+            return Ok(Some(Action::Rpc(json.clone())));
+        }
         if let Some(p) = &self.enrich {
             let on = self
                 .enrich_on

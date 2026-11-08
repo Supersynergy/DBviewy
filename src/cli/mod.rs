@@ -52,6 +52,7 @@ pub mod recipe;
 pub mod referential;
 pub mod relationships;
 pub mod report;
+pub mod rpc;
 pub mod sample;
 pub mod schema;
 pub mod schema_drift;

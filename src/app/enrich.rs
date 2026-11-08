@@ -135,7 +135,14 @@ impl OctaApp {
                 return;
             }
         };
+        self.launch_enrich(params);
+    }
 
+    /// Spawn an enrich run on a worker thread: the status bar gets its
+    /// `EnrichRun` pill, the worker posts its summary into
+    /// `pending_status_msgs`. Called by the dialog's Start button and by
+    /// the `enrich` RPC - same run, same pill, same audit-trail queue.
+    pub(crate) fn launch_enrich(&mut self, params: Params) {
         let ctx = self.build_tool_context(true);
         let msgs = self.pending_status_msgs.clone();
         let ctl = RunCtl::default();

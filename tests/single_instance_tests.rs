@@ -25,10 +25,13 @@ fn a_second_start_hands_its_file_to_the_running_octa() {
         String::from_utf8_lossy(&out.stderr)
     );
 
-    let got = listener
+    let octa::single_instance::Delivery::Files(got) = listener
         .rx
         .recv_timeout(Duration::from_secs(5))
-        .expect("paths arrive");
+        .expect("paths arrive")
+    else {
+        panic!("expected a file delivery");
+    };
     assert_eq!(got.len(), 1);
     assert_eq!(
         std::fs::canonicalize(&got[0]).unwrap(),

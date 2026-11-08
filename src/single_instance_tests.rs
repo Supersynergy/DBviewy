@@ -37,6 +37,35 @@ fn a_second_listener_defers_to_the_first() {
     first.release();
 }
 
+#[test]
+fn an_rpc_reaches_the_app_side_and_carries_its_reply() {
+    let dir = tempfile::tempdir().unwrap();
+    let l = listen(dir.path(), || {}).unwrap();
+    // The app's side: take the delivery, answer through its reply channel.
+    let answerer = std::thread::spawn(move || {
+        match l
+            .rx
+            .recv_timeout(std::time::Duration::from_secs(3))
+            .unwrap()
+        {
+            Delivery::Rpc { line, reply } => {
+                reply.send(format!("{{\"echo\":{line}}}")).unwrap();
+            }
+            Delivery::Files(_) => panic!("expected an RPC delivery"),
+        }
+    });
+    let got = rpc(dir.path(), r#"{"method":"ping"}"#).unwrap();
+    assert_eq!(got, r#"{"echo":{"method":"ping"}}"#);
+    answerer.join().unwrap();
+}
+
+#[test]
+fn an_rpc_with_no_running_octa_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let e = rpc(dir.path(), r#"{"method":"ping"}"#).unwrap_err();
+    assert!(e.to_string().contains("no running Octa"), "{e}");
+}
+
 #[cfg(unix)]
 #[test]
 fn the_instance_file_is_readable_by_its_owner_only() {

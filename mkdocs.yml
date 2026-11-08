@@ -246,6 +246,7 @@ nav:
           - "--anonymize": cli/anonymize.md
           - "--dedupe": cli/dedupe.md
           - "--enrich": cli/enrich.md
+          - "--rpc": cli/rpc.md
           - "--impute": cli/impute.md
           - "--hash-columns": cli/hash-columns.md
           - "--outliers": cli/outliers.md

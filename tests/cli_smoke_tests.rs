@@ -493,6 +493,11 @@ fn timeseries_actions_bucket_and_roll() {
     let out = fx.run(&["--enrich", &fx.path("a.csv"), "--enrich-on", "city"]);
     out.ok("--enrich");
     assert_eq!(out.first_line(), "id\tcity\tamount", "{}", out.stdout);
+
+    // `--rpc` with no running Octa fails politely, not with a panic.
+    let out = fx.run(&["--rpc", r#"{"method":"ping"}"#]);
+    assert_eq!(out.code, Some(1), "--rpc without a running app must fail");
+    assert!(out.stderr.contains("no running Octa"), "{}", out.stderr);
 }
 
 /// `--batch-convert` converts N positional files into --out-dir and exits 1

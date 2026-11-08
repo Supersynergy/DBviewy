@@ -77,4 +77,12 @@ over a file and prints the enriched table to stdout - no app needed:
 octa --enrich lots.csv --enrich-on url --enrich-provenance > live.csv
 ```
 
+And while the app is open, [`--rpc`](../cli/rpc.md) can start the same run
+on an open tab - the status bar shows its progress pill and the results
+arrive in the audit trail like a dialog run:
+
+```
+octa --rpc '{"method":"enrich","params":{"column":"url","target":"live"}}'
+```
+
 In the app: column header right-click, **Enrich from web...**.

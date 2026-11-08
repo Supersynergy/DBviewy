@@ -851,6 +851,16 @@ pub struct Cli {
     #[arg(long = "enrich-only-missing")]
     pub enrich_only_missing: bool,
 
+    /// Send one JSON request line to the running Octa and print its JSON
+    /// reply.
+    ///
+    /// Methods: `ping`, `tabs` (open tabs and their sizes), `enrich`
+    /// (start an enrich run on an open tab - same guards and audit trail
+    /// as the app's dialog). Example: `octa --rpc '{"method":"tabs"}'`.
+    /// Fails politely when no Octa is running.
+    #[arg(long, value_name = "JSON", group = "action")]
+    pub rpc: Option<String>,
+
     /// Fill missing/empty cells in one or more columns of FILE.
     ///
     /// Each flag takes a `COL=STRATEGY` pair. Strategies: `mean`, `median`,

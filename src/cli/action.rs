@@ -192,6 +192,8 @@ pub enum Action {
         path: PathBuf,
         opts: super::enrich::Options,
     },
+    /// One JSON request to the running instance (`--rpc`).
+    Rpc(String),
     Impute {
         path: PathBuf,
         specs: Vec<String>,

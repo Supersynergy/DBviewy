@@ -16,12 +16,28 @@ impl OctaApp {
                 egui::UserAttentionType::Informational,
             ));
         }
-        let Some(listener) = &self.instance else {
-            return;
+        // Drain into a local first: answering an RPC borrows `self`
+        // mutably, which the receiver borrow forbids.
+        let deliveries: Vec<octa::single_instance::Delivery> = match &self.instance {
+            Some(l) => {
+                let mut v = Vec::new();
+                while let Ok(d) = l.rx.try_recv() {
+                    v.push(d);
+                }
+                v
+            }
+            None => return,
         };
         let mut paths = Vec::new();
-        while let Ok(batch) = listener.rx.try_recv() {
-            paths.extend(batch);
+        for delivery in deliveries {
+            match delivery {
+                octa::single_instance::Delivery::Files(batch) => paths.extend(batch),
+                // Handled right here on the UI thread so the handler sees
+                // real tab state; the serving thread is blocked on our reply.
+                octa::single_instance::Delivery::Rpc { line, reply } => {
+                    let _ = reply.send(crate::app::rpc::handle(self, &line));
+                }
+            }
         }
         if paths.is_empty() {
             return;

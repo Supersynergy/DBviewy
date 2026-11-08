@@ -47,6 +47,7 @@ pub(crate) mod notify_watch;
 pub(crate) mod pushdown;
 pub(crate) mod recipe;
 pub(crate) mod refresh;
+pub(crate) mod rpc;
 pub(crate) mod search_history;
 pub(crate) mod session;
 pub(crate) mod shortcuts_dispatch;

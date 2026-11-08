@@ -24,9 +24,20 @@ const MAGIC: &str = "OCTA1";
 const MAX_PATHS: usize = 1_000;
 const MAX_BYTES: u64 = 256 * 1024;
 
-/// The running instance's end. Paths arrive on `rx`, one batch per hand-over.
+/// What one hand-over delivered: file paths to open, or an RPC request that
+/// expects a reply line (`RPC <json>` on the wire). The app answers RPCs on
+/// the UI thread so they see real tab state.
+pub enum Delivery {
+    Files(Vec<PathBuf>),
+    Rpc {
+        line: String,
+        reply: std::sync::mpsc::Sender<String>,
+    },
+}
+
+/// The running instance's end. Deliveries arrive on `rx`, one per hand-over.
 pub struct Listener {
-    pub rx: Receiver<Vec<PathBuf>>,
+    pub rx: Receiver<Delivery>,
     file: PathBuf,
     token: String,
 }
@@ -51,6 +62,36 @@ fn read_file(path: &Path) -> Option<(u16, String)> {
 /// paths, it is alive.
 pub fn try_hand_over(config_dir: &Path, paths: &[PathBuf]) -> bool {
     hand_over(config_dir, paths).is_ok()
+}
+
+/// Ask the running Octa something: `line` is one JSON request, the reply is
+/// one JSON line back (`{"ok":...}`/`{"ok":false,"error":...}`). Same
+/// channel as the file hand-over, so the same token guards it.
+pub fn rpc(config_dir: &Path, line: &str) -> std::io::Result<String> {
+    let (port, token) = read_file(&config_dir.join(FILE_NAME))
+        .ok_or_else(|| std::io::Error::other("no running Octa recorded - is it open?"))?;
+    if line.contains('\n') {
+        return Err(std::io::Error::other(
+            "an RPC line cannot hold a line break",
+        ));
+    }
+    let msg = format!("{MAGIC} {token}\nRPC {line}\n\n");
+    let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, port));
+    let stream = TcpStream::connect_timeout(&addr, Duration::from_secs(1))?;
+    stream.set_read_timeout(Some(Duration::from_secs(15)))?;
+    stream.set_write_timeout(Some(Duration::from_secs(2)))?;
+    (&stream).write_all(msg.as_bytes())?;
+    let mut reply = String::new();
+    BufReader::new(stream).read_line(&mut reply)?;
+    match reply.trim_end().strip_prefix("ok ") {
+        Some(json) => Ok(json.to_string()),
+        None => Err(std::io::Error::other(
+            reply
+                .trim()
+                .strip_prefix("err ")
+                .unwrap_or("the running Octa refused the RPC"),
+        )),
+    }
 }
 
 fn hand_over(config_dir: &Path, paths: &[PathBuf]) -> std::io::Result<()> {
@@ -106,10 +147,8 @@ pub fn listen(config_dir: &Path, wake: impl Fn() + Send + 'static) -> Option<Lis
         .name("octa-instance".into())
         .spawn(move || {
             for stream in listener.incoming().flatten() {
-                if let Some(paths) = serve(stream, &expected)
-                    && !paths.is_empty()
-                {
-                    if tx.send(paths).is_err() {
+                if let Some(delivery) = serve(stream, &expected, &tx, &wake) {
+                    if tx.send(delivery).is_err() {
                         break;
                     }
                     wake();
@@ -121,8 +160,15 @@ pub fn listen(config_dir: &Path, wake: impl Fn() + Send + 'static) -> Option<Lis
 }
 
 /// Read one hand-over. `None` for anything but a complete message carrying
-/// the right token.
-fn serve(stream: TcpStream, token: &str) -> Option<Vec<PathBuf>> {
+/// the right token. An `RPC ` payload line is handed to the app through
+/// `tx` and this thread blocks for the reply, which is why the app's answer
+/// must be produced on the UI thread, not here.
+fn serve(
+    stream: TcpStream,
+    token: &str,
+    tx: &std::sync::mpsc::Sender<Delivery>,
+    wake: &dyn Fn(),
+) -> Option<Delivery> {
     stream.set_read_timeout(Some(Duration::from_secs(2))).ok()?;
     let mut writer = stream.try_clone().ok()?;
     let mut reader = BufReader::new(stream.take(MAX_BYTES));
@@ -133,6 +179,7 @@ fn serve(stream: TcpStream, token: &str) -> Option<Vec<PathBuf>> {
         return None;
     }
     let mut paths = Vec::new();
+    let mut rpc_line: Option<String> = None;
     loop {
         line.clear();
         // Cut off before the closing empty line: not a complete message.
@@ -143,13 +190,43 @@ fn serve(stream: TcpStream, token: &str) -> Option<Vec<PathBuf>> {
         if p.is_empty() {
             break;
         }
+        if let Some(json) = p.strip_prefix("RPC ") {
+            if rpc_line.is_some() || json.len() > MAX_BYTES as usize {
+                return None;
+            }
+            rpc_line = Some(json.to_string());
+            continue;
+        }
         if paths.len() == MAX_PATHS {
             return None;
         }
         paths.push(PathBuf::from(p));
     }
+    if let Some(json) = rpc_line {
+        let (reply_tx, reply_rx) = std::sync::mpsc::channel();
+        if tx
+            .send(Delivery::Rpc {
+                line: json,
+                reply: reply_tx,
+            })
+            .is_err()
+        {
+            return None;
+        }
+        wake();
+        let body = match reply_rx.recv_timeout(Duration::from_secs(10)) {
+            Ok(r) => format!("ok {r}\n"),
+            Err(_) => "err request timed out\n".to_string(),
+        };
+        writer.write_all(body.as_bytes()).ok()?;
+        return None;
+    }
     writer.write_all(b"ok\n").ok()?;
-    Some(paths)
+    if paths.is_empty() {
+        None
+    } else {
+        Some(Delivery::Files(paths))
+    }
 }
 
 /// Write `text` so only the owner can read it: created 0600 on Unix (no
