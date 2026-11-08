@@ -125,60 +125,16 @@ impl OctaApp {
         let Some(col_name) = tab.table.columns.get(dlg.col_idx).map(|c| c.name.clone()) else {
             return;
         };
-        let target = dlg.target_buf.trim();
-        if target.is_empty() {
-            tab.enrich_dialog = Some(EnrichDialogState {
-                error: Some(octa::i18n::t("enrich_dialog.err_target").to_string()),
-                ..dlg
-            });
-            return;
-        }
-        let limit = dlg
-            .limit_buf
-            .trim()
-            .parse::<usize>()
-            .ok()
-            .filter(|&n| n > 0)
-            .unwrap_or(GUI_ENRICH_LIMIT)
-            .min(GUI_ENRICH_LIMIT);
-        let extract = match dlg.mode {
-            GuiExtract::Status => Extract::Status,
-            GuiExtract::Text => Extract::Text,
-            GuiExtract::Pattern => Extract::Pattern,
-            GuiExtract::Search => Extract::Search,
-        };
-        let pattern = dlg.pattern_buf.trim();
-        // A pattern is required for Pattern mode; the tool validates the
-        // regex itself, but catch the empty case here so the user never
-        // leaves the dialog.
-        if matches!(dlg.mode, GuiExtract::Pattern) && pattern.is_empty() {
-            tab.enrich_dialog = Some(EnrichDialogState {
-                error: Some(octa::i18n::t("enrich_dialog.err_pattern").to_string()),
-                ..dlg
-            });
-            return;
-        }
-        if matches!(dlg.mode, GuiExtract::Pattern | GuiExtract::Search) && !pattern.is_empty() {
-            if let Err(e) = regex::Regex::new(pattern) {
+        let params = match params_from(&dlg, &col_name) {
+            Ok(p) => p,
+            Err(e) => {
                 tab.enrich_dialog = Some(EnrichDialogState {
-                    error: Some(format!("{e}")),
+                    error: Some(e),
                     ..dlg
                 });
                 return;
             }
-        }
-        let top_k = dlg
-            .top_k_buf
-            .trim()
-            .parse::<usize>()
-            .ok()
-            .filter(|&n| n > 0);
-        let cell_chars = dlg
-            .cell_chars_buf
-            .trim()
-            .parse::<usize>()
-            .ok()
-            .filter(|&n| n > 0);
+        };
 
         let ctx = self.build_tool_context(true);
         let msgs = self.pending_status_msgs.clone();
@@ -190,23 +146,6 @@ impl OctaApp {
             finished: Arc::new(AtomicBool::new(false)),
         };
         let finished = run.finished.clone();
-        let params = Params {
-            open_tab: "@active".to_string(),
-            url_column: ColRef::Name(col_name),
-            target_column: target.to_string(),
-            extract,
-            pattern: if pattern.is_empty() {
-                None
-            } else {
-                Some(pattern.to_string())
-            },
-            limit: Some(limit),
-            cell_chars,
-            provenance: dlg.provenance,
-            refresh: dlg.refresh,
-            only_missing: dlg.only_missing,
-            top_k,
-        };
         self.enrich_run = Some(run);
         std::thread::spawn(move || {
             let msg = match crate::mcp::tools::enrich_rows::run_ctl(&ctx, &params, &ctl) {
@@ -245,3 +184,70 @@ impl OctaApp {
         }
     }
 }
+
+/// Turn dialog fields into tool `Params`, or the complaint the dialog shows
+/// inline. Kept free of `OctaApp` so every validation path is unit-testable
+/// without a GUI.
+pub(crate) fn params_from(dlg: &EnrichDialogState, col_name: &str) -> Result<Params, String> {
+    let target = dlg.target_buf.trim();
+    if target.is_empty() {
+        return Err(octa::i18n::t("enrich_dialog.err_target").to_string());
+    }
+    let limit = dlg
+        .limit_buf
+        .trim()
+        .parse::<usize>()
+        .ok()
+        .filter(|&n| n > 0)
+        .unwrap_or(GUI_ENRICH_LIMIT)
+        .min(GUI_ENRICH_LIMIT);
+    let extract = match dlg.mode {
+        GuiExtract::Status => Extract::Status,
+        GuiExtract::Text => Extract::Text,
+        GuiExtract::Pattern => Extract::Pattern,
+        GuiExtract::Search => Extract::Search,
+    };
+    let pattern = dlg.pattern_buf.trim();
+    // A pattern is required for Pattern mode; the tool validates the regex
+    // itself, but catch the empty case here so the user never leaves the
+    // dialog.
+    if matches!(dlg.mode, GuiExtract::Pattern) && pattern.is_empty() {
+        return Err(octa::i18n::t("enrich_dialog.err_pattern").to_string());
+    }
+    if matches!(dlg.mode, GuiExtract::Pattern | GuiExtract::Search) && !pattern.is_empty() {
+        if let Err(e) = regex::Regex::new(pattern) {
+            return Err(format!("{e}"));
+        }
+    }
+    Ok(Params {
+        open_tab: "@active".to_string(),
+        url_column: ColRef::Name(col_name.to_string()),
+        target_column: target.to_string(),
+        extract,
+        pattern: if pattern.is_empty() {
+            None
+        } else {
+            Some(pattern.to_string())
+        },
+        limit: Some(limit),
+        cell_chars: dlg
+            .cell_chars_buf
+            .trim()
+            .parse::<usize>()
+            .ok()
+            .filter(|&n| n > 0),
+        provenance: dlg.provenance,
+        refresh: dlg.refresh,
+        only_missing: dlg.only_missing,
+        top_k: dlg
+            .top_k_buf
+            .trim()
+            .parse::<usize>()
+            .ok()
+            .filter(|&n| n > 0),
+    })
+}
+
+#[cfg(test)]
+#[path = "enrich_tests.rs"]
+mod tests;
