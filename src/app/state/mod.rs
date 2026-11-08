@@ -379,6 +379,9 @@ pub(crate) struct TabState {
     /// Text buffer backing the decimals input in the Number-format dialog.
     /// Seeded when the dialog opens; parsed live into `column_number_formats`.
     pub(crate) column_format_decimals_buf: String,
+    /// Open "Enrich from web..." dialog state for this tab; `None` = closed.
+    /// Seeded by the column-header right-click menu.
+    pub(crate) enrich_dialog: Option<crate::app::enrich::EnrichDialogState>,
     /// Whether the "Find duplicates..." dialog is open on this tab.
     pub(crate) show_find_duplicates: bool,
     /// Column indices selected as the dedupe key in the Find Duplicates

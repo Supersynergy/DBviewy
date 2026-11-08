@@ -34,6 +34,7 @@ pub(crate) mod delete_columns;
 pub(crate) mod distribution_compare;
 pub(crate) mod documentation;
 pub(crate) mod drift;
+pub(crate) mod enrich;
 pub(crate) mod file_changed;
 pub(crate) mod file_versions;
 pub(crate) mod file_versions_lake;
@@ -143,6 +144,7 @@ impl OctaApp {
         folder_compare::render_folder_compare_dialog(self, ctx);
         binary_viewer::render_binary_viewer(self, ctx);
         image_viewer::render_image_viewer(self, ctx);
+        enrich::render_enrich_dialog(self, ctx);
         drift::render_drift_dialog(self, ctx);
         large_file_notice::render_large_file_notice(self, ctx);
         rel_map::render_rel_map_dialog(self, ctx);

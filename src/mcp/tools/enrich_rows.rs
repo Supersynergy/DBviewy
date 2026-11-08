@@ -31,11 +31,13 @@ overwritten otherwise. `extract`: \"status\" = HTTP status code, \"text\" = page
 converted, capped at `cell_chars`, default 500), \"pattern\" = first capture group of the first \
 `pattern` regex match, \"search\" = treat the cell as a SEARCH QUERY, fetch the top result's page \
 and apply `pattern`/`text`/`status` extraction to it (set `pattern` for a capture group, else page \
-text). `provenance` also writes `<target>_src` (the URL the value actually came from) and \
-`<target>_at` (fetch time) - keep it on for price comparisons. `refresh` ignores the page cache \
-(cached pages count as fresh for 6h). `limit` caps rows processed (default 50, max 500); rows are \
-taken in table order. Every written cell lands in the edit audit trail for review - the user still \
-saves to persist. Only works in the in-GUI assistant with Write protection off.";
+text). `top_k` (default 1, max 5) tries that many hits: with a `pattern` the first page yielding \
+a capture wins, without one the top hit is used. `provenance` also writes `<target>_src` (the URL \
+the value actually came from) and `<target>_at` (fetch time) - keep it on for price comparisons. \
+`refresh` ignores the page cache (cached pages count as fresh for 6h). `limit` caps rows \
+processed (default 50, max 500); rows are taken in table order. Every written cell lands in the \
+edit audit trail for review - the user still saves to persist. Only works in the in-GUI assistant \
+with Write protection off.";
 
 /// Upper bounds so a runaway table cannot turn into an all-night crawler.
 const HARD_LIMIT: usize = 500;
@@ -80,6 +82,11 @@ pub struct Params {
     /// Ignore cached pages and fetch live. Default false.
     #[serde(default)]
     pub refresh: bool,
+    /// For `extract: "search"`: how many hits to try. With a `pattern`, the
+    /// first hit whose page yields a non-empty capture wins; without one the
+    /// top hit is used. Default 1, hard cap 5.
+    #[serde(default)]
+    pub top_k: Option<usize>,
 }
 
 #[derive(Debug, Default, Clone, Copy, Deserialize, schemars::JsonSchema)]
@@ -120,6 +127,12 @@ struct PageResult {
     cached: bool,
 }
 
+/// Search hits tried per row: default 1, hard cap 5. More than five results
+/// per row means the query, not the ranking, is the problem.
+fn top_k_of(p: &Params) -> usize {
+    p.top_k.unwrap_or(1).clamp(1, 5)
+}
+
 /// Hostname of a URL for the per-host semaphore. `http(s)://` only - anything
 /// else never reaches the worker pool anyway.
 fn host_of(url: &str) -> String {
@@ -131,27 +144,67 @@ fn host_of(url: &str) -> String {
 }
 
 /// Resolve one target: fetch `input` directly, or when `is_search` treat it
-/// as a query and fetch the top hit instead. Errors carry a short reason.
-fn resolve_target(input: &str, is_search: bool, refresh: bool) -> Result<PageResult, String> {
-    let url = if is_search {
-        let hits = web_search::search(input, 1).map_err(|e| e.to_string())?;
-        match hits.into_iter().next() {
-            Some(h) => h.url,
-            None => return Err("no search result".to_string()),
+/// as a query and fetch a result page. With a `pattern` the top hits are
+/// tried in order and the first whose page yields a capture wins - the #1
+/// result is not always the page holding the price. Without a pattern the
+/// top hit answers. Errors carry a short reason.
+fn resolve_target(
+    input: &str,
+    is_search: bool,
+    refresh: bool,
+    regex: Option<&regex::Regex>,
+    top_k: usize,
+) -> Result<PageResult, String> {
+    let urls: Vec<String> = if is_search {
+        let hits = web_search::search(input, top_k).map_err(|e| e.to_string())?;
+        if hits.is_empty() {
+            return Err("no search result".to_string());
         }
+        hits.into_iter().map(|h| h.url).collect()
     } else {
-        input.to_string()
+        vec![input.to_string()]
     };
-    let from_cache =
-        !refresh && super::fetch_cache::global().is_some_and(|c| c.get(&url).is_some());
-    let (final_url, status, content_type, body) =
-        web_fetch::fetch_cached(&url, refresh).map_err(|e| e.to_string())?;
-    Ok(PageResult {
-        final_url,
-        status,
-        content_type,
-        body,
-        cached: from_cache,
+    let mut last_err = String::new();
+    let mut fallback: Option<PageResult> = None;
+    for url in urls {
+        let from_cache =
+            !refresh && super::fetch_cache::global().is_some_and(|c| c.get(&url).is_some());
+        match web_fetch::fetch_cached(&url, refresh) {
+            Ok((final_url, status, content_type, body)) => {
+                let page = PageResult {
+                    final_url,
+                    status,
+                    content_type,
+                    body,
+                    cached: from_cache,
+                };
+                // With a pattern, a page only wins when it actually yields
+                // a capture - a top hit without the price is worse than the
+                // next result that has one.
+                match regex {
+                    Some(re) => {
+                        let text = if page.content_type.contains("html") {
+                            web_fetch::html_to_text(&page.body)
+                        } else {
+                            page.body.clone()
+                        };
+                        if re.captures(&text).is_some() {
+                            return Ok(page);
+                        }
+                        fallback = fallback.or(Some(page));
+                    }
+                    None => return Ok(page),
+                }
+            }
+            Err(e) => last_err = e.to_string(),
+        }
+    }
+    fallback.ok_or_else(|| {
+        if last_err.is_empty() {
+            "no fetchable search result".to_string()
+        } else {
+            last_err
+        }
     })
 }
 
@@ -349,7 +402,13 @@ pub fn run_ctl(ctx: &ToolContext, p: &Params, ctl: &RunCtl) -> anyhow::Result<Va
                             }
                             *slots.entry(host.clone()).or_default() += 1;
                         }
-                        let out = resolve_target(&targets[i].1, is_search, p.refresh);
+                        let out = resolve_target(
+                            &targets[i].1,
+                            is_search,
+                            p.refresh,
+                            regex.as_ref(),
+                            top_k_of(p),
+                        );
                         *results[i].lock().unwrap() = Some(out);
                         {
                             let mut slots = host_slots.lock().unwrap();

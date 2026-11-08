@@ -567,15 +567,20 @@ pub(super) fn draw_header_direct(
                     interaction.ctx_value_frequency = Some(col_idx);
                     ui.close();
                 }
-                // Worth offering only where fetching rows makes sense: a
-                // column whose sampled cells hold a URL.
-                let has_urls = (0..table.row_count().min(50)).any(|r| {
+                // Worth offering on any text column: URL columns feed the
+                // fetch modes, free-text columns (titles, names) feed the
+                // search mode. A quick sample still decides, so numeric-only
+                // columns never show the entry.
+                let textish = matches!(
+                    col.data_type.as_str(),
+                    "Utf8" | "LargeUtf8" | "String" | "VARCHAR"
+                ) || (0..table.row_count().min(50)).any(|r| {
                     table
                         .get(r, col_idx)
                         .map(|c| crate::data::links::detect_url(&c.to_string()).is_some())
                         .unwrap_or(false)
                 });
-                if has_urls
+                if textish
                     && ui
                         .button(crate::i18n::t("header.enrich_column"))
                         .on_hover_text(crate::i18n::t("header.enrich_column_hint"))

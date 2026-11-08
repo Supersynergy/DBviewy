@@ -861,12 +861,25 @@ references - can be fetched in bulk without leaving the grid.
 
 ## How it works
 
-Right-click a column header. When a sampled cell holds a URL, the menu
-shows **Enrich from web**. Octa fetches each row's URL on a background
-worker (up to 500 rows, a polite handful per host at a time) and writes
-the HTTP status of every page into a new `<name>_live` column - "200" for
-a live listing, "404" for a gone one, an error note where the fetch
-itself failed.
+Right-click a column header holding usable text - URLs or plain titles -
+and pick **Enrich from web...**. A dialog asks what to extract and where
+it should land, then a background worker fetches up to 500 rows, a
+polite handful per host at a time.
+
+The **Extract** choices:
+
+- **HTTP status** - the page's status code; "200" means the link lives.
+- **Page text** - readable page text (HTML converted), capped per cell.
+- **Regex pattern** - keeps the first capture group of the first regex
+  match; the pattern is required here.
+- **Search top hits** - treats each cell as a search query and fetches
+  the top result pages instead of a URL. A title column becomes live
+  prices or availability in one run.
+
+The dialog also sets the **target column** (created when missing,
+overwritten when it exists), the **row cap**, how many **top hits** a
+search tries per row (with a pattern the first matching hit wins), the
+**provenance columns** toggle, and **Ignore cache** for a fresh pass.
 
 While the run is in flight the status bar shows a live counter and a
 **Cancel** button; cancelling stops new pages and keeps the values
@@ -876,10 +889,11 @@ already fetched.
 
 Nothing is written silently. The whole run arrives as one batch in the
 **Edit Audit Trail**, where you review every value before it counts, and
-a single undo removes the run. Two provenance columns travel with it:
-`<name>_live_src` records the URL the value actually came from (redirects
-followed), `<name>_live_at` the fetch time - so an audit entry can always
-answer "where did this 200 come from, and when".
+a single undo removes the run. With provenance on, two columns travel
+with it: `<target>_src` records the URL the value actually came from
+(redirects followed; in search mode, the winning hit), `<target>_at` the
+fetch time - so an audit entry can always answer "where did this 200
+come from, and when".
 
 Pages already fetched inside the last six hours come from a local cache
 (`fetch_cache.json` in the config dir) instead of the network; failed
@@ -894,10 +908,9 @@ crawl.
 
 ## Richer extracts
 
-The GUI default answers "is this link alive?". Pulling the page text or a
-regex capture - "extract the live price into `live_price`" - is a job for
-the Assistant's `enrich_rows` tool, which shares the same queue and
-audit trail. Its `extract: "search"` goes one step further: a column of
-titles becomes queries, each row's top result page is fetched and mined,
-and `_src` then proves which page the price came from.
+The same four modes drive the Assistant's `enrich_rows` tool, which
+shares the same queue and audit trail - handy when a chat-driven run
+should batch the same extraction, or when `limit` needs to go past what
+a hand-picked run would. `web_search` finds candidate pages by hand
+before `web_fetch` or `enrich_rows` reads them.
 "#;

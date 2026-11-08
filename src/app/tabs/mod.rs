@@ -297,6 +297,7 @@ impl TabState {
             column_format_col: None,
             column_format_cols: Vec::new(),
             column_format_decimals_buf: String::new(),
+            enrich_dialog: None,
             show_find_duplicates: false,
             find_duplicates_key_cols: std::collections::HashSet::new(),
             find_duplicates_mode: super::state::FindDuplicatesMode::default(),

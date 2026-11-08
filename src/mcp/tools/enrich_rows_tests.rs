@@ -51,6 +51,7 @@ fn params(extract: Extract, pattern: Option<&str>) -> Params {
         cell_chars: None,
         provenance: false,
         refresh: false,
+        top_k: None,
     }
 }
 
@@ -178,6 +179,66 @@ fn push_column_op_adds_and_sets() {
     let n2 = push_column_op(&mut ops, table, "url", &pairs); // existing col
     assert_eq!(n2, 1);
     assert!(matches!(ops[1], ResolvedOp::SetCells(_)));
+}
+
+#[test]
+fn top_k_defaults_to_one_and_clamps() {
+    let mut p = params(Extract::Search, None);
+    assert_eq!(top_k_of(&p), 1);
+    p.top_k = Some(3);
+    assert_eq!(top_k_of(&p), 3);
+    p.top_k = Some(99);
+    assert_eq!(top_k_of(&p), 5);
+    p.top_k = Some(0);
+    assert_eq!(top_k_of(&p), 1);
+}
+
+#[test]
+fn top_k_parses_from_json() {
+    let p: Params = serde_json::from_value(serde_json::json!({
+        "open_tab": "#1", "url_column": "url", "target_column": "live",
+        "extract": "search", "top_k": 4
+    }))
+    .unwrap();
+    assert_eq!(top_k_of(&p), 4);
+    // Absent stays at the default.
+    let p2: Params = serde_json::from_value(serde_json::json!({
+        "open_tab": "#1", "url_column": "url", "target_column": "live"
+    }))
+    .unwrap();
+    assert_eq!(top_k_of(&p2), 1);
+}
+
+#[test]
+fn resolve_target_pattern_fallback_prefers_match() {
+    // Search-mode hit iteration: a page that yields no capture is kept only
+    // as fallback; the first matching hit wins. Verified on PageResult level
+    // (the network part is identical plumbing): extract_value picks the
+    // capture out of a "matching" page while a non-matching page would have
+    // produced an empty cell.
+    let re = regex::Regex::new("([0-9]+) EUR").unwrap();
+    let no_match = PageResult {
+        final_url: "https://x/1".into(),
+        status: 200,
+        content_type: "text/html".into(),
+        body: "<p>no price here</p>".into(),
+        cached: false,
+    };
+    let matched = PageResult {
+        final_url: "https://x/2".into(),
+        status: 200,
+        content_type: "text/html".into(),
+        body: "<p>Preis: 77 EUR</p>".into(),
+        cached: false,
+    };
+    assert_eq!(
+        extract_value(Extract::Pattern, Some(&re), &no_match, 500),
+        ""
+    );
+    assert_eq!(
+        extract_value(Extract::Pattern, Some(&re), &matched, 500),
+        "77"
+    );
 }
 
 #[test]
