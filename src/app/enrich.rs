@@ -48,6 +48,8 @@ pub(crate) struct EnrichDialogState {
     pub limit_buf: String,
     /// Search-mode hit depth buffer; seeded "3".
     pub top_k_buf: String,
+    /// Per-cell character cap buffer for text extraction; seeded "500".
+    pub cell_chars_buf: String,
     /// Write `<target>_src` / `<target>_at` provenance columns too.
     pub provenance: bool,
     /// Ignore the six-hour page cache.
@@ -103,6 +105,7 @@ impl OctaApp {
             pattern_buf: String::new(),
             limit_buf: GUI_ENRICH_LIMIT.to_string(),
             top_k_buf: "3".to_string(),
+            cell_chars_buf: "500".to_string(),
             provenance: true,
             refresh: false,
             error: None,
@@ -167,6 +170,12 @@ impl OctaApp {
             .parse::<usize>()
             .ok()
             .filter(|&n| n > 0);
+        let cell_chars = dlg
+            .cell_chars_buf
+            .trim()
+            .parse::<usize>()
+            .ok()
+            .filter(|&n| n > 0);
 
         let ctx = self.build_tool_context(true);
         let msgs = self.pending_status_msgs.clone();
@@ -189,7 +198,7 @@ impl OctaApp {
                 Some(pattern.to_string())
             },
             limit: Some(limit),
-            cell_chars: None,
+            cell_chars,
             provenance: dlg.provenance,
             refresh: dlg.refresh,
             top_k,

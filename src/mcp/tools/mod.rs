@@ -111,6 +111,12 @@ pub struct TableSnapshot {
     /// Set when the tab is in **large-file mode**, where `table` holds one
     /// page read from disk rather than the file. See [`SnapshotWindow`].
     pub window: Option<SnapshotWindow>,
+    /// The rows in the order the user currently sees them - the table view's
+    /// sorted/filtered index list (`None` on the headless MCP server, where
+    /// there is no view). Tools honouring it process "the top N rows" as the
+    /// top N *visible* rows and skip rows the filter hid; indices are storage
+    /// indices, so writes still land on the right rows.
+    pub view_rows: Option<Vec<usize>>,
 }
 
 /// Which slice of a file a large-file tab currently holds.

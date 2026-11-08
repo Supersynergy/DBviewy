@@ -23,9 +23,17 @@ The **Extract** choices:
   prices or availability in one run.
 
 The dialog also sets the **target column** (created when missing,
-overwritten when it exists), the **row cap**, how many **top hits** a
-search tries per row (with a pattern the first matching hit wins), the
-**provenance columns** toggle, and **Ignore cache** for a fresh pass.
+overwritten when it exists), the **row cap**, the **cell char cap** for
+text extraction, how many **top hits** a search tries per row (with a
+pattern the first matching hit wins; candidates sharing words with the
+query are tried first), the **provenance columns** toggle, and **Ignore
+cache** for a fresh pass.
+
+Rows are processed in the order you see them: a sorted or filtered view
+means the cap picks up the first *visible* rows and rows the filter hid
+are skipped. Pages answering 4xx/5xx never become values - a "this page
+is gone" body is not a price - and a host shedding load (429/503) earns
+a short cooldown instead of burning the rest of the batch into failures.
 
 While the run is in flight the status bar shows a live counter and a
 **Cancel** button; cancelling stops new pages and keeps the values
@@ -43,7 +51,9 @@ from, and when".
 
 Pages already fetched inside the last six hours come from a local cache
 (`fetch_cache.json` in the config dir) instead of the network; failed
-fetches are never cached.
+fetches are never cached. A cached value keeps its original fetch time
+in `<target>_at`, so the audit trail shows the answer's real age rather
+than stamping it "now".
 
 ## Guards
 

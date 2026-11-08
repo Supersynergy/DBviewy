@@ -91,22 +91,25 @@ pub(crate) fn fetch(url: &str) -> anyhow::Result<(String, u16, String, String)> 
 /// a miss fetches live and remembers the page. `refresh` skips the lookup
 /// but still updates the cache - it is "prove the page again", not "never
 /// write". Used by `enrich_rows`; the `web_fetch` tool itself always reads
-/// live because its caller asked for that page now.
-pub(crate) fn fetch_cached(
+/// live because its caller asked for that page now. The fifth tuple slot
+/// carries the page's true fetch time: `Some(epoch)` for a cache hit (the
+/// entry's age), `None` for a live fetch, so callers report honest
+/// provenance for cached answers.
+pub(crate) fn fetch_cached_stamped(
     url: &str,
     refresh: bool,
-) -> anyhow::Result<(String, u16, String, String)> {
+) -> anyhow::Result<(String, u16, String, String, Option<i64>)> {
     let cache = super::fetch_cache::global();
     if !refresh {
-        if let Some(hit) = cache.and_then(|c| c.get(url)) {
-            return Ok(hit);
+        if let Some((u, s, c, b, t)) = cache.and_then(|c| c.get_stamped(url)) {
+            return Ok((u, s, c, b, Some(t)));
         }
     }
     let out = fetch(url)?;
     if let Some(c) = cache {
         c.put(url, &out.0, out.1, &out.2, &out.3);
     }
-    Ok(out)
+    Ok((out.0, out.1, out.2, out.3, None))
 }
 
 /// Tags whose content is dropped entirely - none of it is page text.

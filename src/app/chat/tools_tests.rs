@@ -30,6 +30,7 @@ fn sample_ctx() -> ToolContext {
             source_path: None,
             table,
             window: None,
+            view_rows: None,
         }],
         active_tab: Some(0),
         default_row_limit: Some(1000),
@@ -62,6 +63,7 @@ fn id_tab(handle: &str, name: &str, ids: &[i64]) -> TableSnapshot {
         source_path: None,
         table,
         window: None,
+        view_rows: None,
     }
 }
 
@@ -208,6 +210,7 @@ fn text_ctx(lines: &[&str], source_path: Option<&str>) -> ToolContext {
             source_path: source_path.map(|s| s.to_string()),
             table,
             window: None,
+            view_rows: None,
         }],
         active_tab: Some(0),
         default_row_limit: Some(1000),

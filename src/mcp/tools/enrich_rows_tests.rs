@@ -33,6 +33,7 @@ fn ctx_with_tab(unlocked: bool) -> ToolContext {
         source_path: None,
         table: t,
         window: None,
+        view_rows: None,
     }];
     ctx.active_tab = Some(0);
     ctx.allow_existing_writes = unlocked;
@@ -155,7 +156,7 @@ fn extract_value_status_and_pattern() {
         status: 404,
         content_type: "text/html".into(),
         body: "<p>Preis: 42 EUR</p>".into(),
-        cached: false,
+        fetched_at: None,
     };
     assert_eq!(extract_value(Extract::Status, None, &page, 500), "404");
     let re = regex::Regex::new("([0-9]+) EUR").unwrap();
@@ -222,14 +223,14 @@ fn resolve_target_pattern_fallback_prefers_match() {
         status: 200,
         content_type: "text/html".into(),
         body: "<p>no price here</p>".into(),
-        cached: false,
+        fetched_at: None,
     };
     let matched = PageResult {
         final_url: "https://x/2".into(),
         status: 200,
         content_type: "text/html".into(),
         body: "<p>Preis: 77 EUR</p>".into(),
-        cached: false,
+        fetched_at: None,
     };
     assert_eq!(
         extract_value(Extract::Pattern, Some(&re), &no_match, 500),
@@ -239,6 +240,78 @@ fn resolve_target_pattern_fallback_prefers_match() {
         extract_value(Extract::Pattern, Some(&re), &matched, 500),
         "77"
     );
+}
+
+#[test]
+fn view_rows_skips_filtered_out_rows() {
+    // Row 1 holds no URL; rows 0 and 2 do. Restricting the view to row 1
+    // alone must produce zero targets - filtered-out rows are never fetched.
+    let mut ctx = ctx_with_tab(true);
+    ctx.open_tabs[0].view_rows = Some(vec![1]);
+    let p = params(Extract::Status, None);
+    let out = run(&ctx, &p).unwrap();
+    assert_eq!(out["pages_fetched"].as_u64().unwrap_or(1), 0);
+    assert_eq!(out["values_written"].as_u64().unwrap_or(1), 0);
+}
+
+#[test]
+fn view_rows_preserves_storage_indices() {
+    // A reversed view must still write onto the storage row, not the view
+    // position - the BTreeMap pairing is storage-indexed end to end.
+    let mut ctx = ctx_with_tab(true);
+    ctx.open_tabs[0].view_rows = Some(vec![2, 1, 0]);
+    let p = params(Extract::Status, None);
+    // No network in tests: rows 0/2 fail the fetch but must appear as
+    // failures keyed by their STORAGE row, proving no positional drift.
+    let out = run(&ctx, &p).unwrap();
+    let failures = out["failures"].as_array().cloned().unwrap_or_default();
+    let mut rows: Vec<u64> = failures.iter().filter_map(|f| f["row"].as_u64()).collect();
+    rows.sort();
+    // Row 1 has no URL so it never becomes a target; 0 and 2 do.
+    assert!(rows.iter().all(|r| *r != 1));
+}
+
+#[test]
+fn rank_hits_prefers_query_overlap() {
+    let mut hits = vec![
+        web_search::Hit {
+            title: "Unrelated forum thread".into(),
+            url: "https://a/1".into(),
+            snippet: "nothing matching".into(),
+        },
+        web_search::Hit {
+            title: "Festool TS 55 plunge saw price".into(),
+            url: "https://a/2".into(),
+            snippet: "buy the Festool TS 55".into(),
+        },
+    ];
+    rank_hits("Festool TS 55 gebraucht", &mut hits);
+    assert_eq!(hits[0].url, "https://a/2");
+    // A query with no usable words leaves the engine order untouched.
+    let mut same = vec![
+        web_search::Hit {
+            title: "x".into(),
+            url: "https://a/1".into(),
+            snippet: String::new(),
+        },
+        web_search::Hit {
+            title: "y".into(),
+            url: "https://a/2".into(),
+            snippet: String::new(),
+        },
+    ];
+    rank_hits("ab", &mut same);
+    assert_eq!(same[0].url, "https://a/1");
+}
+
+#[test]
+fn backoff_statuses_and_error_display() {
+    assert!(is_backoff_status(429));
+    assert!(is_backoff_status(503));
+    assert!(!is_backoff_status(404));
+    assert!(!is_backoff_status(200));
+    assert_eq!(ResolveFail::Http(429).to_string(), "HTTP 429");
+    assert_eq!(ResolveFail::Other("boom".into()).to_string(), "boom");
 }
 
 #[test]

@@ -15,12 +15,12 @@ fn get_returns_what_put_stored() {
         "text/html",
         "<p>hi</p>",
     );
-    let (u, s, ct, b) = c.get("http://x/1").expect("fresh hit");
+    let (u, s, ct, b, _) = c.get_stamped("http://x/1").expect("fresh hit");
     assert_eq!(
         (u.as_str(), s, ct.as_str(), b.as_str()),
         ("http://x/final", 200, "text/html", "<p>hi</p>")
     );
-    assert!(c.get("http://x/missing").is_none());
+    assert!(c.get_stamped("http://x/missing").is_none());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -33,7 +33,7 @@ fn stale_entries_miss() {
         let mut map = c.map.lock().unwrap();
         map.get_mut("http://x/1").unwrap().fetched_at -= TTL_SECS + 1;
     }
-    assert!(c.get("http://x/1").is_none());
+    assert!(c.get_stamped("http://x/1").is_none());
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -42,7 +42,7 @@ fn oversized_bodies_are_not_cached() {
     let c = cache_at(std::env::temp_dir().join("octa-fc3.json"));
     let big = "x".repeat(MAX_BODY_BYTES + 1);
     c.put("http://x/big", "http://x/big", 200, "t", &big);
-    assert!(c.get("http://x/big").is_none());
+    assert!(c.get_stamped("http://x/big").is_none());
 }
 
 #[test]
@@ -57,8 +57,8 @@ fn oldest_entries_are_pruned() {
     let len = c.map.lock().unwrap().len();
     assert!(len <= MAX_ENTRIES);
     // The five oldest must be gone; the newest survives.
-    assert!(c.get("http://x/0").is_none());
-    assert!(c.get("http://x/4").is_none());
+    assert!(c.get_stamped("http://x/0").is_none());
+    assert!(c.get_stamped("http://x/4").is_none());
 }
 
 #[test]
@@ -72,6 +72,6 @@ fn flush_persists_and_reload_hits() {
         c.flush();
     }
     let c2 = cache_at(path);
-    assert!(c2.get("http://x/1").is_some(), "reload should hit");
+    assert!(c2.get_stamped("http://x/1").is_some(), "reload should hit");
     let _ = std::fs::remove_dir_all(&dir);
 }

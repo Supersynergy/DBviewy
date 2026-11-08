@@ -139,6 +139,18 @@ pub(crate) fn render_enrich_dialog(app: &mut OctaApp, ctx: &egui::Context) {
                         .on_hover_text(octa::i18n::t("enrich_dialog.top_k_hint"));
                 });
             });
+            ui.add_enabled_ui(
+                matches!(dlg.mode, GuiExtract::Text | GuiExtract::Search),
+                |ui| {
+                    octa::ui::control_row::control_line(ui, |ui| {
+                        ui.label(octa::i18n::t("enrich_dialog.cell_chars"));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut dlg.cell_chars_buf).desired_width(56.0),
+                        )
+                        .on_hover_text(octa::i18n::t("enrich_dialog.cell_chars_hint"));
+                    });
+                },
+            );
 
             ui.add_space(6.0);
             ui.checkbox(

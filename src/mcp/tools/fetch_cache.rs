@@ -63,9 +63,11 @@ impl FetchCache {
         }
     }
 
-    /// The cached `(final_url, status, content_type, body)` for `url`, or
-    /// `None` when missing or older than the TTL.
-    pub(crate) fn get(&self, url: &str) -> Option<(String, u16, String, String)> {
+    /// The cached `(final_url, status, content_type, body, fetched_at)` for
+    /// `url`, or `None` when missing or older than the TTL. The timestamp
+    /// travels so a reader reports the page's real age instead of stamping
+    /// a cached answer "now".
+    pub(crate) fn get_stamped(&self, url: &str) -> Option<(String, u16, String, String, i64)> {
         let now = chrono::Utc::now().timestamp();
         let map = self.map.lock().unwrap();
         let e = map.get(url)?;
@@ -77,6 +79,7 @@ impl FetchCache {
             e.status,
             e.content_type.clone(),
             e.body.clone(),
+            e.fetched_at,
         ))
     }
 

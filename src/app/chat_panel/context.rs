@@ -50,6 +50,10 @@ impl OctaApp {
                 source_path,
                 table: snapshot,
                 window,
+                // The visible order (sorted + filtered) travels with the
+                // snapshot, so row-limited tools work on the rows the user
+                // actually sees instead of storage order.
+                view_rows: Some(tab.filtered_rows.clone()),
             });
         }
 

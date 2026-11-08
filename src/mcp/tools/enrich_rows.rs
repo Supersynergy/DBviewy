@@ -35,7 +35,8 @@ text). `top_k` (default 1, max 5) tries that many hits: with a `pattern` the fir
 a capture wins, without one the top hit is used. `provenance` also writes `<target>_src` (the URL \
 the value actually came from) and `<target>_at` (fetch time) - keep it on for price comparisons. \
 `refresh` ignores the page cache (cached pages count as fresh for 6h). `limit` caps rows \
-processed (default 50, max 500); rows are taken in table order. Every written cell lands in the \
+processed (default 50, max 500); rows are taken in the user's view order (sorted/filtered - \
+filtered-out rows are skipped; storage order only when no view exists). Every written cell lands in the \
 edit audit trail for review - the user still saves to persist. Only works in the in-GUI assistant \
 with Write protection off.";
 
@@ -69,7 +70,8 @@ pub struct Params {
     /// stored. Required when `extract` is "pattern"; optional for "search".
     #[serde(default)]
     pub pattern: Option<String>,
-    /// Max rows processed, in table order. Default 50, hard cap 500.
+    /// Max rows processed, in the tab's view order (sorted/filtered when the
+    /// GUI carries one, else storage order). Default 50, hard cap 500.
     #[serde(default)]
     pub limit: Option<usize>,
     /// Per-cell character cap for `extract: "text"`. Default 500.
@@ -124,7 +126,31 @@ struct PageResult {
     status: u16,
     content_type: String,
     body: String,
-    cached: bool,
+    /// Epoch seconds when the page was actually fetched: the cache entry's
+    /// age for a hit, `None` for a live fetch (stamped "now" by the caller).
+    fetched_at: Option<i64>,
+}
+
+/// Why one target produced nothing. `Http` carries the page's status so the
+/// worker can back off a rate-limiting host; `Other` is everything else.
+enum ResolveFail {
+    Http(u16),
+    Other(String),
+}
+
+impl std::fmt::Display for ResolveFail {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ResolveFail::Http(s) => write!(f, "HTTP {s}"),
+            ResolveFail::Other(m) => write!(f, "{m}"),
+        }
+    }
+}
+
+/// Statuses worth a cooldown: the host is shedding load, so piling more
+/// rows on it just turns the batch into a wall of failures.
+fn is_backoff_status(s: u16) -> bool {
+    matches!(s, 408 | 429 | 502 | 503 | 504)
 }
 
 /// Search hits tried per row: default 1, hard cap 5. More than five results
@@ -143,41 +169,68 @@ fn host_of(url: &str) -> String {
         .to_lowercase()
 }
 
+/// Order search candidates by likely usefulness instead of blind ranking:
+/// hits whose title/snippet shares words with the query are tried first,
+/// so a pattern usually captures on the first fetch instead of the third.
+/// Pure re-ordering - ties keep the engine's own order.
+fn rank_hits(query: &str, hits: &mut [web_search::Hit]) {
+    let qwords: std::collections::HashSet<String> = query
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| w.len() >= 3)
+        .map(|w| w.to_lowercase())
+        .collect();
+    if qwords.is_empty() {
+        return;
+    }
+    let score = |h: &web_search::Hit| -> usize {
+        let text = format!("{} {}", h.title, h.snippet).to_lowercase();
+        qwords.iter().filter(|w| text.contains(w.as_str())).count()
+    };
+    hits.sort_by_key(|h| std::cmp::Reverse(score(h)));
+}
+
 /// Resolve one target: fetch `input` directly, or when `is_search` treat it
 /// as a query and fetch a result page. With a `pattern` the top hits are
 /// tried in order and the first whose page yields a capture wins - the #1
 /// result is not always the page holding the price. Without a pattern the
-/// top hit answers. Errors carry a short reason.
+/// top hit answers. When `for_content` is set, a page answering 4xx/5xx is
+/// not a source: the run moves on to the next candidate (a "this page is
+/// gone" body is not a price). Errors carry a short reason.
 fn resolve_target(
     input: &str,
     is_search: bool,
+    for_content: bool,
     refresh: bool,
     regex: Option<&regex::Regex>,
     top_k: usize,
-) -> Result<PageResult, String> {
+) -> Result<PageResult, ResolveFail> {
     let urls: Vec<String> = if is_search {
-        let hits = web_search::search(input, top_k).map_err(|e| e.to_string())?;
+        let mut hits =
+            web_search::search(input, top_k).map_err(|e| ResolveFail::Other(e.to_string()))?;
         if hits.is_empty() {
-            return Err("no search result".to_string());
+            return Err(ResolveFail::Other("no search result".to_string()));
         }
+        rank_hits(input, &mut hits);
         hits.into_iter().map(|h| h.url).collect()
     } else {
         vec![input.to_string()]
     };
-    let mut last_err = String::new();
+    let mut last_err = ResolveFail::Other("no fetchable search result".to_string());
     let mut fallback: Option<PageResult> = None;
     for url in urls {
-        let from_cache =
-            !refresh && super::fetch_cache::global().is_some_and(|c| c.get(&url).is_some());
-        match web_fetch::fetch_cached(&url, refresh) {
-            Ok((final_url, status, content_type, body)) => {
+        match web_fetch::fetch_cached_stamped(&url, refresh) {
+            Ok((final_url, status, content_type, body, fetched_at)) => {
                 let page = PageResult {
                     final_url,
                     status,
                     content_type,
                     body,
-                    cached: from_cache,
+                    fetched_at,
                 };
+                if for_content && page.status >= 400 {
+                    last_err = ResolveFail::Http(page.status);
+                    continue;
+                }
                 // With a pattern, a page only wins when it actually yields
                 // a capture - a top hit without the price is worse than the
                 // next result that has one.
@@ -196,16 +249,10 @@ fn resolve_target(
                     None => return Ok(page),
                 }
             }
-            Err(e) => last_err = e.to_string(),
+            Err(e) => last_err = ResolveFail::Other(e.to_string()),
         }
     }
-    fallback.ok_or_else(|| {
-        if last_err.is_empty() {
-            "no fetchable search result".to_string()
-        } else {
-            last_err
-        }
-    })
+    fallback.ok_or(last_err)
 }
 
 fn extract_value(
@@ -332,10 +379,17 @@ pub fn run_ctl(ctx: &ToolContext, p: &Params, ctl: &RunCtl) -> anyhow::Result<Va
 
     // Collect the rows worth processing first: the scan stays cheap and
     // synchronous, the network work fans out afterwards. A URL column is
-    // detected per cell; a query column just needs non-empty text.
+    // detected per cell; a query column just needs non-empty text. When the
+    // snapshot carries the user's view order (sorted/filtered), "the first
+    // N rows" means the first N *visible* rows and filtered-out rows are
+    // skipped; indices stay storage indices so writes cannot drift.
+    let view: Vec<usize> = snap.view_rows.clone().unwrap_or_else(|| (0..n).collect());
     let mut targets: Vec<(usize, String)> = Vec::new();
     let mut scanned = 0usize;
-    for row in 0..n {
+    for row in view {
+        if row >= n {
+            continue;
+        }
         if targets.len() >= limit {
             break;
         }
@@ -363,14 +417,19 @@ pub fn run_ctl(ctx: &ToolContext, p: &Params, ctl: &RunCtl) -> anyhow::Result<Va
     // Bounded-parallel work: worker threads share an index into `targets`,
     // results land by target position so row order is preserved regardless
     // of completion order. A per-host semaphore keeps a single-domain batch
-    // polite, `cancel` stops dispatch (in-flight pages finish), `progress`
-    // counts processed rows for the GUI's status pill.
-    let results: Vec<Mutex<Option<Result<PageResult, String>>>> =
+    // polite, a per-host cooldown pauses dispatch onto a host that answered
+    // 429/5xx instead of burning the remaining rows into failures, `cancel`
+    // stops dispatch (in-flight pages finish), `progress` counts processed
+    // rows for the GUI's status pill.
+    let results: Vec<Mutex<Option<Result<PageResult, ResolveFail>>>> =
         (0..targets.len()).map(|_| Mutex::new(None)).collect();
     {
         let next = AtomicUsize::new(0);
         let host_slots = Mutex::new(std::collections::HashMap::<String, usize>::new());
+        let host_blocked =
+            Mutex::new(std::collections::HashMap::<String, std::time::Instant>::new());
         let host_free = Condvar::new();
+        let for_content = !matches!(p.extract, Extract::Status);
         let workers = FETCH_WORKERS.min(targets.len());
         std::thread::scope(|scope| {
             for _ in 0..workers {
@@ -384,31 +443,56 @@ pub fn run_ctl(ctx: &ToolContext, p: &Params, ctl: &RunCtl) -> anyhow::Result<Va
                             return;
                         }
                         let host = host_of(&targets[i].1);
-                        // Hold at most PER_HOST_LIMIT slots per host; wait
-                        // until another worker frees one. The cancel flag is
-                        // re-checked while waiting so a held task can exit.
+                        // Hold at most PER_HOST_LIMIT slots per host, and
+                        // none while the host is in cooldown. The cancel flag
+                        // is re-checked while waiting so a held task can exit.
                         {
                             let mut slots = host_slots.lock().unwrap();
-                            while slots.get(&host).copied().unwrap_or(0) >= PER_HOST_LIMIT
-                                && !ctl.cancel.load(Ordering::Relaxed)
-                            {
+                            loop {
+                                if ctl.cancel.load(Ordering::Relaxed) {
+                                    return;
+                                }
+                                let blocked = host_blocked
+                                    .lock()
+                                    .unwrap()
+                                    .get(&host)
+                                    .map(|t| t.saturating_duration_since(std::time::Instant::now()))
+                                    .unwrap_or_default();
+                                if blocked.is_zero()
+                                    && slots.get(&host).copied().unwrap_or(0) < PER_HOST_LIMIT
+                                {
+                                    break;
+                                }
                                 let (guard, _timeout) = host_free
-                                    .wait_timeout(slots, std::time::Duration::from_millis(200))
+                                    .wait_timeout(
+                                        slots,
+                                        blocked
+                                            .min(std::time::Duration::from_millis(200))
+                                            .max(std::time::Duration::from_millis(50)),
+                                    )
                                     .unwrap();
                                 slots = guard;
-                            }
-                            if ctl.cancel.load(Ordering::Relaxed) {
-                                return;
                             }
                             *slots.entry(host.clone()).or_default() += 1;
                         }
                         let out = resolve_target(
                             &targets[i].1,
                             is_search,
+                            for_content,
                             p.refresh,
                             regex.as_ref(),
                             top_k_of(p),
                         );
+                        // A rate-limited or buckling host earns a cooldown:
+                        // further rows on it wait instead of failing fast.
+                        if let Err(ResolveFail::Http(s)) = &out {
+                            if is_backoff_status(*s) {
+                                host_blocked.lock().unwrap().insert(
+                                    host.clone(),
+                                    std::time::Instant::now() + std::time::Duration::from_secs(20),
+                                );
+                            }
+                        }
                         *results[i].lock().unwrap() = Some(out);
                         {
                             let mut slots = host_slots.lock().unwrap();
@@ -436,14 +520,21 @@ pub fn run_ctl(ctx: &ToolContext, p: &Params, ctl: &RunCtl) -> anyhow::Result<Va
     let mut ats: BTreeMap<usize, CellValue> = BTreeMap::new();
     let mut failures: Vec<Value> = Vec::new();
     let (mut fetched, mut cached, mut cancelled) = (0usize, 0usize, 0usize);
-    let fetched_at = chrono::Utc::now().to_rfc3339();
+    let run_stamp = chrono::Utc::now().to_rfc3339();
 
     for (i, slot) in results.iter().enumerate() {
         let row = targets[i].0;
         match slot.lock().unwrap().take() {
             Some(Ok(page)) => {
                 fetched += 1;
-                if page.cached {
+                // A cache hit carries its entry's fetch time - the _at column
+                // must say how old the answer really is, not stamp it "now".
+                let fetched_at = page
+                    .fetched_at
+                    .and_then(|t| chrono::DateTime::from_timestamp(t, 0))
+                    .map(|t| t.to_rfc3339())
+                    .unwrap_or_else(|| run_stamp.clone());
+                if page.fetched_at.is_some() {
                     cached += 1;
                 }
                 let value = extract_value(
@@ -466,7 +557,7 @@ pub fn run_ctl(ctx: &ToolContext, p: &Params, ctl: &RunCtl) -> anyhow::Result<Va
                 srcs.insert(row, CellValue::String(page.final_url.clone()));
                 ats.insert(row, CellValue::String(fetched_at.clone()));
             }
-            Some(Err(e)) => failures.push(serde_json::json!({"row": row, "error": e})),
+            Some(Err(e)) => failures.push(serde_json::json!({"row": row, "error": e.to_string()})),
             None => cancelled += 1,
         }
     }
