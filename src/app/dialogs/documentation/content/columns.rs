@@ -880,8 +880,9 @@ The dialog also sets the **target column** (created when missing,
 overwritten when it exists), the **row cap**, the **cell char cap** for
 text extraction, how many **top hits** a search tries per row (with a
 pattern the first matching hit wins; candidates sharing words with the
-query are tried first), the **provenance columns** toggle, and **Ignore
-cache** for a fresh pass.
+query are tried first), the **provenance columns** toggle, **Ignore
+cache** for a fresh pass, and **Only fill empty cells** so a re-run
+tops up the gaps without re-fetching reviewed values.
 
 Rows are processed in the order you see them: a sorted or filtered view
 means the cap picks up the first visible rows and rows the filter hid

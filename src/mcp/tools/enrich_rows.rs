@@ -34,7 +34,9 @@ and apply `pattern`/`text`/`status` extraction to it (set `pattern` for a captur
 text). `top_k` (default 1, max 5) tries that many hits: with a `pattern` the first page yielding \
 a capture wins, without one the top hit is used. `provenance` also writes `<target>_src` (the URL \
 the value actually came from) and `<target>_at` (fetch time) - keep it on for price comparisons. \
-`refresh` ignores the page cache (cached pages count as fresh for 6h). `limit` caps rows \
+`refresh` ignores the page cache (cached pages count as fresh for 6h). `only_missing` skips rows \
+whose target cell is already filled (top-up runs fill gaps without re-fetching reviewed values). \
+`limit` caps rows \
 processed (default 50, max 500); rows are taken in the user's view order (sorted/filtered - \
 filtered-out rows are skipped; storage order only when no view exists). Every written cell lands in the \
 edit audit trail for review - the user still saves to persist. Only works in the in-GUI assistant \
@@ -89,6 +91,11 @@ pub struct Params {
     /// top hit is used. Default 1, hard cap 5.
     #[serde(default)]
     pub top_k: Option<usize>,
+    /// When the target column already exists, skip rows whose target cell is
+    /// non-empty - a re-run then fills only the gaps (failed or new rows)
+    /// instead of re-fetching and overwriting everything. Default false.
+    #[serde(default)]
+    pub only_missing: bool,
 }
 
 #[derive(Debug, Default, Clone, Copy, Deserialize, schemars::JsonSchema)]
@@ -383,6 +390,13 @@ pub fn run_ctl(ctx: &ToolContext, p: &Params, ctl: &RunCtl) -> anyhow::Result<Va
     // snapshot carries the user's view order (sorted/filtered), "the first
     // N rows" means the first N *visible* rows and filtered-out rows are
     // skipped; indices stay storage indices so writes cannot drift.
+    // `only_missing`: rows with a filled target cell are already answered -
+    // a top-up run must not re-fetch or overwrite them.
+    let target_col_idx = if p.only_missing {
+        table.columns.iter().position(|c| c.name == p.target_column)
+    } else {
+        None
+    };
     let view: Vec<usize> = snap.view_rows.clone().unwrap_or_else(|| (0..n).collect());
     let mut targets: Vec<(usize, String)> = Vec::new();
     let mut scanned = 0usize;
@@ -393,7 +407,16 @@ pub fn run_ctl(ctx: &ToolContext, p: &Params, ctl: &RunCtl) -> anyhow::Result<Va
         if targets.len() >= limit {
             break;
         }
-        scanned = row + 1;
+        scanned += 1;
+        if let Some(t) = target_col_idx {
+            let filled = table
+                .get(row, t)
+                .map(|c| !matches!(c, CellValue::Null) && !c.to_string().trim().is_empty())
+                .unwrap_or(false);
+            if filled {
+                continue;
+            }
+        }
         let text = table
             .get(row, url_col)
             .map(|c| c.to_string())

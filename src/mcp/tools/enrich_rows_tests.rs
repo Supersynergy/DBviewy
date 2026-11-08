@@ -52,6 +52,7 @@ fn params(extract: Extract, pattern: Option<&str>) -> Params {
         cell_chars: None,
         provenance: false,
         refresh: false,
+        only_missing: false,
         top_k: None,
     }
 }
@@ -312,6 +313,62 @@ fn backoff_statuses_and_error_display() {
     assert!(!is_backoff_status(200));
     assert_eq!(ResolveFail::Http(429).to_string(), "HTTP 429");
     assert_eq!(ResolveFail::Other("boom".into()).to_string(), "boom");
+}
+
+#[test]
+fn only_missing_skips_filled_target_cells() {
+    let mut ctx = ctx_with_tab(true);
+    // Give every row a `live` target cell: row 0 already holds an answer
+    // (and a URL), so `only_missing` must leave it untouched; the other
+    // rows hold no URLs and never become targets either way.
+    ctx.open_tabs[0].table.columns.push(ColumnInfo {
+        name: "live".into(),
+        data_type: "String".into(),
+    });
+    ctx.open_tabs[0].table.rows[0].push(CellValue::String("200".into()));
+    ctx.open_tabs[0].table.rows[1].push(CellValue::Null);
+    ctx.open_tabs[0].table.rows[2].push(CellValue::Null);
+    let p = Params {
+        only_missing: true,
+        ..params(Extract::Status, None)
+    };
+    let out = run(&ctx, &p).unwrap();
+    assert_eq!(out["pages_fetched"].as_u64().unwrap_or(1), 0);
+    // Nothing was queued at all: row 0's filled cell is untouchable, the
+    // rest has no URL - so no op may exist.
+    assert!(
+        ctx.pending_tab_edits
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn only_missing_off_still_processes() {
+    // Control: the same fixture without only_missing must actually try row
+    // 0 (its URL), so the skip above is the flag's doing, not a dead input.
+    let mut ctx = ctx_with_tab(true);
+    ctx.open_tabs[0].table.columns.push(ColumnInfo {
+        name: "live".into(),
+        data_type: "String".into(),
+    });
+    for r in &mut ctx.open_tabs[0].table.rows {
+        r.push(CellValue::Null);
+    }
+    ctx.open_tabs[0].table.rows[0][2] = CellValue::String("200".into());
+    let p = params(Extract::Status, None);
+    let out = run(&ctx, &p).unwrap();
+    // Row 0 became a target: either it fetched or it failed - the point is
+    // it was not silently skipped.
+    let touched = out["pages_fetched"].as_u64().unwrap_or(0)
+        + out["failures"]
+            .as_array()
+            .map(|a| a.len() as u64)
+            .unwrap_or(0);
+    assert!(touched > 0);
 }
 
 #[test]

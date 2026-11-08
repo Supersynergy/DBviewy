@@ -54,6 +54,8 @@ pub(crate) struct EnrichDialogState {
     pub provenance: bool,
     /// Ignore the six-hour page cache.
     pub refresh: bool,
+    /// Skip rows whose target cell is already filled (top-up runs).
+    pub only_missing: bool,
     /// Last validation complaint shown inside the dialog.
     pub error: Option<String>,
 }
@@ -108,6 +110,7 @@ impl OctaApp {
             cell_chars_buf: "500".to_string(),
             provenance: true,
             refresh: false,
+            only_missing: false,
             error: None,
         });
     }
@@ -201,6 +204,7 @@ impl OctaApp {
             cell_chars,
             provenance: dlg.provenance,
             refresh: dlg.refresh,
+            only_missing: dlg.only_missing,
             top_k,
         };
         self.enrich_run = Some(run);

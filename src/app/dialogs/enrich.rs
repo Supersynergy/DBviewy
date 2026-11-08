@@ -160,6 +160,11 @@ pub(crate) fn render_enrich_dialog(app: &mut OctaApp, ctx: &egui::Context) {
             .on_hover_text(octa::i18n::t("enrich_dialog.provenance_hint"));
             ui.checkbox(&mut dlg.refresh, octa::i18n::t("enrich_dialog.refresh"))
                 .on_hover_text(octa::i18n::t("enrich_dialog.refresh_hint"));
+            ui.checkbox(
+                &mut dlg.only_missing,
+                octa::i18n::t("enrich_dialog.only_missing"),
+            )
+            .on_hover_text(octa::i18n::t("enrich_dialog.only_missing_hint"));
 
             if let Some(err) = &dlg.error {
                 ui.add_space(6.0);
