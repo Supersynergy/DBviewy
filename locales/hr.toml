@@ -896,6 +896,7 @@ purple = "Ljubičasta"
 current = "trenutna"
 
 [status_bar]
+enrich_running = "Obogaćivanje s weba... {done}/{total}"
 readonly = "[Samo čitanje]"
 file = "Datoteka:"
 rows = "redaka"

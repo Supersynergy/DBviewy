@@ -899,6 +899,7 @@ purple = "Violet"
 current = "actuel"
 
 [status_bar]
+enrich_running = "Enrichissement depuis le web... {done}/{total}"
 readonly = "[Lecture seule]"
 file = "Fichier :"
 rows = "lignes"

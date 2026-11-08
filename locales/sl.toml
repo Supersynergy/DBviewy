@@ -896,6 +896,7 @@ purple = "Vijolična"
 current = "trenutna"
 
 [status_bar]
+enrich_running = "Obogatjevanje iz spleta... {done}/{total}"
 readonly = "[Samo branje]"
 file = "Datoteka:"
 rows = "vrstic"

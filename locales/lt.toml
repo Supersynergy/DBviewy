@@ -896,6 +896,7 @@ purple = "Violetinė"
 current = "dabartinė"
 
 [status_bar]
+enrich_running = "Praturtinama iš žiniatinklio... {done}/{total}"
 readonly = "[Tik skaitymas]"
 file = "Failas:"
 rows = "eilutės"

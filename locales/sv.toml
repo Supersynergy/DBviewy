@@ -899,6 +899,7 @@ purple = "Lila"
 current = "aktuell"
 
 [status_bar]
+enrich_running = "Berikar från webben... {done}/{total}"
 readonly = "[Skrivskyddad]"
 file = "Fil:"
 rows = "rader"

@@ -900,6 +900,7 @@ purple = "Lila"
 current = "jelenlegi"
 
 [status_bar]
+enrich_running = "Dúsítás a webről... {done}/{total}"
 readonly = "[Csak olvasható]"
 file = "Fájl:"
 rows = "sor"

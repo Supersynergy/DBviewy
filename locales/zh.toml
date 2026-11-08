@@ -889,6 +889,7 @@ purple = "紫色"
 current = "当前"
 
 [status_bar]
+enrich_running = "正在从网络中丰富... {done}/{total}"
 readonly = "[只读]"
 file = "文件："
 rows = "行"

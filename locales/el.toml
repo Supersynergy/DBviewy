@@ -889,6 +889,7 @@ purple = "Μωβ"
 current = "τρέχον"
 
 [status_bar]
+enrich_running = "Εμπλουτισμός από τον ιστό... {done}/{total}"
 readonly = "[Μόνο ανάγνωση]"
 file = "Αρχείο:"
 rows = "γραμμές"

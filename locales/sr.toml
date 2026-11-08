@@ -896,6 +896,7 @@ purple = "Љубичаста"
 current = "тренутна"
 
 [status_bar]
+enrich_running = "Обогаћивање са веба... {done}/{total}"
 readonly = "[Само читање]"
 file = "Датотека:"
 rows = "редова"

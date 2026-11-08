@@ -896,6 +896,7 @@ purple = "Лилав"
 current = "текущ"
 
 [status_bar]
+enrich_running = "Обогатяване от мрежата... {done}/{total}"
 readonly = "[Само четене]"
 file = "Файл:"
 rows = "редове"

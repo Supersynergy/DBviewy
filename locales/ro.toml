@@ -900,6 +900,7 @@ purple = "Mov"
 current = "curent"
 
 [status_bar]
+enrich_running = "Îmbogățire din web... {done}/{total}"
 readonly = "[Doar-citire]"
 file = "Fișier:"
 rows = "rânduri"

@@ -889,6 +889,7 @@ purple = "紫"
 current = "現在"
 
 [status_bar]
+enrich_running = "ウェブからエンリッチ中... {done}/{total}"
 readonly = "[読み取り専用]"
 file = "ファイル:"
 rows = "行"

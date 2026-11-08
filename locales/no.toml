@@ -899,6 +899,7 @@ purple = "Lilla"
 current = "gjeldende"
 
 [status_bar]
+enrich_running = "Beriker fra nettet... {done}/{total}"
 readonly = "[Skrivebeskyttet]"
 file = "Fil:"
 rows = "rader"

@@ -899,6 +899,7 @@ purple = "Morado"
 current = "actual"
 
 [status_bar]
+enrich_running = "Enriqueciendo desde la web... {done}/{total}"
 readonly = "[Solo lectura]"
 file = "Archivo:"
 rows = "filas"

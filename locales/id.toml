@@ -900,6 +900,7 @@ purple = "Ungu"
 current = "saat ini"
 
 [status_bar]
+enrich_running = "Memperkaya dari web... {done}/{total}"
 readonly = "[Hanya-baca]"
 file = "Berkas:"
 rows = "baris"

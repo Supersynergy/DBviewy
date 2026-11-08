@@ -889,6 +889,7 @@ purple = "보라"
 current = "현재"
 
 [status_bar]
+enrich_running = "웹에서 보강 중... {done}/{total}"
 readonly = "[읽기 전용]"
 file = "파일:"
 rows = "행"

@@ -889,6 +889,7 @@ purple = "Фиолетовый"
 current = "текущий"
 
 [status_bar]
+enrich_running = "Обогащение из веба... {done}/{total}"
 readonly = "[Только чтение]"
 file = "Файл:"
 rows = "строк"

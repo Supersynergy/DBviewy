@@ -884,6 +884,9 @@ pub(crate) struct OctaApp {
     /// Drained on the UI thread once per frame - a worker can never touch
     /// `status_message` directly.
     pub(crate) pending_status_msgs: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    /// A live "Enrich from web" run: the status bar reads its progress and
+    /// offers Cancel while it is `Some`. Set to `None` when finished.
+    pub(crate) enrich_run: Option<crate::app::enrich::EnrichRun>,
     /// Zoom level in percent (100 = default, steps of 5).
     pub(crate) zoom_percent: u32,
     /// Status bar navigation input buffer.

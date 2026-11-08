@@ -896,6 +896,7 @@ purple = "Purple"
 current = "current"
 
 [status_bar]
+enrich_running = "Enriching from the web... {done}/{total}"
 readonly = "[Read-only]"
 file = "File:"
 rows = "rows"

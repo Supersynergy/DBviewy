@@ -138,6 +138,15 @@ impl eframe::App for OctaApp {
         if self.union_progress.is_some() {
             ctx.request_repaint();
         }
+        // A live enrich run repaints so its status-bar fraction ticks, and
+        // is dropped once the worker reports done.
+        match &self.enrich_run {
+            Some(run) if run.finished.load(std::sync::atomic::Ordering::Relaxed) => {
+                self.enrich_run = None;
+            }
+            Some(_) => ctx.request_repaint(),
+            None => {}
+        }
         self.drain_instance_handover(&ctx);
         self.drain_pending_open_queue();
         self.drain_pending_tab_edits();

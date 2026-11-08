@@ -896,6 +896,7 @@ purple = "Lilla"
 current = "praegune"
 
 [status_bar]
+enrich_running = "Veebis riigastamine... {done}/{total}"
 readonly = "[Ainult lugemine]"
 file = "Fail:"
 rows = "read"

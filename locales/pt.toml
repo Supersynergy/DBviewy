@@ -899,6 +899,7 @@ purple = "Roxo"
 current = "atual"
 
 [status_bar]
+enrich_running = "A enriquecer da web... {done}/{total}"
 readonly = "[Somente leitura]"
 file = "Arquivo:"
 rows = "linhas"

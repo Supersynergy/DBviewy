@@ -896,6 +896,7 @@ purple = "Violets"
 current = "pašreizējā"
 
 [status_bar]
+enrich_running = "Bagātināšana no tīmekļa... {done}/{total}"
 readonly = "[Tikai lasīšana]"
 file = "Fails:"
 rows = "rindas"

@@ -900,6 +900,7 @@ purple = "Fialová"
 current = "aktuální"
 
 [status_bar]
+enrich_running = "Obohacování z webu... {done}/{total}"
 readonly = "[Jen pro čtení]"
 file = "Soubor:"
 rows = "řádků"

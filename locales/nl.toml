@@ -899,6 +899,7 @@ purple = "Paars"
 current = "huidig"
 
 [status_bar]
+enrich_running = "Verrijken vanaf web... {done}/{total}"
 readonly = "[Alleen-lezen]"
 file = "Bestand:"
 rows = "rijen"

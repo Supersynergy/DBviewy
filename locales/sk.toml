@@ -896,6 +896,7 @@ purple = "Fialová"
 current = "aktuálna"
 
 [status_bar]
+enrich_running = "Obohacovanie z webu... {done}/{total}"
 readonly = "[Iba na čítanie]"
 file = "Súbor:"
 rows = "riadkov"

@@ -899,6 +899,7 @@ purple = "Violetti"
 current = "nykyinen"
 
 [status_bar]
+enrich_running = "Rikastetaan verkosta... {done}/{total}"
 readonly = "[Vain luku]"
 file = "Tiedosto:"
 rows = "riviä"

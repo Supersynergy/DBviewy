@@ -26,7 +26,17 @@ impl OctaApp {
         // reads as "something is being installed behind my back".
         let update_checking = matches!(*self.update_state.lock().unwrap(), UpdateState::Checking);
         let update_busy = matches!(*self.update_state.lock().unwrap(), UpdateState::Updating);
-        if let Some(job) = self.busy_db_job() {
+        if let Some(run) = &self.enrich_run {
+            // The user's own right-click action wins the hint: its progress
+            // fraction is the answer to "is it still running".
+            let done = run.progress.load(std::sync::atomic::Ordering::Relaxed);
+            let total = run.total.load(std::sync::atomic::Ordering::Relaxed);
+            Some(
+                octa::i18n::t("status_bar.enrich_running")
+                    .replace("{done}", &done.to_string())
+                    .replace("{total}", &total.to_string()),
+            )
+        } else if let Some(job) = self.busy_db_job() {
             Some(job.hint.clone())
         } else if let Some(progress) = self.union_progress.as_ref() {
             // Union: cloud listing/download and the local read phase all
@@ -86,8 +96,12 @@ impl OctaApp {
         // connector hands out a thread-safe cancel closure for it. The button
         // waits for that closure rather than appearing with the spinner, so
         // it is never shown while connecting, nor at all on Oracle, which has
-        // no cancel to give.
-        let db_load_cancellable = self.busy_db_job().is_some_and(|j| j.can_cancel());
+        // no cancel to give. Enrich wins the hint when both run, so it also
+        // wins the cancel: the button always stops the job the spinner is
+        // describing.
+        let db_load_cancellable =
+            self.enrich_run.is_none() && self.busy_db_job().is_some_and(|j| j.can_cancel());
+        let busy_cancellable = db_load_cancellable || self.enrich_run.is_some();
         let busy_hint = self.status_busy_hint();
         let busy = busy_hint.is_some();
 
@@ -122,7 +136,7 @@ impl OctaApp {
                         readonly,
                         busy,
                         busy_hint: busy_hint.as_deref(),
-                        busy_cancellable: db_load_cancellable,
+                        busy_cancellable,
                         column_filter_count,
                         first_filtered_col,
                         selected_rows: &selected_rows,
@@ -134,7 +148,11 @@ impl OctaApp {
             .inner;
 
         if status_action.cancel_busy {
-            self.cancel_db_load();
+            if self.enrich_run.is_some() {
+                self.cancel_enrich();
+            } else {
+                self.cancel_db_load();
+            }
         }
 
         if let Some(percent) = status_action.zoom_to {

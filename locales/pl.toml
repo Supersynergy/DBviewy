@@ -899,6 +899,7 @@ purple = "Fioletowy"
 current = "bieżący"
 
 [status_bar]
+enrich_running = "Wzbogacanie z internetu... {done}/{total}"
 readonly = "[Tylko do odczytu]"
 file = "Plik:"
 rows = "wierszy"

@@ -899,6 +899,7 @@ purple = "Mor"
 current = "geçerli"
 
 [status_bar]
+enrich_running = "Web'den zenginleştiriliyor... {done}/{total}"
 readonly = "[Salt okunur]"
 file = "Dosya:"
 rows = "satır"

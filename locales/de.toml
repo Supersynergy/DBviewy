@@ -899,6 +899,7 @@ purple = "Lila"
 current = "aktuell"
 
 [status_bar]
+enrich_running = "Anreichern aus dem Web... {done}/{total}"
 readonly = "[Schreibgeschützt]"
 file = "Datei:"
 rows = "Zeilen"
