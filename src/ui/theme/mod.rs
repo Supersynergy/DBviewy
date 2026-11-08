@@ -466,6 +466,19 @@ fn primary_family(font: &FontSettings) -> FontFamily {
     }
 }
 
+/// True when `bytes` start with an sfnt signature a TTF/OTF parser accepts
+/// (TrueType, CFF/OpenType "OTTO", legacy "true", or a collection "ttcf").
+/// Anything else must never reach epaint: it panics inside font parsing and
+/// the unwind hits a non-unwinding boundary, taking the whole app down. The
+/// classic offender is a Git LFS pointer file left where the real binary
+/// belongs - its ASCII payload starts with "vers", not a font signature.
+fn looks_like_font(bytes: &[u8]) -> bool {
+    matches!(
+        bytes.get(..4),
+        Some(b"\x00\x01\x00\x00") | Some(b"OTTO") | Some(b"true") | Some(b"ttcf")
+    )
+}
+
 /// Register fonts. Called every time `apply_theme` runs (settings/zoom
 /// changes), but egui caches by content hash so repeats are cheap.
 fn apply_fonts(ctx: &egui::Context, font: &FontSettings) {
@@ -473,49 +486,67 @@ fn apply_fonts(ctx: &egui::Context, font: &FontSettings) {
     if let Some(path) = font.custom_path.filter(|p| !p.is_empty())
         && let Ok(bytes) = std::fs::read(path)
     {
-        defs.font_data
-            .insert("custom".into(), Arc::new(FontData::from_owned(bytes)));
-        // Custom font becomes a named family that style maps to Body.
-        defs.families
-            .insert(FontFamily::Name(Arc::from("custom")), vec!["custom".into()]);
+        if looks_like_font(&bytes) {
+            defs.font_data
+                .insert("custom".into(), Arc::new(FontData::from_owned(bytes)));
+            // Custom font becomes a named family that style maps to Body.
+            defs.families
+                .insert(FontFamily::Name(Arc::from("custom")), vec!["custom".into()]);
+        } else {
+            tracing::warn!("custom font {path} is not a TTF/OTF file - ignoring it");
+        }
     }
     // Bundled bold face used by the markdown preview renderer for `**text**`.
     // egui's default fonts don't include a bold variant, so `RichText::strong()`
     // only tweaks color - the markdown renderer needs a real bold glyph set
     // to show weight contrast.
-    defs.font_data.insert(
-        "bold".into(),
-        Arc::new(FontData::from_static(crate::fonts::ROBOTO_BOLD)),
-    );
-    defs.families
-        .insert(FontFamily::Name(Arc::from("bold")), vec!["bold".into()]);
+    if looks_like_font(crate::fonts::ROBOTO_BOLD) {
+        defs.font_data.insert(
+            "bold".into(),
+            Arc::new(FontData::from_static(crate::fonts::ROBOTO_BOLD)),
+        );
+        defs.families
+            .insert(FontFamily::Name(Arc::from("bold")), vec!["bold".into()]);
+    } else {
+        tracing::warn!("bundled Roboto-Bold.ttf is not a font (Git LFS pointer?) - skipping");
+    }
 
     // Bundled Roboto Medium becomes the **default proportional** face - it sits
     // between the upstream Ubuntu-Light (too thin for readability on bars / tabs
     // / column headers / docs) and Roboto-Bold (which reads as too heavy for
     // body prose). Apache-2.0, attributed in `licenses/Apache-2.0.txt`.
-    defs.font_data.insert(
-        "medium".into(),
-        Arc::new(FontData::from_static(crate::fonts::ROBOTO_MEDIUM)),
-    );
-    if let Some(prop) = defs.families.get_mut(&FontFamily::Proportional) {
-        prop.insert(0, "medium".into());
+    if looks_like_font(crate::fonts::ROBOTO_MEDIUM) {
+        defs.font_data.insert(
+            "medium".into(),
+            Arc::new(FontData::from_static(crate::fonts::ROBOTO_MEDIUM)),
+        );
+        if let Some(prop) = defs.families.get_mut(&FontFamily::Proportional) {
+            prop.insert(0, "medium".into());
+        } else {
+            defs.families
+                .insert(FontFamily::Proportional, vec!["medium".into()]);
+        }
     } else {
-        defs.families
-            .insert(FontFamily::Proportional, vec!["medium".into()]);
+        tracing::warn!("bundled Roboto-Medium.ttf is not a font (Git LFS pointer?) - skipping");
     }
 
     // Bundled JetBrains Mono Regular - opt-in family for the SQL editor and
     // any other monospace-heavy view that the user can switch on in Settings.
     // OFL-1.1, attributed in `licenses/OFL-1.1.txt`.
-    defs.font_data.insert(
-        "sql_mono".into(),
-        Arc::new(FontData::from_static(crate::fonts::JETBRAINS_MONO)),
-    );
-    defs.families.insert(
-        FontFamily::Name(Arc::from("sql_mono")),
-        vec!["sql_mono".into()],
-    );
+    if looks_like_font(crate::fonts::JETBRAINS_MONO) {
+        defs.font_data.insert(
+            "sql_mono".into(),
+            Arc::new(FontData::from_static(crate::fonts::JETBRAINS_MONO)),
+        );
+        defs.families.insert(
+            FontFamily::Name(Arc::from("sql_mono")),
+            vec!["sql_mono".into()],
+        );
+    } else {
+        tracing::warn!(
+            "bundled JetBrainsMono-Regular.ttf is not a font (Git LFS pointer?) - skipping"
+        );
+    }
 
     // Broad Unicode fallback faces so non-Latin data (CJK ideographs, Japanese
     // kana, Korean hangul) and miscellaneous symbols render instead of tofu
@@ -526,26 +557,43 @@ fn apply_fonts(ctx: &egui::Context, font: &FontSettings) {
     // to keep it ~6.5 MB instead of 16 MB; ab_glyph reads its CFF outlines via
     // ttf-parser. Rare CJK Ext-A/B, colour emoji, and full RTL shaping are out
     // of scope - egui renders monochrome glyphs only.
-    defs.font_data.insert(
-        "cjk".into(),
-        Arc::new(FontData::from_static(crate::fonts::NOTO_CJK_SUBSET)),
-    );
-    defs.font_data.insert(
-        "symbols".into(),
-        Arc::new(FontData::from_static(crate::fonts::NOTO_SYMBOLS2)),
-    );
+    if looks_like_font(crate::fonts::NOTO_CJK_SUBSET) {
+        defs.font_data.insert(
+            "cjk".into(),
+            Arc::new(FontData::from_static(crate::fonts::NOTO_CJK_SUBSET)),
+        );
+    } else {
+        tracing::warn!(
+            "bundled NotoSansCJK-subset.otf is not a font (Git LFS pointer?) - skipping"
+        );
+    }
+    if looks_like_font(crate::fonts::NOTO_SYMBOLS2) {
+        defs.font_data.insert(
+            "symbols".into(),
+            Arc::new(FontData::from_static(crate::fonts::NOTO_SYMBOLS2)),
+        );
+    } else {
+        tracing::warn!(
+            "bundled NotoSansSymbols2-Regular.ttf is not a font (Git LFS pointer?) - skipping"
+        );
+    }
     // The bundled monospace face is Latin-only, and neither the CJK nor the
     // symbols face covers Greek or Cyrillic. Append Roboto Medium to the
     // monospace fallback chain so localized monospace text (e.g. Greek /
     // Russian in the SQL editor or gutter) renders instead of tofu - it only
     // fills glyphs the mono face lacks, so ASCII stays monospaced.
-    if let Some(mono) = defs.families.get_mut(&FontFamily::Monospace) {
+    if defs.font_data.contains_key("medium")
+        && let Some(mono) = defs.families.get_mut(&FontFamily::Monospace)
+    {
         mono.push("medium".into());
     }
     for family in [FontFamily::Proportional, FontFamily::Monospace] {
         let fam = defs.families.entry(family).or_default();
-        fam.push("cjk".into());
-        fam.push("symbols".into());
+        for face in ["cjk", "symbols"] {
+            if defs.font_data.contains_key(face) {
+                fam.push(face.into());
+            }
+        }
     }
 
     ctx.set_fonts(defs);

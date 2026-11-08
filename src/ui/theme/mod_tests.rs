@@ -80,3 +80,28 @@ fn deep_sea_contrast_raises_windows_off_the_panel() {
     assert_ne!(contrast.window_fill, contrast.panel_fill);
     assert_eq!(contrast.panel_fill, plain.panel_fill);
 }
+
+/// A Git LFS pointer file (or any non-font bytes) must be rejected before
+/// it reaches epaint - parsing it there aborts the whole app.
+#[test]
+fn looks_like_font_rejects_lfs_pointers_and_accepts_sfnt() {
+    let lfs = b"version https://git-lfs.github.com/spec/v1\n";
+    assert!(!looks_like_font(lfs));
+    assert!(!looks_like_font(b""));
+    assert!(!looks_like_font(b"<htm"));
+    assert!(looks_like_font(b"\x00\x01\x00\x00rest of a ttf"));
+    assert!(looks_like_font(b"OTTOcff"));
+    assert!(looks_like_font(b"truettf"));
+    assert!(looks_like_font(b"ttcf0000"));
+    // The bundled faces must all pass - a regression here would ship an
+    // app that aborts on first paint.
+    for face in [
+        crate::fonts::ROBOTO_BOLD,
+        crate::fonts::ROBOTO_MEDIUM,
+        crate::fonts::JETBRAINS_MONO,
+        crate::fonts::NOTO_CJK_SUBSET,
+        crate::fonts::NOTO_SYMBOLS2,
+    ] {
+        assert!(looks_like_font(face));
+    }
+}
