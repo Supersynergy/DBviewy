@@ -61,7 +61,9 @@ impl ToolGroup {
     /// `enable_tools` menu and to the user above the group in Settings.
     pub fn summary(self) -> &'static str {
         match self {
-            ToolGroup::Core => "reading, describing, searching and SQL over what is open",
+            ToolGroup::Core => {
+                "reading, describing, searching, SQL and web fetches over what is open"
+            }
             ToolGroup::Quality => "duplicates, outliers, PII, rules and correlations",
             ToolGroup::Compare => "schemas, row-level differences and drift between two sources",
             ToolGroup::Combine => "unions, joins, join keys and reconciling column names",
@@ -184,6 +186,11 @@ pub static CATALOG: &[ToolEntry] = &[
         "grep_files",
         Core,
         "Searching many files at once for a pattern.",
+    ),
+    e(
+        "web_fetch",
+        Core,
+        "Reading a web page or HTTP endpoint the data links to.",
     ),
     // --- quality -----------------------------------------------------------
     e("find_duplicates", Quality, "Exact duplicate rows or keys."),

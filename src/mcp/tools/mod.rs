@@ -77,6 +77,7 @@ pub mod unique_columns;
 pub mod validate_schema;
 pub mod value_frequency;
 pub mod value_shapes;
+pub mod web_fetch;
 pub mod write_db_table;
 pub mod write_table;
 /// Chat-only (rendered from chat dispatch, not registered with the MCP server).

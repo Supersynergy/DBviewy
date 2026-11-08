@@ -575,6 +575,20 @@ Returns `hits` as `{row, col, column_name, snippet}` objects plus `hit_count` an
     }
 
     #[tool(
+        description = "Fetch an http(s) URL and return its content as text. HTML pages are \
+converted to readable plain text (scripts, styles and tags dropped); pass `raw: true` to keep \
+the body verbatim. `max_chars` caps the returned text (default 60000). Returns `{url, \
+final_url, status, content_type, char_count, truncated, text}`. Use it to read a product page, \
+a listing, or an HTTP endpoint a cell links to."
+    )]
+    async fn web_fetch(
+        &self,
+        Parameters(p): Parameters<tools::web_fetch::Params>,
+    ) -> Result<CallToolResult, McpError> {
+        tools::web_fetch::handle(self, p).await
+    }
+
+    #[tool(
         description = "Compare the column schemas of two tabular files. Reads each file's \
 column metadata only (no row data) and returns the four-way diff: `common` (columns with \
 matching name and type), `only_in_a`, `only_in_b`, and `type_mismatches` (same column name, \

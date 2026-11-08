@@ -122,8 +122,8 @@ individual tool names, comma-separated:
     octa --mcp --mcp-tools core --mcp-without run_sql
 
 The groups are `core` (reading, schemas, counting, search, profiling,
-SQL), `quality`, `compare`, `combine`, `reshape`, `databases`, `cloud`
-and `write`. A tool that is not advertised is not callable either. An
+SQL, web fetches), `quality`, `compare`, `combine`, `reshape`,
+`databases`, `cloud` and `write`. A tool that is not advertised is not callable either. An
 unrecognised name stops the server rather than starting one with a
 surface you did not intend.
 

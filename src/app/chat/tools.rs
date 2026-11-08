@@ -287,6 +287,7 @@ define_chat_tools! {
     "compare_distributions"    => compare_distributions,
     "check_references"         => check_references,
     "grep_files"               => grep_files,
+    "web_fetch"                => web_fetch,
     "list_objects"             => list_objects,
     "copy_object"              => copy_object,
     "move_object"              => move_object,
