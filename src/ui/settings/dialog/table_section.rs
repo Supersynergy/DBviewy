@@ -157,6 +157,23 @@ impl SettingsDialog {
                         .on_hover_text(crate::i18n::t("settings_hint.clickable_links"));
                     ui.end_row();
 
+                    ui.label(crate::i18n::t("settings.image_thumbnails"))
+                        .on_hover_text(crate::i18n::t("settings_hint.image_thumbnails"));
+                    egui::ComboBox::from_id_salt("image_thumbnails_combo")
+                        .selected_text(self.draft.image_thumbnails.label_t())
+                        .show_ui(ui, |ui| {
+                            for &size in ImageThumbSize::ALL.iter() {
+                                ui.selectable_value(
+                                    &mut self.draft.image_thumbnails,
+                                    size,
+                                    size.label_t(),
+                                );
+                            }
+                        })
+                        .response
+                        .on_hover_text(crate::i18n::t("settings_hint.image_thumbnails"));
+                    ui.end_row();
+
                     ui.label(crate::i18n::t("settings.binary_display"))
                         .on_hover_text(crate::i18n::t("settings_hint.binary_display"));
                     egui::ComboBox::from_id_salt("binary_display_combo")

@@ -349,6 +349,11 @@ impl OctaApp {
             self.open_binary_viewer(row, col);
         }
 
+        // --- Image viewer (cell right-click "View image", thumbnail click) ---
+        if let Some((row, col)) = interaction.ctx_view_image {
+            self.open_image_viewer(row, col);
+        }
+
         // --- Use as header row (cell / row-number right-click) ---
         if let Some((first, last)) = interaction.ctx_use_header_rows {
             self.apply_header_rows(first, last);

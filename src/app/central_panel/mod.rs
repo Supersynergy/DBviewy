@@ -48,6 +48,10 @@ impl OctaApp {
             // text read back into the table dirties it.
             self.tabs[self.active_tab].sync_views(&self.registry, &self.settings.write_options);
 
+            // Remote pictures land on worker threads; collect whatever
+            // finished so thumbnails and the image viewer see them.
+            self.image_cache.drain(ctx);
+
             // Recompute filter before drawing (toolbar actions earlier in the
             // frame may have dirtied it).
             if self.tabs[self.active_tab].filter_dirty {

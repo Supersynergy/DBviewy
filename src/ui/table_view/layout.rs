@@ -153,6 +153,10 @@ pub(super) struct RowHeightOpts {
     /// Cell line breaks. With them off every unadjusted row is exactly
     /// `base_row_height`, so no measuring pass is needed at all.
     pub(super) wrap: bool,
+    /// Thumbnail edge in pixels for cells holding an image URL, `0` = off.
+    /// Rows containing one grow to fit it, which is why the measuring pass
+    /// also runs when this is non-zero and `wrap` is off.
+    pub(super) image_thumb_px: u32,
 }
 
 /// Keep the prefix sums of row heights current, measuring only the rows on
@@ -186,7 +190,7 @@ pub(super) fn ensure_row_y_offsets(
         state.row_y_offsets.resize(filtered_rows.len() + 1, 0.0);
         refresh_offsets(state, filtered_rows, opts.base_row_height);
     }
-    if !opts.wrap {
+    if !opts.wrap && opts.image_thumb_px == 0 {
         return;
     }
     let first = row_at_offset(&state.row_y_offsets, state.scroll_y);
@@ -206,15 +210,7 @@ pub(super) fn ensure_row_y_offsets(
         {
             anchor.get_or_insert(idx);
         } else {
-            let h = compute_row_height(
-                ui,
-                table,
-                actual,
-                &state.col_widths,
-                opts.font_size,
-                opts.base_row_height,
-                opts.binary_display_mode,
-            );
+            let h = compute_row_height(ui, table, actual, &state.col_widths, opts);
             state.measured_heights[actual] = h;
             if h != opts.base_row_height {
                 grown.push((idx, h - opts.base_row_height));
@@ -266,29 +262,41 @@ fn refresh_offsets(state: &mut TableViewState, filtered_rows: &[usize], base_row
 }
 
 /// Compute the height of a row by measuring wrapped text in each cell.
+/// `opts.wrap` gates the text measurement (only when cell line breaks are
+/// on); `opts.image_thumb_px` adds the thumbnail height for cells holding
+/// an image URL, so image rows can be taller without turning on wrapping.
 pub(super) fn compute_row_height(
     ui: &Ui,
     table: &DataTable,
     actual_row: usize,
     col_widths: &[f32],
-    font_size: f32,
-    base_row_height: f32,
-    binary_display_mode: BinaryDisplayMode,
+    opts: RowHeightOpts,
 ) -> f32 {
-    let mut max_height = base_row_height;
-    let font_id = egui::FontId::new(font_size, egui::FontFamily::Monospace);
+    let mut max_height = opts.base_row_height;
+    let font_id = egui::FontId::new(opts.font_size, egui::FontFamily::Monospace);
     for col_idx in 0..table.col_count() {
         if let Some(value) = table.get(actual_row, col_idx) {
-            let text = value.display_with_binary_mode(binary_display_mode);
-            let col_width = col_widths
-                .get(col_idx)
-                .copied()
-                .unwrap_or(DEFAULT_COL_WIDTH);
-            let wrap_width = (col_width - 12.0).max(20.0); // account for cell padding
-            let galley =
-                ui.fonts_mut(|f| f.layout(text, font_id.clone(), egui::Color32::WHITE, wrap_width));
-            let text_height = galley.size().y + 4.0; // small vertical padding
-            max_height = max_height.max(text_height);
+            let text = value.display_with_binary_mode(opts.binary_display_mode);
+            if opts.wrap {
+                let col_width = col_widths
+                    .get(col_idx)
+                    .copied()
+                    .unwrap_or(DEFAULT_COL_WIDTH);
+                let wrap_width = (col_width - 12.0).max(20.0); // account for cell padding
+                let galley = ui.fonts_mut(|f| {
+                    f.layout(
+                        text.clone(),
+                        font_id.clone(),
+                        egui::Color32::WHITE,
+                        wrap_width,
+                    )
+                });
+                let text_height = galley.size().y + 4.0; // small vertical padding
+                max_height = max_height.max(text_height);
+            }
+            if opts.image_thumb_px > 0 && crate::data::links::detect_image_url(&text).is_some() {
+                max_height = max_height.max(opts.image_thumb_px as f32 + 8.0);
+            }
         }
     }
     max_height

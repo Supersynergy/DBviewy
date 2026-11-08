@@ -114,6 +114,7 @@ fn sections(shortcuts: &ui::shortcuts::Shortcuts) -> Vec<(&'static str, String)>
         ("View Modes", VIEW_MODES.to_string()),
         ("Record view", RECORD_VIEW.to_string()),
         ("Binary cells", BINARY_CELLS.to_string()),
+        ("Image Thumbnails", IMAGE_THUMBNAILS.to_string()),
         ("Timeline", TIMELINE_VIEW.to_string()),
         ("Compare View", COMPARE_VIEW.to_string()),
         ("EPUB reader", EPUB_VIEW.to_string()),

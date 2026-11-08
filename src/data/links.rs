@@ -38,6 +38,49 @@ pub fn detect_url(text: &str) -> Option<&str> {
     Some(trimmed)
 }
 
+/// File extensions `detect_image_url` treats as pictures. Kept to what
+/// `binary_kind::decode_image` can actually render: the `image` crate's
+/// enabled formats plus SVG, which that function draws through its own path.
+const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "svg"];
+
+/// Return the URL when `text` is a single link to an image file; otherwise
+/// `None`. Same strictness as [`detect_url`], plus an extension check on the
+/// path part so query strings and fragments do not hide it.
+pub fn detect_image_url(text: &str) -> Option<&str> {
+    let url = detect_url(text)?;
+    let path = url.split(['?', '#']).next().unwrap_or(url);
+    let file = path.rsplit('/').next().unwrap_or(path);
+    let ext = file.rsplit_once('.')?.1.to_ascii_lowercase();
+    IMAGE_EXTENSIONS.contains(&ext.as_str()).then_some(url)
+}
+
+/// Every `(row, col)` cell whose text is an image URL, in `order` row order
+/// (the filtered view) and column order. `order` holds actual table row
+/// indices; pass `(0..table.row_count()).collect()` for the unfiltered table.
+/// Used to build the image viewer's previous/next walk.
+pub fn image_cells(table: &crate::data::DataTable, order: &[usize]) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    'rows: for &row in order {
+        for col in 0..table.col_count() {
+            if let Some(v) = table.get(row, col)
+                && detect_image_url(&v.to_string()).is_some()
+            {
+                out.push((row, col));
+                if out.len() >= MAX_IMAGE_CELLS {
+                    break 'rows;
+                }
+            }
+        }
+    }
+    out
+}
+
+/// A table with more image cells than this gets a truncated walk: the viewer
+/// still opens and browses, it just stops offering "next" past the cap. The
+/// cap exists so opening the viewer on a pathological sheet cannot allocate
+/// an unbounded list.
+const MAX_IMAGE_CELLS: usize = 100_000;
+
 #[cfg(test)]
 #[path = "links_tests.rs"]
 mod tests;

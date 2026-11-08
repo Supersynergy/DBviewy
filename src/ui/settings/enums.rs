@@ -33,6 +33,46 @@ impl RefreshBehaviour {
     }
 }
 
+/// How big the thumbnail is in a cell that holds an image URL
+/// (`data::links::detect_image_url`). `Off` fetches nothing: no network
+/// traffic happens for pictures until the user turns this on or opens one
+/// in the image viewer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum ImageThumbSize {
+    /// No thumbnails and no fetching.
+    #[default]
+    Off,
+    /// 20 px square: fits a default-height row without growing it.
+    Small,
+    /// 32 px square.
+    Medium,
+    /// 48 px square.
+    Large,
+}
+
+impl ImageThumbSize {
+    pub const ALL: [Self; 4] = [Self::Off, Self::Small, Self::Medium, Self::Large];
+
+    /// Thumbnail edge in pixels, `0` when off.
+    pub fn px(self) -> u32 {
+        match self {
+            Self::Off => 0,
+            Self::Small => 20,
+            Self::Medium => 32,
+            Self::Large => 48,
+        }
+    }
+
+    pub fn label_t(self) -> String {
+        crate::i18n::t(match self {
+            Self::Off => "enum.img_off",
+            Self::Small => "enum.img_small",
+            Self::Medium => "enum.img_medium",
+            Self::Large => "enum.img_large",
+        })
+    }
+}
+
 /// Which click adds a caret in the Raw, Markdown and SQL editors
 /// (`view_modes::multi_cursor`). Ctrl is for desktops where Alt+click moves
 /// the window.

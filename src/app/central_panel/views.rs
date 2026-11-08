@@ -253,6 +253,12 @@ impl OctaApp {
             show_invisibles: self.settings.show_invisible_chars,
             shape_detail: self.settings.shape_detail,
             clickable_links: self.settings.clickable_links,
+            image_thumbs: (self.settings.image_thumbnails.px() > 0).then(|| {
+                ui::table_view::ImageThumbs {
+                    cache: &self.image_cache,
+                    px: self.settings.image_thumbnails.px(),
+                }
+            }),
             binary_display_mode: self.settings.binary_display_mode,
             welcome_logo_texture: self.welcome_logo_texture.as_ref(),
             shortcuts: &self.settings.shortcuts,
@@ -271,7 +277,9 @@ impl OctaApp {
             conditional_format_rules: &cond_format_rules,
             validation_violations: &validation_violations,
             outlier_cells: &outlier_cells,
-            handles_input: true,
+            // While the image viewer is open the arrow keys belong to it;
+            // the table stands down so the two do not fight over them.
+            handles_input: self.image_viewer.is_none(),
             // Only the split view has other panes to keep in step; it
             // overrides this per pane.
             scroll_all: false,

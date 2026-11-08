@@ -1,23 +1,6 @@
 use super::*;
 
 #[test]
-fn wide_picture_shrinks_to_the_limit() {
-    assert_eq!(fit_to_side(16000, 4000, 8192), (8192, 2048));
-    assert_eq!(fit_to_side(4000, 16000, 8192), (2048, 8192));
-}
-
-#[test]
-fn small_picture_is_untouched() {
-    assert_eq!(fit_to_side(800, 600, 8192), (800, 600));
-    assert_eq!(fit_to_side(8192, 8192, 8192), (8192, 8192));
-}
-
-#[test]
-fn thin_picture_keeps_at_least_one_pixel() {
-    assert_eq!(fit_to_side(16384, 1, 8192), (8192, 1));
-}
-
-#[test]
 fn saved_name_uses_column_row_and_extension() {
     let st = BinaryViewerState {
         size: DialogSize::Normal,

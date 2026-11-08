@@ -846,6 +846,10 @@ sqlfmt_four_spaces = "4 Leerzeichen"
 sqlfmt_tab = "Tab"
 sqlfmt_trailing = "Am Zeilenende"
 sqlfmt_leading = "Am Anfang der nächsten Zeile"
+img_off = "Aus"
+img_small = "Klein (20 px)"
+img_medium = "Mittel (32 px)"
+img_large = "Groß (48 px)"
 
 [view]
 rt_quotes = "Anführungszeichen:"
@@ -1122,6 +1126,7 @@ sec_opening = "Dateien öffnen"
 sec_saving = "Dateien speichern"
 sec_search_views = "Suche & Textansichten"
 zoom_step = "Zoom-Schritt:"
+image_thumbnails = "Bild-Thumbnails"
 
 [chart]
 trend = "Trend"
@@ -1595,6 +1600,7 @@ versions_limit_off = "Nimm den Haken bei Unbegrenzt weg, um eine Grenze zu setze
 versions_place = "Wohin die aufbewahrten Versionen kommen. Octas eigener Ordner hält sie aus dem Weg. Ein Ordner deiner Wahl nimmt die Versionen aller Dateien auf. Ein Unterordner neben der Datei ist ein Ordner .octa-versions neben jeder Datei. Direkt neben der Datei legt Kopien wie sales.20261020-140211-123.csv neben sales.csv. Neben der Datei zählt die Platzgrenze jeden Ordner für sich. Ein Wechsel verschiebt nichts: woanders aufbewahrte Versionen stehen weiter unter Frühere Versionen."
 versions_dir_choose = "Wähle den Ordner, in dem die früheren Versionen aller Dateien liegen."
 zoom_step = "Um wie viel ein Zoom-Schritt die Größe ändert, mit Strg+Plus und Strg+Minus, im Menü Ansicht und mit den Knöpfen + und - in der Statusleiste. Standard sind 5 Prozent."
+image_thumbnails = "Kleine Vorschau in Zellen mit Bild-URL. Es werden nur sichtbare Bilder geladen; Aus stoppt das automatische Laden. Thumbnail oder Zellmenü öffnet den Bildbetrachter."
 
 [chat]
 result_row_limit = "Zeilenlimit für Ergebnisse"
@@ -4386,3 +4392,26 @@ open_settings_hint = "Öffnet die Einstellungen bei Cloud-Speicher, wo du eine V
 pick_conn = "Wähle eine Verbindung."
 need_name = "Beende den Pfad mit einem Dateinamen, etwa sales.csv."
 no_writer = "Octa kann {name} nicht schreiben. Nimm eine Endung wie .csv oder .parquet."
+
+[imgview]
+title = "Bild"
+menu = "Bild anzeigen"
+menu_hint = "Dieses Bild im Bildbetrachter öffnen"
+column = "Spalte"
+row = "Zeile"
+position = "Position"
+url = "URL"
+size = "Größe"
+details = "Zeilendetails"
+loading = "Bild wird geladen..."
+failed = "Bild konnte nicht geladen werden"
+open_url = "URL öffnen"
+open_url_hint = "Die Bildadresse im Browser öffnen"
+prev_hint = "Vorheriges Bild (Pfeil links/hoch)"
+next_hint = "Nächstes Bild (Pfeil rechts/runter)"
+zoom_in_hint = "Vergrößern (+ oder =)"
+zoom_out_hint = "Verkleinern (-)"
+fit = "Einpassen"
+fit_hint = "Bild an Fenster anpassen (0)"
+keys = "Pfeile: vorheriges/nächstes Bild - +/-: Zoom - 0: Einpassen - Esc: Schließen"
+no_image_cell = "Keine Bild-URL in dieser Zelle"

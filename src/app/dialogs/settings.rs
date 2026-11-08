@@ -64,6 +64,7 @@ pub(crate) fn render_settings_dialog(app: &mut OctaApp, ctx: &egui::Context) {
     let icon_changed = app.settings_dialog.icon_changed;
     let font_changed = app.settings_dialog.font_changed;
     let theme_changed = app.settings_dialog.theme_changed;
+    let thumbs_changed = new_settings.image_thumbnails != app.settings.image_thumbnails;
     let window_size_changed = new_settings.window_size != app.settings.window_size;
     let maximized_changed = new_settings.start_maximized != app.settings.start_maximized;
 
@@ -113,6 +114,14 @@ pub(crate) fn render_settings_dialog(app: &mut OctaApp, ctx: &egui::Context) {
     } else {
         app.settings.retype_layout_sample
     });
+
+    // A new thumbnail size changes which rows are taller: their measured
+    // heights are stale and must be taken again.
+    if thumbs_changed {
+        for tab in &mut app.tabs {
+            tab.table_state.invalidate_row_heights();
+        }
+    }
 
     // Apply the UI language immediately so menus / dialogs re-translate without
     // a restart.

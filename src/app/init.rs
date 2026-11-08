@@ -257,6 +257,8 @@ impl OctaApp {
             cell_history_dialog: None,
             binary_viewer: None,
             binary_temp_dir: None,
+            image_viewer: None,
+            image_cache: octa::ui::images::ImageCache::new(),
             dist_compare_dialog: None,
             referential_dialog: None,
             units_dialog: None,

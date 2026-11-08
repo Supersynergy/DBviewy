@@ -174,7 +174,7 @@ pub fn draw_table_split(
                 }
             }
             let mut pane_cx = cx;
-            pane_cx.handles_input = i == active;
+            pane_cx.handles_input = i == active && pane_cx.handles_input;
             pane_cx.scroll_all = scroll_all;
             // Every pane but the first reads and writes its own offsets.
             swap_pane_scroll(state, i);

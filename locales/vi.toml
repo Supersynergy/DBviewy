@@ -847,6 +847,10 @@ sqlfmt_four_spaces = "4 dấu cách"
 sqlfmt_tab = "Tab"
 sqlfmt_trailing = "Ở cuối dòng"
 sqlfmt_leading = "Ở đầu dòng tiếp theo"
+img_off = "Tắt"
+img_small = "Nhỏ (20 px)"
+img_medium = "Vừa (32 px)"
+img_large = "Lớn (48 px)"
 
 [view]
 rt_quotes = "Dấu nháy:"
@@ -1123,6 +1127,7 @@ sec_opening = "Mở tệp"
 sec_saving = "Lưu tệp"
 sec_search_views = "Tìm kiếm & chế độ xem văn bản"
 zoom_step = "Bước thu phóng:"
+image_thumbnails = "Hình thu nhỏ ảnh"
 
 [chart]
 trend = "Xu hướng"
@@ -1596,6 +1601,7 @@ versions_limit_off = "Bỏ chọn Không giới hạn để đặt giới hạn.
 versions_place = "Nơi các phiên bản được giữ lại. Thư mục riêng của Octa để chúng ở chỗ khuất. Thư mục bạn chọn chứa phiên bản của mọi tệp. Thư mục con cạnh tệp là một thư mục .octa-versions cạnh mỗi tệp. Ngay cạnh tệp đặt các bản sao như sales.20261020-140211-123.csv cạnh sales.csv. Khi để cạnh tệp, giới hạn dung lượng tính riêng từng thư mục. Đổi chỗ không di chuyển gì: các phiên bản giữ ở nơi khác vẫn có trong Phiên bản trước."
 versions_dir_choose = "Chọn thư mục chứa các phiên bản trước của mọi tệp."
 zoom_step = "Mỗi bước thu phóng thay đổi kích thước bao nhiêu, với Ctrl+Plus và Ctrl+Minus, trong menu Xem và với nút + và - ở thanh trạng thái. Mặc định 5 phần trăm."
+image_thumbnails = "Hiển thị bản xem trước nhỏ trong các ô chứa URL ảnh. Chỉ tải những ảnh đang hiển thị; Tắt dừng mọi tác vụ tải tự động. Nhấp vào hình thu nhỏ hoặc dùng menu ô để mở trình xem ảnh."
 
 [chat]
 result_row_limit = "Giới hạn dòng kết quả"
@@ -4387,3 +4393,26 @@ open_settings_hint = "Mở Cài đặt ở mục Lưu trữ đám mây, nơi b�
 pick_conn = "Chọn một kết nối."
 need_name = "Kết thúc đường dẫn bằng tên tệp, ví dụ sales.csv."
 no_writer = "Octa không ghi được {name}. Hãy dùng phần mở rộng như .csv hoặc .parquet."
+
+[imgview]
+title = "Ảnh"
+menu = "Xem ảnh"
+menu_hint = "Mở ảnh này trong trình xem"
+column = "Cột"
+row = "Hàng"
+position = "Vị trí"
+url = "URL"
+size = "Kích thước"
+details = "Chi tiết hàng"
+loading = "Đang tải ảnh..."
+failed = "Không thể tải ảnh"
+open_url = "Mở URL"
+open_url_hint = "Mở địa chỉ ảnh trong trình duyệt"
+prev_hint = "Ảnh trước (mũi tên trái/lên)"
+next_hint = "Ảnh sau (mũi tên phải/xuống)"
+zoom_in_hint = "Phóng to (+ hoặc =)"
+zoom_out_hint = "Thu nhỏ (-)"
+fit = "Vừa khung"
+fit_hint = "Vừa ảnh với cửa sổ (0)"
+keys = "Phím mũi tên: ảnh trước/sau - +/-: thu phóng - 0: vừa khung - Esc: đóng"
+no_image_cell = "Không có URL ảnh trong ô này"

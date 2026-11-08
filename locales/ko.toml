@@ -836,6 +836,10 @@ sqlfmt_four_spaces = "공백 4칸"
 sqlfmt_tab = "탭"
 sqlfmt_trailing = "줄 끝에"
 sqlfmt_leading = "다음 줄 앞에"
+img_off = "끄기"
+img_small = "작게 (20px)"
+img_medium = "중간 (32px)"
+img_large = "크게 (48px)"
 
 [view]
 rt_quotes = "따옴표:"
@@ -1112,6 +1116,7 @@ sec_opening = "파일 열기"
 sec_saving = "파일 저장"
 sec_search_views = "검색 및 텍스트 보기"
 zoom_step = "확대/축소 단계:"
+image_thumbnails = "이미지 미리보기"
 
 [chart]
 trend = "추세"
@@ -1583,6 +1588,7 @@ versions_limit_off = "제한을 정하려면 무제한 체크를 해제하세요
 versions_place = "보관한 버전이 저장되는 곳입니다. Octa 전용 폴더는 눈에 띄지 않는 곳에 둡니다. 직접 고른 폴더에는 모든 파일의 버전이 모입니다. 파일 옆 하위 폴더는 각 파일 옆에 만드는 .octa-versions 폴더입니다. 파일 바로 옆은 sales.csv 옆에 sales.20261020-140211-123.csv 같은 사본을 둡니다. 파일 옆에 둘 때는 용량 제한을 폴더마다 따로 셉니다. 바꿔도 아무것도 옮기지 않으며, 다른 곳에 보관한 버전도 이전 버전 목록에 계속 나옵니다."
 versions_dir_choose = "모든 파일의 이전 버전을 보관할 폴더를 고릅니다."
 zoom_step = "한 번 확대하거나 축소할 때 크기가 바뀌는 정도예요. Ctrl+Plus와 Ctrl+Minus, 보기 메뉴, 상태 표시줄의 + 및 - 버튼에 쓰여요. 기본값은 5%예요."
+image_thumbnails = "이미지 URL이 있는 셀에 작은 미리보기를 표시합니다. 화면에 보이는 이미지만 가져오며, 끄기로 설정하면 모든 자동 가져오기를 중지합니다. 미리보기를 클릭하거나 셀 메뉴로 이미지 뷰어를 여세요."
 
 [chat]
 result_row_limit = "결과 행 제한"
@@ -4374,3 +4380,26 @@ open_settings_hint = "설정의 클라우드 스토리지를 열어. 거기서 �
 pick_conn = "연결을 골라."
 need_name = "경로 끝에 파일 이름을 붙여 (sales.csv 등)."
 no_writer = "Octa는 {name}을(를) 쓸 수 없어. .csv나 .parquet 같은 확장자를 써."
+
+[imgview]
+title = "이미지"
+menu = "이미지 보기"
+menu_hint = "이 이미지를 뷰어에서 열기"
+column = "열"
+row = "행"
+position = "위치"
+url = "URL"
+size = "크기"
+details = "행 세부 정보"
+loading = "이미지 로딩 중..."
+failed = "이미지를 로드할 수 없습니다"
+open_url = "URL 열기"
+open_url_hint = "브라우저에서 이미지 주소 열기"
+prev_hint = "이전 이미지 (왼쪽/위쪽 화살표)"
+next_hint = "다음 이미지 (오른쪽/아래쪽 화살표)"
+zoom_in_hint = "확대 (+ 또는 =)"
+zoom_out_hint = "축소 (-)"
+fit = "맞춤"
+fit_hint = "이미지를 창에 맞추기 (0)"
+keys = "화살표: 이전/다음 이미지 - +/-: 확대/축소 - 0: 맞춤 - Esc: 닫기"
+no_image_cell = "이 셀에 이미지 URL이 없습니다"

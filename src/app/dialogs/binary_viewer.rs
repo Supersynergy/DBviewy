@@ -119,30 +119,7 @@ pub(crate) fn picture_texture(
     name: &str,
     rgba: image::RgbaImage,
 ) -> egui::TextureHandle {
-    let (w, h) = rgba.dimensions();
-    let max = ctx.input(|i| i.max_texture_side) as u32;
-    let (tw, th) = fit_to_side(w, h, max);
-    let rgba = if (tw, th) == (w, h) {
-        rgba
-    } else {
-        image::imageops::resize(&rgba, tw, th, image::imageops::FilterType::Triangle)
-    };
-    ctx.load_texture(
-        name,
-        egui::ColorImage::from_rgba_unmultiplied([tw as usize, th as usize], rgba.as_raw()),
-        egui::TextureOptions::LINEAR,
-    )
-}
-
-/// `w` x `h` shrunk, keeping the aspect ratio, until neither side is over
-/// `max`. Something already small enough comes back as it is.
-fn fit_to_side(w: u32, h: u32, max: u32) -> (u32, u32) {
-    let long = w.max(h);
-    if long <= max || max == 0 {
-        return (w, h);
-    }
-    let scale = |v: u32| ((u64::from(v) * u64::from(max) / u64::from(long)) as u32).max(1);
-    (scale(w), scale(h))
+    octa::ui::images::picture_texture(ctx, name, rgba)
 }
 
 /// A file name for the cell: column, row and the kind's extension.

@@ -847,6 +847,10 @@ sqlfmt_four_spaces = "4 szóköz"
 sqlfmt_tab = "Tabulátor"
 sqlfmt_trailing = "A sor végén"
 sqlfmt_leading = "A következő sor elején"
+img_off = "Ki"
+img_small = "Kicsi (20 px)"
+img_medium = "Közepes (32 px)"
+img_large = "Nagy (48 px)"
 
 [view]
 rt_quotes = "Idézőjelek:"
@@ -1123,6 +1127,7 @@ sec_opening = "Fájlok megnyitása"
 sec_saving = "Fájlok mentése"
 sec_search_views = "Keresés és szöveges nézetek"
 zoom_step = "Nagyítási lépés:"
+image_thumbnails = "Képbélyegek"
 
 [chart]
 trend = "Trend"
@@ -1596,6 +1601,7 @@ versions_limit_off = "Vedd ki a pipát a(z) Korlátlan elől, ha korlátot akars
 versions_place = "Hová kerülnek a megőrzött verziók. Az Octa saját mappája félreteszi őket. Egy általad választott mappa minden fájl verzióit tárolja. Az almappa a fájl mellett egy .octa-versions mappa minden fájl mellett. A közvetlenül a fájl mellett a sales.csv mellé tesz olyan másolatokat, mint a sales.20261020-140211-123.csv. A fájl mellett a helykorlát minden mappát külön számol. A váltás semmit sem helyez át: a máshol őrzött verziók továbbra is ott vannak a Korábbi verziók listájában."
 versions_dir_choose = "Válaszd ki a mappát, amely minden fájl korábbi verzióit tárolja."
 zoom_step = "Mennyivel változtat a méreten egy nagyítási lépés a Ctrl+Plus és a Ctrl+Minus billentyűvel, a Nézet menüben és az állapotsor + és - gombjával. Alapból 5 százalék."
+image_thumbnails = "Előnézetet mutat a kép-URL-t tartalmazó cellákban. Csak a látható képek töltődnek le; a Ki leállít minden automatikus letöltést. Kattints egy bélyegképre vagy használd a cella menüt a képnézegető megnyitásához."
 
 [chat]
 result_row_limit = "Eredmény sorkorlátja"
@@ -4387,3 +4393,26 @@ open_settings_hint = "Megnyitja a Beállításokat a Felhőtárolásnál, ahol k
 pick_conn = "Válassz kapcsolatot."
 need_name = "Fejezd be az útvonalat egy fájlnévvel, például sales.csv."
 no_writer = "Az Octa nem tudja írni a(z) {name} fájlt. Használj olyan kiterjesztést, mint a .csv vagy a .parquet."
+
+[imgview]
+title = "Kép"
+menu = "Kép megtekintése"
+menu_hint = "Nyisd meg ezt a képet a nézegetőben"
+column = "Oszlop"
+row = "Sor"
+position = "Pozíció"
+url = "URL"
+size = "Méret"
+details = "Sor részletei"
+loading = "Kép betöltése..."
+failed = "A kép nem tölthető be"
+open_url = "URL megnyitása"
+open_url_hint = "A kép címének megnyitása a böngészőben"
+prev_hint = "Előző kép (balra/felé nyíl)"
+next_hint = "Következő kép (jobbra/lefelé nyíl)"
+zoom_in_hint = "Nagyítás (+ vagy =)"
+zoom_out_hint = "Kicsinyítés (-)"
+fit = "Igazítás"
+fit_hint = "A kép igazítása az ablakhoz (0)"
+keys = "Nyilak: előző/következő kép - +/-: zoom - 0: igazítás - Esc: bezárás"
+no_image_cell = "Nincs kép-URL ebben a cellában"

@@ -128,6 +128,7 @@ nav:
           - guide/view/index.md
           - Table view: usage/table-view.md
           - Binary cells: usage/binary-cells.md
+          - Image thumbnails: usage/image-thumbnails.md
           - Column Navigator: usage/column-navigator.md
           - Search & Filter: usage/search-and-filter.md
           - Filter by value: usage/filter-facets.md

@@ -843,6 +843,10 @@ sqlfmt_four_spaces = "4 atstarpes"
 sqlfmt_tab = "Tabulācija"
 sqlfmt_trailing = "Rindas beigās"
 sqlfmt_leading = "Nākamās rindas sākumā"
+img_off = "Izslēgts"
+img_small = "Mazs (20 px)"
+img_medium = "Vidējs (32 px)"
+img_large = "Liels (48 px)"
 
 [view]
 rt_quotes = "Pēdiņas:"
@@ -1119,6 +1123,7 @@ sec_opening = "Failu atvēršana"
 sec_saving = "Failu saglabāšana"
 sec_search_views = "Meklēšana un teksta skati"
 zoom_step = "Tālummaiņas solis:"
+image_thumbnails = "Attēlu sīktēli"
 
 [chart]
 trend = "Tendence"
@@ -1592,6 +1597,7 @@ versions_limit_off = "Noņem atzīmi Neierobežots, lai iestatītu ierobežojumu
 versions_place = "Kur nonāk glabātās versijas. Octa paša mape tās tur nost no ceļa. Tevis izvēlēta mape glabā visu failu versijas. Apakšmape blakus failam ir mape .octa-versions blakus katram failam. Tieši blakus failam liek kopijas, piemēram, sales.20261020-140211-123.csv blakus sales.csv. Blakus failam vietas ierobežojums skaita katru mapi atsevišķi. Maiņa neko nepārvieto: citur glabātās versijas paliek sarakstā Agrākās versijas."
 versions_dir_choose = "Izvēlies mapi, kurā glabā visu failu agrākās versijas."
 zoom_step = "Cik daudz viens tālummaiņas solis maina izmēru, ar Ctrl+Plus un Ctrl+Minus, izvēlnē Skats un ar statusa joslas pogām + un -. Pēc noklusējuma 5 procenti."
+image_thumbnails = "Rāda mazu priekšskatījumu šūnās ar attēla URL. Tiek ielādēti tikai redzamie attēli; Izslēgts aptur jebkādu automātisku ielādi. Noklikšķiniet uz sīktēla vai izmantojiet šūnas izvēlni, lai atvērtu attēlu skatītāju."
 
 [chat]
 result_row_limit = "Rezultāta rindu ierobežojums"
@@ -4383,3 +4389,26 @@ open_settings_hint = "Atver Iestatījumus pie Mākoņa krātuves, kur pievieno s
 pick_conn = "Izvēlies savienojumu."
 need_name = "Beidz ceļu ar faila nosaukumu, piemēram, sales.csv."
 no_writer = "Octa nevar ierakstīt {name}. Izmanto paplašinājumu, piemēram, .csv vai .parquet."
+
+[imgview]
+title = "Attēls"
+menu = "Skatīt attēlu"
+menu_hint = "Atvērt šo attēlu skatītājā"
+column = "Kolonna"
+row = "Rinda"
+position = "Pozīcija"
+url = "URL"
+size = "Izmērs"
+details = "Rindas informācija"
+loading = "Attēla ielāde..."
+failed = "Attēlu neizdevās ielādēt"
+open_url = "Atvērt URL"
+open_url_hint = "Atvērt attēla adresi pārlūkā"
+prev_hint = "Iepriekšējais attēls (bultiņa pa kreisi/augšup)"
+next_hint = "Nākamais attēls (bultiņa pa labi/lejup)"
+zoom_in_hint = "Pietuvināt (+ vai =)"
+zoom_out_hint = "Attālināt (-)"
+fit = "Ievietot"
+fit_hint = "Ievietot attēlu logā (0)"
+keys = "Bultiņas: iepriekšējais/nākamais attēls - +/-: tālummaiņa - 0: ievietot - Esc: aizvērt"
+no_image_cell = "Šūnā nav attēla URL"

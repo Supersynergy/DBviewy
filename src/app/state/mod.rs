@@ -1124,6 +1124,12 @@ pub(crate) struct OctaApp {
     /// Copies handed to the system's own viewer. A `TempDir` deletes itself
     /// when dropped, so they go when Octa closes.
     pub(crate) binary_temp_dir: Option<tempfile::TempDir>,
+    /// Active image viewer, or `None` when closed (see
+    /// `src/app/dialogs/image_viewer.rs`).
+    pub(crate) image_viewer: Option<ImageViewerState>,
+    /// URL -> texture cache for remote pictures: table thumbnails and the
+    /// image viewer share it, so an address is fetched once per session.
+    pub(crate) image_cache: octa::ui::images::ImageCache,
     /// Active Compare-distributions dialog, or `None` when closed.
     pub(crate) dist_compare_dialog: Option<DistCompareState>,
     /// Active Referential-integrity dialog, or `None` when closed.

@@ -43,6 +43,7 @@ pub(super) fn draw_data_row_direct(
         cell_line_breaks,
         show_invisibles,
         clickable_links,
+        image_thumbs,
         readonly,
         cell_history_unavailable,
         folder_compare_labels,
@@ -155,6 +156,34 @@ pub(super) fn draw_data_row_direct(
             } else {
                 None
             };
+            // Same detection for picture addresses. It runs even while
+            // thumbnails are off: the cell menu's **View image** stays
+            // available, and only an explicit open fetches anything. The
+            // URL is kept for the menu and the thumbnail; the viewer
+            // re-derives it from (row, col) when it opens.
+            let cell_image_url: Option<String> = if !table
+                .columns
+                .get(col_idx)
+                .is_some_and(|c| is_numeric_data_type(&c.data_type))
+            {
+                table.get(actual_row, col_idx).and_then(|v| {
+                    let text = v.display_with_binary_mode(binary_display_mode);
+                    crate::data::links::detect_image_url(&text).map(|u| u.to_string())
+                })
+            } else {
+                None
+            };
+            // The thumbnail only earns its pixels when the column is wide
+            // enough to still show something of the address next to it.
+            let thumb_rect = cell_image_url.as_ref().and_then(|_| {
+                let px = image_thumbs.map(|t| t.px).unwrap_or(0) as f32;
+                (px > 0.0 && rect.width() > px + 30.0).then(|| {
+                    egui::Rect::from_center_size(
+                        egui::pos2(rect.left() + 6.0 + px / 2.0, rect.center().y),
+                        Vec2::splat(px),
+                    )
+                })
+            });
             let is_selected = state
                 .selected_cell
                 .map(|(r, c)| r == actual_row && c == col_idx)
@@ -383,7 +412,16 @@ pub(super) fn draw_data_row_direct(
                             text_color
                         };
 
-                    let text_rect = rect.shrink2(Vec2::new(6.0, 0.0));
+                    // A thumbnail takes the left of the cell; the address
+                    // text starts right of it so neither covers the other.
+                    let text_rect = if let Some(tr) = thumb_rect {
+                        egui::Rect::from_min_max(
+                            egui::pos2(tr.right() + 6.0, rect.top()),
+                            egui::pos2(rect.right() - 6.0, rect.bottom()),
+                        )
+                    } else {
+                        rect.shrink2(Vec2::new(6.0, 0.0))
+                    };
                     let cell_clip = egui::Rect::from_min_max(
                         egui::pos2(rect.left() + 2.0, rect.top()),
                         egui::pos2(rect.right() - 2.0, rect.bottom()),
@@ -507,6 +545,43 @@ pub(super) fn draw_data_row_direct(
                         galley,
                         Color32::TRANSPARENT,
                     );
+
+                    // The picture itself: cached texture when it arrived,
+                    // a quiet frame while the worker fetches, an empty
+                    // frame marked with the failure when it did not.
+                    if let (Some(thumbs), Some(tr)) = (image_thumbs, thumb_rect) {
+                        let url = cell_image_url.as_deref().unwrap_or_default();
+                        thumbs.cache.request(ui.ctx(), url);
+                        let frame = tr.shrink(1.0);
+                        painter.with_clip_rect(cell_clip).rect_stroke(
+                            frame,
+                            3.0,
+                            egui::Stroke::new(1.0, colors.border),
+                            egui::StrokeKind::Inside,
+                        );
+                        if let Some(tex) = thumbs.cache.texture(url) {
+                            let size = tex.size_vec2();
+                            let scale = (frame.width() / size.x.max(size.y)).min(1.0);
+                            let draw = egui::Rect::from_center_size(frame.center(), size * scale);
+                            painter.with_clip_rect(cell_clip).image(
+                                tex.id(),
+                                draw,
+                                egui::Rect::from_min_max(
+                                    egui::pos2(0.0, 0.0),
+                                    egui::pos2(1.0, 1.0),
+                                ),
+                                Color32::WHITE,
+                            );
+                        } else if thumbs.cache.failure(url).is_some() {
+                            painter.with_clip_rect(cell_clip).text(
+                                frame.center(),
+                                egui::Align2::CENTER_CENTER,
+                                "!",
+                                egui::FontId::new(font_size * 0.8, egui::FontFamily::Monospace),
+                                colors.error,
+                            );
+                        }
+                    }
                 }
             }
 
@@ -584,6 +659,23 @@ pub(super) fn draw_data_row_direct(
                         state.selected_cols.clear();
                         state.selected_cells.clear();
                         state.selection_anchor_display = None;
+                    }
+                }
+                // Clicking the thumbnail opens the image viewer; a click
+                // anywhere else in the cell keeps its usual meaning.
+                if let Some(tr) = thumb_rect {
+                    let thumb_response = ui.interact(
+                        tr.intersect(col_clip),
+                        ui.id().with(("imgcell", actual_row, col_idx)),
+                        Sense::click(),
+                    );
+                    if thumb_response.hovered() {
+                        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+                    }
+                    let thumb_response =
+                        thumb_response.on_hover_text(cell_image_url.clone().unwrap_or_default());
+                    if thumb_response.clicked() {
+                        interaction.ctx_view_image = Some((actual_row, col_idx));
                     }
                 }
                 if response.double_clicked() && !readonly {
@@ -857,6 +949,15 @@ pub(super) fn draw_data_row_direct(
                             .clicked()
                     {
                         interaction.ctx_view_binary = Some((actual_row, col_idx));
+                        ui.close();
+                    }
+                    if cell_image_url.is_some()
+                        && ui
+                            .button(crate::i18n::t("imgview.menu"))
+                            .on_hover_text(crate::i18n::t("imgview.menu_hint"))
+                            .clicked()
+                    {
+                        interaction.ctx_view_image = Some((actual_row, col_idx));
                         ui.close();
                     }
                     if let Some(labels) = folder_compare_labels {

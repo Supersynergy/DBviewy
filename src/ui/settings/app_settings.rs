@@ -121,6 +121,10 @@ pub struct AppSettings {
     /// Ctrl+click. On by default.
     #[serde(default = "default_true")]
     pub clickable_links: bool,
+    /// Thumbnail size for cells that hold an image URL. Off by default:
+    /// showing pictures means fetching them, which stays opt-in.
+    #[serde(default)]
+    pub image_thumbnails: ImageThumbSize,
     /// How to display binary data columns (Binary, Hex, or Text).
     #[serde(default)]
     pub binary_display_mode: BinaryDisplayMode,
@@ -1078,6 +1082,7 @@ impl Default for AppSettings {
             highlight_edits: false,
             cell_line_breaks: false,
             clickable_links: true,
+            image_thumbnails: ImageThumbSize::Off,
             binary_display_mode: BinaryDisplayMode::default(),
             color_aligned_columns: true,
             notebook_output_layout: NotebookOutputLayout::default(),

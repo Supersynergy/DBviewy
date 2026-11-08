@@ -843,6 +843,10 @@ sqlfmt_four_spaces = "4 medzery"
 sqlfmt_tab = "Tabulátor"
 sqlfmt_trailing = "Na konci riadka"
 sqlfmt_leading = "Na začiatku ďalšieho riadka"
+img_off = "Vypnuté"
+img_small = "Malé (20 px)"
+img_medium = "Stredné (32 px)"
+img_large = "Veľké (48 px)"
 
 [view]
 rt_quotes = "Úvodzovky:"
@@ -1119,6 +1123,7 @@ sec_opening = "Otváranie súborov"
 sec_saving = "Ukladanie súborov"
 sec_search_views = "Hľadanie a textové zobrazenia"
 zoom_step = "Krok priblíženia:"
+image_thumbnails = "Miniatúry obrázkov"
 
 [chart]
 trend = "Trend"
@@ -1592,6 +1597,7 @@ versions_limit_off = "Zruš zaškrtnutie Neobmedzené, ak chceš nastaviť limit
 versions_place = "Kam idú uchované verzie. Vlastný priečinok Octy ich drží bokom. Priečinok, ktorý si vyberieš, drží verzie všetkých súborov. Podpriečinok vedľa súboru je priečinok .octa-versions vedľa každého súboru. Priamo vedľa súboru dá kópie ako sales.20261020-140211-123.csv vedľa sales.csv. Vedľa súboru sa limit miesta počíta pre každý priečinok zvlášť. Zmena nič nepresunie: verzie uchované inde zostanú v zozname Staršie verzie."
 versions_dir_choose = "Vyber priečinok, v ktorom sa uchovávajú staršie verzie všetkých súborov."
 zoom_step = "O koľko jeden krok priblíženia zmení veľkosť, pri Ctrl+Plus a Ctrl+Minus, v ponuke Zobraziť a pri tlačidlách + a - v stavovom riadku. Predvolene 5 %."
+image_thumbnails = "Zobrazuje náhľad v bunkách s URL obrázka. Načítavajú sa len viditeľné obrázky; Vypnuté zastavuje všetko automatické načítavanie. Kliknutím na miniapúrku alebo z menu bunky otvorte prehliadač obrázkov."
 
 [chat]
 result_row_limit = "Limit riadkov výsledku"
@@ -4383,3 +4389,26 @@ open_settings_hint = "Otvorí Nastavenia pri Cloudovom úložisku, kde pripojeni
 pick_conn = "Vyber pripojenie."
 need_name = "Zakonči cestu názvom súboru, napríklad sales.csv."
 no_writer = "Octa nevie zapísať {name}. Použi príponu ako .csv alebo .parquet."
+
+[imgview]
+title = "Obrázok"
+menu = "Zobraziť obrázok"
+menu_hint = "Otvoriť tento obrázok v prehliadači"
+column = "Stĺpec"
+row = "Riadok"
+position = "Pozícia"
+url = "URL"
+size = "Veľkosť"
+details = "Podrobnosti riadka"
+loading = "Načítava sa obrázok..."
+failed = "Obrázok sa nepodarilo načítať"
+open_url = "Otvoriť URL"
+open_url_hint = "Otvoriť adresu obrázka v prehliadači"
+prev_hint = "Predchádzajúci obrázok (šípka vľavo/hore)"
+next_hint = "Nasledujúci obrázok (šípka vpravo/dole)"
+zoom_in_hint = "Priblížiť (+ alebo =)"
+zoom_out_hint = "Oddialiť (-)"
+fit = "Prispôsobiť"
+fit_hint = "Prispôsobiť obrázok oknu (0)"
+keys = "Šípky: predchádzajúci/nasledujúci obrázok - +/-: zoom - 0: prispôsobiť - Esc: zavrieť"
+no_image_cell = "V tejto bunke nie je URL obrázka"

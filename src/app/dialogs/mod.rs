@@ -44,6 +44,7 @@ pub(crate) mod fuzzy_join;
 pub(crate) mod git_compare;
 pub(crate) mod harmonise;
 pub(crate) mod hash_columns;
+pub(crate) mod image_viewer;
 pub(crate) mod impute;
 pub(crate) mod join;
 pub(crate) mod join_diag;
@@ -141,6 +142,7 @@ impl OctaApp {
         db_compare::render_db_compare_dialog(self, ctx);
         folder_compare::render_folder_compare_dialog(self, ctx);
         binary_viewer::render_binary_viewer(self, ctx);
+        image_viewer::render_image_viewer(self, ctx);
         drift::render_drift_dialog(self, ctx);
         large_file_notice::render_large_file_notice(self, ctx);
         rel_map::render_rel_map_dialog(self, ctx);

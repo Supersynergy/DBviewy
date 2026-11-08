@@ -1338,3 +1338,44 @@ back to the hex dump.
   the program your system uses for that kind of file. The copy is deleted
   when Octa closes. Octa runs nothing itself.
 "#;
+
+pub const IMAGE_THUMBNAILS: &str = r#"# Image Thumbnails and Viewer
+
+Cells that hold an image URL (ending in .png, .jpg, .webp and friends) can
+show the picture itself instead of the address. This is off by default;
+turn it on under **Settings -> Table -> Image thumbnails** and pick a size:
+Small (20 px), Medium (32 px) or Large (48 px).
+
+## What the table does
+
+- Only cells whose text is a bare image URL get a thumbnail. A URL inside a
+  sentence stays plain text, and clicking it still opens the link.
+- Only pictures on screen are fetched, on a background thread, so a table
+  with a million image URLs never downloads them all. A finished fetch
+  appears on the next repaint.
+- The cache holds a bounded number of pictures and forgets the oldest
+  first, so memory stays flat while scrolling.
+- Off means nothing is fetched automatically. The cell menu's **View
+  image** still works and downloads only the one picture you open.
+
+## The image viewer
+
+Right-click an image cell and choose **View image** (this works even with
+thumbnails off), or click a thumbnail.
+The viewer collects every image-bearing cell of the tab, in the order the
+current filter and sort show them, so the arrow keys walk the sheet's
+pictures.
+
+- **Left / Up / PageUp** and **Right / Down / PageDown** step to the
+  previous or next picture. Neighbouring pictures are fetched ahead, so
+  stepping feels instant once the first one landed.
+- **+** and **-** (or the toolbar buttons) zoom in steps up to 16x; scroll
+  bars or a drag pan the zoomed picture. **0** fits the picture to the
+  window again.
+- **Open URL** hands the image address to your browser.
+- **Esc** closes. The keys do nothing while a text field (SQL panel, chat
+  input) owns the keyboard.
+
+The details column shows the cell's row: column name, position, URL, image
+size and the neighbouring cells' values.
+"#;

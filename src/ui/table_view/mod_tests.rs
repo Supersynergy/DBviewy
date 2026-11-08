@@ -374,6 +374,7 @@ fn run_frame_searching(
             show_invisibles: false,
             shape_detail: Default::default(),
             clickable_links: false,
+            image_thumbs: None,
             binary_display_mode: crate::data::BinaryDisplayMode::default(),
             welcome_logo_texture: None,
             shortcuts: &shortcuts,
@@ -626,6 +627,7 @@ fn offsets_with(overrides: &[(usize, f32)], rows: usize, base: f32) -> Vec<f32> 
                 base_row_height: base,
                 binary_display_mode: BinaryDisplayMode::Hex,
                 wrap: false,
+                image_thumb_px: 0,
             },
             400.0,
         );
@@ -1025,6 +1027,7 @@ fn line_breaks_measure_only_the_rows_in_view() {
                     base_row_height: base,
                     binary_display_mode: BinaryDisplayMode::Hex,
                     wrap: true,
+                    image_thumb_px: 0,
                 },
                 400.0,
             );

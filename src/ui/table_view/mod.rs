@@ -374,6 +374,17 @@ pub(crate) struct NumFmtCtx<'a> {
 /// width a call site can hand `highlight_edits` to `clickable_links` and still
 /// compile, producing a wrong grid with a green build. Same reasoning as
 /// [`NumFmtCtx`] above, applied to the whole entry point.
+/// Remote-image thumbnails for cells that hold an image URL: the shared
+/// fetch/texture cache plus the pixel size from Settings. `None` in
+/// [`TableCtx::image_thumbs`] when the setting is Off, which also means no
+/// network traffic for pictures at all.
+#[derive(Clone, Copy)]
+pub struct ImageThumbs<'a> {
+    pub cache: &'a crate::ui::images::ImageCache,
+    /// Thumbnail edge in pixels (already resolved from the setting).
+    pub px: u32,
+}
+
 #[derive(Clone, Copy)]
 pub struct TableCtx<'a> {
     pub theme_mode: ThemeMode,
@@ -393,6 +404,8 @@ pub struct TableCtx<'a> {
     pub shape_detail: crate::data::shapes::ShapeDetail,
     /// Style cells that hold a web URL as a hyperlink and open on Ctrl+click.
     pub clickable_links: bool,
+    /// Image thumbnails for cells holding an image URL; `None` = off.
+    pub image_thumbs: Option<ImageThumbs<'a>>,
     pub binary_display_mode: BinaryDisplayMode,
     pub welcome_logo_texture: Option<&'a egui::TextureHandle>,
     pub shortcuts: &'a Shortcuts,
@@ -474,6 +487,7 @@ pub(super) struct PaintCtx<'a> {
     pub show_invisibles: bool,
     pub shape_detail: crate::data::shapes::ShapeDetail,
     pub clickable_links: bool,
+    pub image_thumbs: Option<ImageThumbs<'a>>,
     pub readonly: bool,
     /// `None` when the tab's file is in a Git repository (the cell menu's
     /// **Cell history...** is enabled), else why not, for its hover.
@@ -742,6 +756,9 @@ pub struct TableInteraction {
     /// Open the binary viewer on this (row, col); the row indexes the table.
     /// Fired by the cell menu's **View contents...**, shown on binary cells.
     pub ctx_view_binary: Option<(usize, usize)>,
+    /// Open the image viewer on this (row, col); the row indexes the table.
+    /// Fired by the cell menu's **View image** and by clicking a thumbnail.
+    pub ctx_view_image: Option<(usize, usize)>,
     /// **Use as header row** from a row menu: table rows `(first, last)`,
     /// 0-based, the clicked row or the selected block around it.
     pub ctx_use_header_rows: Option<(usize, usize)>,
@@ -865,6 +882,7 @@ pub fn draw_table(
         show_invisibles,
         shape_detail,
         clickable_links,
+        image_thumbs,
         binary_display_mode,
         welcome_logo_texture,
         shortcuts,
@@ -1022,8 +1040,10 @@ pub fn draw_table(
     }
 
     // Wrapping makes every row a different height; so does a height the user
-    // dragged. Either one needs the prefix-sum path.
-    let variable_heights = cell_line_breaks || !state.row_heights.is_empty();
+    // dragged, and so does an image thumbnail taller than the base row.
+    // Either one needs the prefix-sum path.
+    let image_thumb_px = image_thumbs.map(|t| t.px).unwrap_or(0);
+    let variable_heights = cell_line_breaks || !state.row_heights.is_empty() || image_thumb_px > 0;
     let total_data_height = if variable_heights {
         ensure_row_y_offsets(
             ui,
@@ -1035,6 +1055,7 @@ pub fn draw_table(
                 base_row_height: row_height,
                 binary_display_mode,
                 wrap: cell_line_breaks,
+                image_thumb_px,
             },
             view_height,
         );
@@ -1163,6 +1184,7 @@ pub fn draw_table(
         show_invisibles,
         shape_detail,
         clickable_links,
+        image_thumbs,
         readonly,
         cell_history_unavailable,
         folder_compare_labels,

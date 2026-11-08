@@ -537,3 +537,28 @@ pub(crate) struct BinaryViewerState {
     pub(crate) json: Option<String>,
     pub(crate) message: Option<(bool, String)>,
 }
+
+/// One image-bearing cell the viewer walks through. `row` indexes the
+/// table (like every other cell reference), `col` the column, `url` the
+/// address `data::links::detect_image_url` accepted.
+#[derive(Clone)]
+pub(crate) struct ImageItem {
+    pub(crate) row: usize,
+    pub(crate) col: usize,
+    pub(crate) url: String,
+}
+
+/// The image viewer (cell menu **View image**, a thumbnail click). `items`
+/// is every image-bearing cell of the tab captured when it opened, in the
+/// order the table showed them then; `pos` points at the current one. The
+/// picture comes from the shared [`octa::ui::images::ImageCache`], so cells
+/// and the viewer never fetch the same address twice.
+pub(crate) struct ImageViewerState {
+    pub(crate) size: octa::ui::settings::DialogSize,
+    pub(crate) items: Vec<ImageItem>,
+    pub(crate) pos: usize,
+    /// `None` = fit the picture into the view; `Some(z)` = `z` times its
+    /// pixel size, panned with the scroll bars.
+    pub(crate) zoom: Option<f32>,
+    pub(crate) message: Option<(bool, String)>,
+}
