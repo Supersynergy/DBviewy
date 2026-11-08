@@ -556,8 +556,87 @@ fn draw_details(
                     ));
                 });
             ui.separator();
+            // The row's other link columns (the lot page, sources) sit
+            // above the plain details: a product page is one click away,
+            // not buried under the DETAIL_MAX_ROWS cap below.
+            draw_row_links(ui, app, it);
             draw_row_details(ui, app, it);
         });
+}
+
+/// True while the row still holds the address the viewer was opened on -
+/// after a sort or a tab switch the index may point somewhere else
+/// entirely, and neither links nor details should follow it there.
+fn row_is_fresh(tab: &crate::app::state::TabState, it: &crate::app::state::ImageItem) -> bool {
+    matches!(
+        tab.table.get(it.row, it.col),
+        Some(CellValue::String(s)) if detect_image_url(s) == Some(it.url.as_str())
+    )
+}
+
+/// Every other link column of the row as a clickable address: the lot's
+/// product page is the usual one, but any URL cell joins in, capped by
+/// screen space rather than by which columns happen to sit early.
+fn draw_row_links(ui: &mut egui::Ui, app: &OctaApp, it: &crate::app::state::ImageItem) {
+    const MAX_LINKS: usize = 8;
+    const LINK_DISPLAY_MAX: usize = 55;
+    let tab = &app.tabs[app.active_tab];
+    if !row_is_fresh(tab, it) {
+        return;
+    }
+    let mut shown = 0;
+    let mut header_drawn = false;
+    for c in 0..tab.table.col_count() {
+        if shown >= MAX_LINKS {
+            break;
+        }
+        if c == it.col {
+            continue;
+        }
+        let Some(CellValue::String(s)) = tab.table.get(it.row, c) else {
+            continue;
+        };
+        let text = s.trim();
+        let Some(url) = detect_url(text) else {
+            continue;
+        };
+        if !header_drawn {
+            ui.label(RichText::new(t("imgview.links")).weak());
+            header_drawn = true;
+        }
+        let name = tab
+            .table
+            .columns
+            .get(c)
+            .map(|col| col.name.clone())
+            .unwrap_or_else(|| c.to_string());
+        let mut value: String = url.chars().take(LINK_DISPLAY_MAX).collect();
+        if url.chars().count() > LINK_DISPLAY_MAX {
+            value.push_str("...");
+        }
+        ui.horizontal(|ui| {
+            ui.label(
+                RichText::new(format!("{name}:"))
+                    .weak()
+                    .monospace()
+                    .size(11.0),
+            );
+            // Tooltip is the address itself - no key needed, the user reads
+            // where the click will land.
+            ui.add(
+                egui::Hyperlink::from_label_and_url(
+                    RichText::new(value).monospace().size(11.0),
+                    url.to_string(),
+                )
+                .open_in_new_tab(true),
+            )
+            .on_hover_text(url.to_string());
+        });
+        shown += 1;
+    }
+    if header_drawn {
+        ui.separator();
+    }
 }
 
 /// The row's other non-empty cells, so a picture can be judged against its
@@ -567,11 +646,7 @@ fn draw_details(
 /// stay live links; everything else is plain text.
 fn draw_row_details(ui: &mut egui::Ui, app: &OctaApp, it: &crate::app::state::ImageItem) {
     let tab = &app.tabs[app.active_tab];
-    let fresh = matches!(
-        tab.table.get(it.row, it.col),
-        Some(CellValue::String(s)) if detect_image_url(s) == Some(it.url.as_str())
-    );
-    if !fresh {
+    if !row_is_fresh(tab, it) {
         return;
     }
     let mut shown = 0;
@@ -590,6 +665,11 @@ fn draw_row_details(ui: &mut egui::Ui, app: &OctaApp, it: &crate::app::state::Im
         if text.is_empty() {
             continue;
         }
+        // Pure link cells live in the Links section above; repeating them
+        // here would just spend one of the few detail slots.
+        if detect_url(text).is_some() {
+            continue;
+        }
         let name = tab
             .table
             .columns
@@ -601,25 +681,11 @@ fn draw_row_details(ui: &mut egui::Ui, app: &OctaApp, it: &crate::app::state::Im
             value.push_str("...");
         }
         ui.label(
-            RichText::new(format!("{name}: "))
+            RichText::new(format!("{name}: {value}"))
                 .weak()
                 .monospace()
                 .size(11.0),
         );
-        // A cell whose whole text is a link stays a link - the auction
-        // page is one click away, not a copy-paste round-trip. Detection
-        // runs on the untruncated text so a long URL still resolves.
-        if let Some(url) = detect_url(text) {
-            ui.add(
-                egui::Hyperlink::from_label_and_url(
-                    RichText::new(value).monospace().size(11.0),
-                    url.to_string(),
-                )
-                .open_in_new_tab(true),
-            );
-        } else {
-            ui.label(RichText::new(value).monospace().size(11.0));
-        }
         shown += 1;
     }
 }
