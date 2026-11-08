@@ -22,6 +22,7 @@ search = "Cari"
 analyse = "Analisis"
 help = "Bantuan"
 recent_files = "Berkas Terbaru"
+recent_databases = "Recent databases"
 
 [toolbar]
 insert_column_hint = "Sisipkan kolom baru"

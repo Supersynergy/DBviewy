@@ -21,6 +21,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
         can_save_in_place,
         is_db_tab,
         recent_files,
+        recent_dbs,
         directory_tree_open,
         ..
     } = cx;
@@ -301,6 +302,39 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                             ui.separator();
                             if ui.button(crate::i18n::t("file_menu.clear_all")).clicked() {
                                 action.clear_recent = true;
+                                ui.close();
+                            }
+                        });
+                    }
+                }
+            });
+            ui.menu_button(crate::i18n::t("menu.recent_databases"), |ui| {
+                ui.set_min_width(250.0);
+                if recent_dbs.is_empty() {
+                    ui.add_enabled(
+                        false,
+                        egui::Button::new(crate::i18n::t("file_menu.recent_none")),
+                    );
+                } else {
+                    for entry in recent_dbs {
+                        let resp = ui
+                            .button(entry.label())
+                            .on_hover_text(format!("{}: {}", entry.conn_name, entry.conn_id));
+                        if resp.clicked() {
+                            action.open_recent_db = Some(entry.clone());
+                            ui.close();
+                        }
+                        resp.context_menu(|ui| {
+                            if ui
+                                .button(crate::i18n::t("file_menu.remove_from_list"))
+                                .clicked()
+                            {
+                                action.remove_recent_db = Some(entry.clone());
+                                ui.close();
+                            }
+                            ui.separator();
+                            if ui.button(crate::i18n::t("file_menu.clear_all")).clicked() {
+                                action.clear_recent_db = true;
                                 ui.close();
                             }
                         });

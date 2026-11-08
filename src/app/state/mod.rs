@@ -877,6 +877,9 @@ pub(crate) struct OctaApp {
     pub(crate) pending_crash_offer: bool,
     /// Recently opened file paths (most recent first).
     pub(crate) recent_files: Vec<String>,
+    /// Recently opened database objects (most recent first) - the
+    /// File -> Recent databases submenu.
+    pub(crate) recent_dbs: Vec<octa::recent::RecentDbEntry>,
     /// Zoom level in percent (100 = default, steps of 5).
     pub(crate) zoom_percent: u32,
     /// Status bar navigation input buffer.

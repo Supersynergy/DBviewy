@@ -18,6 +18,7 @@ search = "Paieška"
 analyse = "Analizė"
 help = "Pagalba"
 recent_files = "Paskutiniai failai"
+recent_databases = "Nesenios duomenų bazės"
 
 [toolbar]
 insert_column_hint = "Įterpti naują stulpelį"

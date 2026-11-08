@@ -11,6 +11,7 @@ search = "検索"
 analyse = "分析"
 help = "ヘルプ"
 recent_files = "最近使ったファイル"
+recent_databases = "最近のデータベース"
 
 [toolbar]
 insert_column_hint = "新しい列を挿入する"

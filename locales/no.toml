@@ -11,6 +11,7 @@ search = "Søk"
 analyse = "Analyser"
 help = "Hjelp"
 recent_files = "Nylige filer"
+recent_databases = "Nylige databaser"
 
 [toolbar]
 insert_column_hint = "Sett inn en ny kolonne"

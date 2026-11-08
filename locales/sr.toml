@@ -18,6 +18,7 @@ search = "Претрага"
 analyse = "Анализа"
 help = "Помоћ"
 recent_files = "Недавне датотеке"
+recent_databases = "Недавне базе података"
 
 [toolbar]
 insert_column_hint = "Уметни нову колону"

@@ -11,6 +11,7 @@ search = "Поиск"
 analyse = "Анализ"
 help = "Справка"
 recent_files = "Недавние файлы"
+recent_databases = "Недавние базы данных"
 
 [toolbar]
 insert_column_hint = "Вставить новый столбец"

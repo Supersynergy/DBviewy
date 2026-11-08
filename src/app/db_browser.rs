@@ -840,6 +840,21 @@ impl OctaApp {
                         &origin.schema,
                         &origin.table,
                     ));
+                    // The object opened for real: remember it for File ->
+                    // Recent databases. The name is resolved now because a
+                    // menu entry rendered from a deleted connection should
+                    // still say where it used to point.
+                    let conn_name = self
+                        .find_db_conn(&origin.conn_id)
+                        .map(|c| c.name)
+                        .unwrap_or_else(|| origin.conn_id.clone());
+                    self.add_recent_db(octa::recent::RecentDbEntry {
+                        conn_id: origin.conn_id.clone(),
+                        conn_name,
+                        catalog: origin.catalog.clone(),
+                        schema: origin.schema.clone(),
+                        table: origin.table.clone(),
+                    });
                     new_tab.db_origin = Some(origin);
                     // Arm the scroll-to-load-more path, the same four fields
                     // the file open sets (`file_io::mod`). `total_rows` is

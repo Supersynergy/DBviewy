@@ -11,6 +11,7 @@ search = "Zoeken"
 analyse = "Analyseren"
 help = "Help"
 recent_files = "Recente bestanden"
+recent_databases = "Recente databases"
 
 [toolbar]
 insert_column_hint = "Een nieuwe kolom invoegen"

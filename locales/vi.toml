@@ -22,6 +22,7 @@ search = "Tìm"
 analyse = "Phân tích"
 help = "Trợ giúp"
 recent_files = "Tệp gần đây"
+recent_databases = "Recent databases"
 
 [toolbar]
 insert_column_hint = "Chèn một cột mới"

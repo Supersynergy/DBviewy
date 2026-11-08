@@ -11,6 +11,7 @@ search = "Αναζήτηση"
 analyse = "Ανάλυση"
 help = "Βοήθεια"
 recent_files = "Πρόσφατα αρχεία"
+recent_databases = "Πρόσφατες βάσεις δεδομένων"
 
 [toolbar]
 insert_column_hint = "Εισαγωγή νέας στήλης"

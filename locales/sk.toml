@@ -18,6 +18,7 @@ search = "Hľadať"
 analyse = "Analýza"
 help = "Pomocník"
 recent_files = "Nedávne súbory"
+recent_databases = "Nedávne databázy"
 
 [toolbar]
 insert_column_hint = "Vložiť nový stĺpec"

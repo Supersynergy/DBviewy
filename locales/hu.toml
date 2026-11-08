@@ -22,6 +22,7 @@ search = "Keresés"
 analyse = "Elemzés"
 help = "Súgó"
 recent_files = "Legutóbbi fájlok"
+recent_databases = "Legutóbbi adatbázisok"
 
 [toolbar]
 insert_column_hint = "Új oszlop beszúrása"

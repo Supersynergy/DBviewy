@@ -18,6 +18,7 @@ search = "Pretraživanje"
 analyse = "Analiza"
 help = "Pomoć"
 recent_files = "Nedavne datoteke"
+recent_databases = "Nedavne baze podataka"
 
 [toolbar]
 insert_column_hint = "Umetni novi stupac"

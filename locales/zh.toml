@@ -11,6 +11,7 @@ search = "搜索"
 analyse = "分析"
 help = "帮助"
 recent_files = "最近文件"
+recent_databases = "最近的数据库"
 
 [toolbar]
 insert_column_hint = "插入新列"

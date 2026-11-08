@@ -11,6 +11,7 @@ search = "검색"
 analyse = "분석"
 help = "도움말"
 recent_files = "최근 파일"
+recent_databases = "최근 데이터베이스"
 
 [toolbar]
 insert_column_hint = "새 열 삽입"

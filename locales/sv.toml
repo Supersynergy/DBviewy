@@ -11,6 +11,7 @@ search = "Sök"
 analyse = "Analysera"
 help = "Hjälp"
 recent_files = "Senaste filer"
+recent_databases = "Senaste databaser"
 
 [toolbar]
 insert_column_hint = "Infoga en ny kolumn"

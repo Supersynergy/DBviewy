@@ -52,6 +52,7 @@ impl OctaApp {
         let search_mode = settings.default_search_mode;
         let search_result_mode = settings.search_result_mode;
         let recent_files = Self::load_recent_files();
+        let recent_dbs = Self::load_recent_dbs();
         // Push the configured first-load row cap into the streaming readers
         // (Parquet, CSV, TSV) which consult a process-wide atomic instead of
         // a hardcoded const. Re-applied whenever the user changes the setting.
@@ -169,6 +170,7 @@ impl OctaApp {
             status_message: startup_warning,
             last_auto_save: std::time::Instant::now(),
             recent_files,
+            recent_dbs,
             zoom_percent: 100,
             nav_input: String::new(),
             nav_focus_requested: false,
@@ -320,6 +322,9 @@ impl OctaApp {
         AppSettings::config_dir().map(|d| d.join("recent.toml"))
     }
 
+    /// `recent.toml`: the files list plus the database objects list. Both
+    /// load together; a field that fails to parse drops only itself, the
+    /// way a hand-edited file degrades without eating the other section.
     pub(crate) fn load_recent_files() -> Vec<String> {
         #[derive(serde::Deserialize)]
         struct RecentData {
@@ -333,10 +338,24 @@ impl OctaApp {
             .unwrap_or_default()
     }
 
+    pub(crate) fn load_recent_dbs() -> Vec<octa::recent::RecentDbEntry> {
+        #[derive(serde::Deserialize)]
+        struct RecentData {
+            #[serde(default)]
+            databases: Vec<octa::recent::RecentDbEntry>,
+        }
+        Self::recent_files_path()
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .and_then(|s| toml::from_str::<RecentData>(&s).ok())
+            .map(|d| d.databases)
+            .unwrap_or_default()
+    }
+
     pub(crate) fn save_recent_files(&self) {
         #[derive(serde::Serialize)]
         struct RecentData<'a> {
             files: &'a [String],
+            databases: &'a [octa::recent::RecentDbEntry],
         }
         if let Some(path) = Self::recent_files_path() {
             if let Some(parent) = path.parent() {
@@ -344,6 +363,7 @@ impl OctaApp {
             }
             if let Ok(contents) = toml::to_string_pretty(&RecentData {
                 files: &self.recent_files,
+                databases: &self.recent_dbs,
             }) {
                 let _ = std::fs::write(path, contents);
             }
@@ -358,6 +378,17 @@ impl OctaApp {
         self.recent_files.insert(0, canonical);
         let max = self.settings.max_recent_files;
         self.recent_files.truncate(max);
+        self.save_recent_files();
+    }
+
+    /// Record a database object the user just opened, most-recent-first.
+    /// The `max_recent_files` cap is shared on purpose: it is the user's
+    /// "how much history clutters my File menu" answer, not a per-kind one.
+    pub(crate) fn add_recent_db(&mut self, entry: octa::recent::RecentDbEntry) {
+        self.recent_dbs.retain(|e| !e.same_object(&entry));
+        self.recent_dbs.insert(0, entry);
+        let max = self.settings.max_recent_files;
+        self.recent_dbs.truncate(max);
         self.save_recent_files();
     }
 }

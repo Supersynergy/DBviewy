@@ -18,6 +18,7 @@ search = "Meklēt"
 analyse = "Analīze"
 help = "Palīdzība"
 recent_files = "Nesenie faili"
+recent_databases = "Nesenēs datubāzes"
 
 [toolbar]
 insert_column_hint = "Ievietot jaunu kolonnu"

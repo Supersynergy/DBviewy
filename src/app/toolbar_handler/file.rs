@@ -70,6 +70,25 @@ impl OctaApp {
             self.recent_files.clear();
             self.save_recent_files();
         }
+        if let Some(ref entry) = action.open_recent_db {
+            // Same worker path the sidebar's open uses; a dead connection
+            // lands in the status bar like any failed open.
+            self.open_db_table(
+                ctx,
+                entry.conn_id.clone(),
+                entry.catalog.clone(),
+                entry.schema.clone(),
+                entry.table.clone(),
+            );
+        }
+        if let Some(ref entry) = action.remove_recent_db {
+            self.recent_dbs.retain(|e| !e.same_object(entry));
+            self.save_recent_files();
+        }
+        if action.clear_recent_db {
+            self.recent_dbs.clear();
+            self.save_recent_files();
+        }
         if action.save_file {
             self.save_file();
         }

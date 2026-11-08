@@ -308,6 +308,7 @@ impl OctaApp {
                     mark_filter_active: tab.mark_filter_active,
                     zoom_percent: self.zoom_percent,
                     recent_files: &self.recent_files,
+                    recent_dbs: &self.recent_dbs,
                     directory_tree_open: self.directory_tree.is_some(),
                     first_row_is_header: real_header,
                     first_row_header_blocked: header_blocked.as_deref(),

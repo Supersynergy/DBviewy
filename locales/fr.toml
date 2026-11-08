@@ -11,6 +11,7 @@ search = "Rechercher"
 analyse = "Analyser"
 help = "Aide"
 recent_files = "Fichiers récents"
+recent_databases = "Bases de donnees recentes"
 
 [toolbar]
 insert_column_hint = "Insérer une nouvelle colonne"

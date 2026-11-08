@@ -11,6 +11,7 @@ search = "Ara"
 analyse = "Analiz"
 help = "Yardım"
 recent_files = "Son dosyalar"
+recent_databases = "Son veritabanları"
 
 [toolbar]
 insert_column_hint = "Yeni bir sütun ekle"

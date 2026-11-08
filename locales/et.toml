@@ -18,6 +18,7 @@ search = "Otsi"
 analyse = "Analüüs"
 help = "Abi"
 recent_files = "Hiljutised failid"
+recent_databases = "Hiljutised andmebaasid"
 
 [toolbar]
 insert_column_hint = "Lisa uus veerg"

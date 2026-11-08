@@ -11,6 +11,7 @@ search = "Etsi"
 analyse = "Analysoi"
 help = "Ohje"
 recent_files = "Viimeisimmät tiedostot"
+recent_databases = "Viimeisimmät tietokannat"
 
 [toolbar]
 insert_column_hint = "Lisää uusi sarake"

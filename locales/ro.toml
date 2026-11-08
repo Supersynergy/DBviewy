@@ -22,6 +22,7 @@ search = "Căutare"
 analyse = "Analiză"
 help = "Ajutor"
 recent_files = "Fișiere recente"
+recent_databases = "Baze de date recente"
 
 [toolbar]
 insert_column_hint = "Inserează o coloană nouă"

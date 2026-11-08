@@ -91,6 +91,8 @@ pub struct ToolbarCtx<'a> {
     pub mark_filter_active: bool,
     pub zoom_percent: u32,
     pub recent_files: &'a [String],
+    /// Recently opened database objects (File -> Recent databases).
+    pub recent_dbs: &'a [crate::recent::RecentDbEntry],
     pub directory_tree_open: bool,
     pub first_row_is_header: bool,
     /// Why "First row is header" is greyed out on this tab, or `None`.
@@ -253,6 +255,12 @@ pub struct ToolbarAction {
     pub remove_recent: Option<String>,
     /// Right-click -> "Clear all" on a recent-files entry.
     pub clear_recent: bool,
+    /// File -> Recent databases -> <entry>: reopen that database object.
+    pub open_recent_db: Option<crate::recent::RecentDbEntry>,
+    /// Right-click -> "Remove from list" on a recent-databases entry.
+    pub remove_recent_db: Option<crate::recent::RecentDbEntry>,
+    /// Right-click -> "Clear all" on a recent-databases entry.
+    pub clear_recent_db: bool,
     pub save_file: bool,
     pub save_file_as: bool,
     /// File -> Save with password...
