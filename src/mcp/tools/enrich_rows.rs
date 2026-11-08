@@ -29,6 +29,9 @@ in-GUI assistant with Write protection off.";
 const HARD_LIMIT: usize = 500;
 const DEFAULT_LIMIT: usize = 50;
 const DEFAULT_CELL_CHARS: usize = 500;
+/// Concurrent page fetches. Enough overlap that one slow page stops costing
+/// a whole batch; low enough to stay polite to one host.
+const FETCH_WORKERS: usize = 8;
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct Params {
@@ -122,13 +125,12 @@ pub fn run(ctx: &ToolContext, p: &Params) -> anyhow::Result<Value> {
     let cell_chars = p.cell_chars.unwrap_or(DEFAULT_CELL_CHARS);
     let target_idx = table.columns.iter().position(|c| c.name == p.target_column);
 
-    let mut values: Vec<CellValue> = Vec::new();
-    let mut failures: Vec<Value> = Vec::new();
+    // Collect the rows worth fetching first: the scan stays cheap and
+    // synchronous, the downloads fan out afterwards.
+    let mut targets: Vec<(usize, String)> = Vec::new();
     let mut scanned = 0usize;
-    let mut fetched = 0usize;
-
     for row in 0..n {
-        if values.len() + failures.len() >= limit {
+        if targets.len() >= limit {
             break;
         }
         scanned = row + 1;
@@ -136,11 +138,48 @@ pub fn run(ctx: &ToolContext, p: &Params) -> anyhow::Result<Value> {
             .get(row, url_col)
             .map(|c| c.to_string())
             .unwrap_or_default();
-        let Some(url) = detect_url(&text) else {
-            continue;
-        };
-        match web_fetch::fetch(url) {
-            Ok((_, status, content_type, body)) => {
+        if let Some(url) = detect_url(&text) {
+            targets.push((row, url.to_string()));
+        }
+    }
+
+    // Bounded-parallel fetch: a handful of worker threads share an index
+    // into `targets`, results land by target position so row order is
+    // preserved regardless of completion order. Serial used to mean one
+    // slow page stalled every row behind it.
+    let results: Vec<std::sync::Mutex<Option<Result<(u16, String, String), String>>>> = (0
+        ..targets.len())
+        .map(|_| std::sync::Mutex::new(None))
+        .collect();
+    {
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let workers = FETCH_WORKERS.min(targets.len());
+        std::thread::scope(|scope| {
+            for _ in 0..workers {
+                scope.spawn(|| {
+                    loop {
+                        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        if i >= targets.len() {
+                            return;
+                        }
+                        let out = web_fetch::fetch(&targets[i].1)
+                            .map(|(_, status, ct, body)| (status, ct, body))
+                            .map_err(|e| e.to_string());
+                        *results[i].lock().unwrap() = Some(out);
+                    }
+                });
+            }
+        });
+    }
+
+    let mut values: Vec<CellValue> = Vec::new();
+    let mut failures: Vec<Value> = Vec::new();
+    let mut fetched = 0usize;
+
+    for (i, slot) in results.iter().enumerate() {
+        let row = targets[i].0;
+        match slot.lock().unwrap().take() {
+            Some(Ok((status, content_type, body))) => {
                 fetched += 1;
                 let value = match p.extract {
                     Extract::Status => status.to_string(),
@@ -167,9 +206,10 @@ pub fn run(ctx: &ToolContext, p: &Params) -> anyhow::Result<Value> {
                 };
                 values.push(CellValue::String(value));
             }
-            Err(e) => {
-                failures.push(serde_json::json!({"row": row, "error": e.to_string()}));
+            Some(Err(e)) => {
+                failures.push(serde_json::json!({"row": row, "error": e}));
             }
+            None => {}
         }
     }
 

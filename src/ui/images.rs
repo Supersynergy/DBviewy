@@ -33,6 +33,14 @@ const MAX_ENTRIES: usize = 512;
 /// How many neighbours of the open picture the viewer pre-fetches, so arrow
 /// keys feel instant.
 pub const VIEWER_PREFETCH: usize = 2;
+/// Concurrent downloads. One thread per URL used to turn a fast scroll into
+/// hundreds of threads all blocking on the same host; a small pool reaches
+/// the same throughput without the thread storm or the server hammering.
+const MAX_WORKERS: usize = 4;
+/// Pending fetches not yet started, beyond the live workers. Requests past
+/// the cap drop the *oldest* waiting URL - anything scrolled past is almost
+/// certainly stale, and a cell still on screen simply asks again next frame.
+const MAX_QUEUED: usize = 128;
 
 /// Upload a decoded picture. The GPU refuses a texture wider than its limit
 /// (egui_glow panics), so a huge picture is shrunk for the screen only.
@@ -80,17 +88,33 @@ enum Entry {
 /// URL -> decoded texture, filled on demand. All methods take `&self`; the
 /// mutable state sits behind a `RefCell` because egui is single-threaded and
 /// the table's paint context only carries shared references.
+///
+/// Fetch concurrency lives in a shared `Mutex`ed queue rather than here:
+/// `request` enqueues, a lazily spawned pool of [`MAX_WORKERS`] threads
+/// drains it. `RefCell` would still be wrong because the workers are real
+/// threads - the queue must be `Send`-safe.
 pub struct ImageCache {
     inner: RefCell<Inner>,
     rx: Receiver<FetchMsg>,
     tx: Sender<FetchMsg>,
     agent: ureq::Agent,
+    queue: std::sync::Arc<std::sync::Mutex<FetchQueue>>,
+}
+
+#[derive(Default)]
+struct FetchQueue {
+    /// URLs waiting for a worker, oldest first.
+    pending: VecDeque<String>,
+    /// Worker threads alive right now (`<= MAX_WORKERS`).
+    workers: usize,
 }
 
 struct Inner {
     entries: HashMap<String, Entry>,
     /// Insertion order for eviction.
     lru: VecDeque<String>,
+    /// Requested and not yet finished - waiting in the queue or being
+    /// downloaded. Dedupes `request`, so it lives on the UI side's `RefCell`.
     in_flight: HashSet<String>,
 }
 
@@ -110,6 +134,7 @@ impl ImageCache {
             rx,
             tx,
             agent,
+            queue: std::sync::Arc::new(std::sync::Mutex::new(FetchQueue::default())),
         }
     }
 
@@ -161,25 +186,39 @@ impl ImageCache {
         inner.entries.contains_key(url) || inner.in_flight.contains(url)
     }
 
-    /// Ask for `url` if it is not already known or in flight. The actual
-    /// download runs on a worker thread; [`Self::drain`] collects it. A new
-    /// fetch also schedules the next frame, since egui repaints on demand
-    /// and nothing else would wake the loop while the worker runs.
+    /// Ask for `url` if it is not already known or in flight. The download
+    /// joins a shared queue; one of up to [`MAX_WORKERS`] worker threads
+    /// picks it up and [`Self::drain`] collects the result. A new fetch
+    /// also schedules the next frame, since egui repaints on demand and
+    /// nothing else would wake the loop while the workers run.
     pub fn request(&self, ctx: &egui::Context, url: &str) {
-        let spawned = {
-            let mut inner = self.inner.borrow_mut();
-            !inner.entries.contains_key(url) && inner.in_flight.insert(url.to_string())
-        };
-        if !spawned {
+        let mut inner = self.inner.borrow_mut();
+        if inner.entries.contains_key(url) || !inner.in_flight.insert(url.to_string()) {
             return;
         }
-        let agent = self.agent.clone();
-        let tx = self.tx.clone();
-        let url_owned = url.to_string();
-        std::thread::spawn(move || {
-            let result = fetch(&agent, &url_owned);
-            let _ = tx.send((url_owned, result));
-        });
+        let mut q = self.queue.lock().unwrap();
+        // Over the cap: sacrifice the oldest *waiting* URL, which the
+        // viewport almost certainly scrolled past. It is still marked
+        // in_flight, so remove that too - a cell still visible re-asks
+        // next frame and lands at the back of the queue.
+        q.pending.push_back(url.to_string());
+        while q.pending.len() > MAX_QUEUED
+            && let Some(stale) = q.pending.pop_front()
+        {
+            inner.in_flight.remove(&stale);
+        }
+        let spawn = q.workers < MAX_WORKERS;
+        if spawn {
+            q.workers += 1;
+        }
+        drop(q);
+        drop(inner);
+        if spawn {
+            let queue = self.queue.clone();
+            let agent = self.agent.clone();
+            let tx = self.tx.clone();
+            std::thread::spawn(move || worker(queue, agent, tx));
+        }
         ctx.request_repaint_after(Duration::from_millis(50));
     }
 }
@@ -198,6 +237,32 @@ fn insert(inner: &mut Inner, url: String, entry: Entry) {
         && let Some(old) = inner.lru.pop_front()
     {
         inner.entries.remove(&old);
+    }
+}
+
+/// One pool worker: takes the oldest pending URL, downloads, reports, and
+/// repeats until the queue is empty - then retires, decrementing `workers`
+/// so the next burst can spawn a replacement. Every state transition sits
+/// under the same lock, so a worker never exits between "queue empty" and
+/// "counted as gone" while a fresh request looks for a free slot.
+fn worker(
+    queue: std::sync::Arc<std::sync::Mutex<FetchQueue>>,
+    agent: ureq::Agent,
+    tx: Sender<FetchMsg>,
+) {
+    loop {
+        let url = {
+            let mut q = queue.lock().unwrap();
+            match q.pending.pop_front() {
+                Some(url) => url,
+                None => {
+                    q.workers -= 1;
+                    return;
+                }
+            }
+        };
+        let result = fetch(&agent, &url);
+        let _ = tx.send((url, result));
     }
 }
 
