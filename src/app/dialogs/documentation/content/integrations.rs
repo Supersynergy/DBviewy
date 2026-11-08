@@ -528,6 +528,10 @@ Tick **Allow writes** on a profile to let it edit in place:
   including window functions like a moving average), insert rows, set
   cells, delete rows, or drop columns. The change shows up in the tab at
   once and Ctrl+Z undoes it. Nothing reaches disk until you save.
+- Enrich the open tab from the web: for each row the assistant can
+  fetch the page a URL column points to and write what it extracts
+  (status, page text, or a regex capture) into a column. Every result
+  lands in the edit audit trail for you to review.
 - Edit a file on disk that is not open, including adding or dropping a
   column on a DuckDB, SQLite, or GeoPackage file (a schema change).
 - Write to databases whose connection also has **Allow writes** on

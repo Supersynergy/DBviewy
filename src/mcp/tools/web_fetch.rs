@@ -48,7 +48,7 @@ pub struct Params {
 /// content_type, body_text)`. The body is capped at [`MAX_BODY_BYTES`] and
 /// decoded as lossy UTF-8 - this tool is for reading pages, not for
 /// downloading binaries.
-fn fetch(url: &str) -> anyhow::Result<(String, u16, String, String)> {
+pub(crate) fn fetch(url: &str) -> anyhow::Result<(String, u16, String, String)> {
     let agent = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(TIMEOUT_SECS)))
         // Product pages bounce through short links and locale redirects;
@@ -194,7 +194,7 @@ fn decode_entities(text: &str) -> String {
 /// HTML to readable text: drop script/style/svg content, turn block-level
 /// markup into line breaks, strip the rest, decode entities, collapse
 /// whitespace. Not a layout engine - the model gets the words, in order.
-fn html_to_text(html: &str) -> String {
+pub(crate) fn html_to_text(html: &str) -> String {
     let mut out = String::with_capacity(html.len() / 2);
     let mut drop_depth: usize = 0;
     let mut rest = html;

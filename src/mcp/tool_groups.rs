@@ -483,6 +483,11 @@ pub static CATALOG: &[ToolEntry] = &[
         "Editing the tab you are looking at, undoably.",
     ),
     w(
+        "enrich_rows",
+        Write,
+        "Fetching the page each row links to into a new column.",
+    ),
+    w(
         "convert",
         Write,
         "Transcoding a whole file to another format.",

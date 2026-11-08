@@ -306,6 +306,7 @@ define_chat_tools! {
     "write_table"              => write_table,
     "edit_table"               => edit_table,
     "edit_open_tab"            => edit_open_tab,
+    "enrich_rows"              => enrich_rows,
     "transform_columns"        => transform_columns,
     "anonymize"                => anonymize,
     "hash_columns"             => hash_columns,

@@ -29,6 +29,7 @@ pub mod diff_tables;
 /// Chat-only (rendered from chat dispatch, not registered with the MCP server).
 pub mod edit_open_tab;
 pub mod edit_table;
+pub mod enrich_rows;
 pub mod export_db_tables;
 pub mod export_schema;
 pub mod find_duplicates;

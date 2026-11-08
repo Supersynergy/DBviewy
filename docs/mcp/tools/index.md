@@ -56,9 +56,9 @@ The groups, with roughly what each costs a request:
 Those totals are measured from the descriptions and schemas the server sends
 (bytes divided by three), so they move a little as tools are documented. The
 **Settings > Chat / Assistant > Assistant tools** list shows the current number
-per tool. The assistant has four more tools that exist only inside the GUI and
+per tool. The assistant has five more tools that exist only inside the GUI and
 have no MCP equivalent: `read_text` (in `core`), and `write_text`,
-`edit_open_tab` and `create_chart` (in `write`).
+`edit_open_tab`, `enrich_rows` and `create_chart` (in `write`).
 
 ## At-a-glance
 
