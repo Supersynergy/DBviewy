@@ -147,7 +147,7 @@ fn tag_name(inner: &str) -> Option<&str> {
 
 /// Decode the common named and numeric entities. Anything else survives
 /// verbatim - mangling a stray `&` is worse than leaving it.
-fn decode_entities(text: &str) -> String {
+pub(crate) fn decode_entities(text: &str) -> String {
     if !text.contains('&') {
         return text.to_string();
     }
@@ -169,6 +169,25 @@ fn decode_entities(text: &str) -> String {
             "quot" => Some('"'),
             "apos" => Some('\''),
             "nbsp" => Some(' '),
+            "ndash" => Some('–'),
+            "mdash" => Some('—'),
+            "hellip" => Some('…'),
+            "lsquo" => Some('\u{2018}'),
+            "rsquo" => Some('\u{2019}'),
+            "ldquo" => Some('\u{201C}'),
+            "rdquo" => Some('\u{201D}'),
+            "laquo" => Some('«'),
+            "raquo" => Some('»'),
+            "middot" => Some('·'),
+            "bull" => Some('•'),
+            "deg" => Some('°'),
+            "plusmn" => Some('±'),
+            "times" => Some('×'),
+            "divide" => Some('÷'),
+            "euro" => Some('€'),
+            "pound" => Some('£'),
+            "yen" => Some('¥'),
+            "cent" => Some('¢'),
             _ if entity.starts_with("#x") || entity.starts_with("#X") => {
                 u32::from_str_radix(&entity[2..], 16)
                     .ok()

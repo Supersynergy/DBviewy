@@ -589,6 +589,19 @@ a listing, or an HTTP endpoint a cell links to."
     }
 
     #[tool(
+        description = "Search the web and return the top results as {title, url, snippet} \
+triples. `query` is the search text, `max_results` caps the list (default 5, hard 10). Use it \
+to find a product listing, a price comparison or any page a row refers to - then read a hit \
+with `web_fetch`."
+    )]
+    async fn web_search(
+        &self,
+        Parameters(p): Parameters<tools::web_search::Params>,
+    ) -> Result<CallToolResult, McpError> {
+        tools::web_search::handle(self, p).await
+    }
+
+    #[tool(
         description = "Compare the column schemas of two tabular files. Reads each file's \
 column metadata only (no row data) and returns the four-way diff: `common` (columns with \
 matching name and type), `only_in_a`, `only_in_b`, and `type_mismatches` (same column name, \

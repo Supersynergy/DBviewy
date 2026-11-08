@@ -297,6 +297,7 @@ nav:
               - describe_file: mcp/tools/describe_file.md
               - grep_files: mcp/tools/grep_files.md
               - web_fetch: mcp/tools/web_fetch.md
+              - web_search: mcp/tools/web_search.md
           - quality:
               - find_duplicates: mcp/tools/find_duplicates.md
               - fuzzy_duplicates: mcp/tools/fuzzy_duplicates.md

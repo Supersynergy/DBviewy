@@ -44,7 +44,7 @@ The groups, with roughly what each costs a request:
 
 | Group       | Tools | Approx. tokens | For                                                       |
 |-------------|-------|----------------|-----------------------------------------------------------|
-| `core`      | 13    | ~7,200         | reading, schemas, counting, search, profiling, SQL, web   |
+| `core`      | 14    | ~7,700         | reading, schemas, counting, search, profiling, SQL, web   |
 | `quality`   | 13    | ~6,400         | duplicates, outliers, PII, rules, correlations            |
 | `compare`   | 7     | ~4,100         | schema and row differences, drift, merging versions       |
 | `combine`   | 7     | ~4,900         | unions, joins, join keys, reconciling column names        |
@@ -84,6 +84,7 @@ Reading, schemas, counting, search, profiling, sql.
 | **[`describe_file`](describe_file.md)**     | `core` | One-shot orientation snapshot            | No             |
 | **[`grep_files`](grep_files.md)**           | `core` | Grep a value across files in a directory | No             |
 | **[`web_fetch`](web_fetch.md)**             | `core` | Fetch a URL and read it as text          | No             |
+| **[`web_search`](web_search.md)**           | `core` | Find pages on the web by query           | No             |
 
 ### `quality`
 

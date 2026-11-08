@@ -62,7 +62,7 @@ impl ToolGroup {
     pub fn summary(self) -> &'static str {
         match self {
             ToolGroup::Core => {
-                "reading, describing, searching, SQL and web fetches over what is open"
+                "reading, describing, searching, SQL and web search/fetches over what is open"
             }
             ToolGroup::Quality => "duplicates, outliers, PII, rules and correlations",
             ToolGroup::Compare => "schemas, row-level differences and drift between two sources",
@@ -191,6 +191,11 @@ pub static CATALOG: &[ToolEntry] = &[
         "web_fetch",
         Core,
         "Reading a web page or HTTP endpoint the data links to.",
+    ),
+    e(
+        "web_search",
+        Core,
+        "Finding web pages by query before fetching them.",
     ),
     // --- quality -----------------------------------------------------------
     e("find_duplicates", Quality, "Exact duplicate rows or keys."),
