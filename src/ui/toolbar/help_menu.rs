@@ -16,11 +16,12 @@ pub(super) fn help_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
     let ToolbarCtx { colors, .. } = cx;
     top_menu_button(
         ui,
-        RichText::new(format!("ⓘ  {}", crate::i18n::t("menu.help"))).color(colors.text_primary),
+        crate::ui::icons::Icon::Help,
+        RichText::new(crate::i18n::t("menu.help")).color(colors.text_primary),
         |ui| {
             ui.set_min_width(180.0);
             if ui
-                .button(crate::i18n::t("help_menu.documentation"))
+                .add(crate::ui::icons::action_button("help_menu.documentation"))
                 .on_hover_text(crate::i18n::t("help_menu.documentation_hint"))
                 .clicked()
             {
@@ -29,7 +30,7 @@ pub(super) fn help_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             }
             ui.separator();
             if ui
-                .button(crate::i18n::t("help_menu.settings"))
+                .add(crate::ui::icons::action_button("help_menu.settings"))
                 .on_hover_text(crate::i18n::t("help_menu.settings_hint"))
                 .clicked()
             {
@@ -51,7 +52,7 @@ pub(super) fn help_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             ui.separator();
             if !crate::platform::is_store_packaged() {
                 if ui
-                    .button(crate::i18n::t("help_menu.check_updates"))
+                    .add(crate::ui::icons::action_button("help_menu.check_updates"))
                     .on_hover_text(crate::i18n::t("help_menu.check_updates_hint"))
                     .clicked()
                 {
@@ -59,7 +60,7 @@ pub(super) fn help_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                     ui.close();
                 }
             } else if ui
-                .button(crate::i18n::t("help_menu.store_updates"))
+                .add(crate::ui::icons::action_button("help_menu.store_updates"))
                 .on_hover_text(crate::i18n::t("help_menu.store_updates_hint"))
                 .clicked()
             {
@@ -68,7 +69,7 @@ pub(super) fn help_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             }
             ui.separator();
             if ui
-                .button(crate::i18n::t("ai_report.menu"))
+                .add(crate::ui::icons::action_button("ai_report.menu"))
                 .on_hover_text(crate::i18n::t("ai_report.menu_hint"))
                 .clicked()
             {
@@ -77,7 +78,7 @@ pub(super) fn help_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             }
             ui.separator();
             if ui
-                .button(crate::i18n::t("diagnostics.menu_export"))
+                .add(crate::ui::icons::action_button("diagnostics.menu_export"))
                 .on_hover_text(crate::i18n::t("diagnostics.menu_export_hint"))
                 .clicked()
             {
@@ -86,7 +87,7 @@ pub(super) fn help_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             }
             ui.separator();
             if ui
-                .button(crate::i18n::t("help_menu.about"))
+                .add(crate::ui::icons::action_button("help_menu.about"))
                 .on_hover_text(crate::i18n::t("help_menu.about_hint"))
                 .clicked()
             {

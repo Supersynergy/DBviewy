@@ -520,10 +520,7 @@ pub(super) fn draw_header_direct(
                 }
                 ui.separator();
                 if ui
-                    .add_enabled(
-                        !readonly,
-                        egui::Button::new(crate::i18n::t("header.rename")),
-                    )
+                    .add_enabled(!readonly, crate::ui::icons::action_button("header.rename"))
                     .clicked()
                 {
                     state.editing_col_name = Some((col_idx, col.name.clone()));
@@ -532,7 +529,10 @@ pub(super) fn draw_header_direct(
                 }
                 ui.separator();
                 ui.label(RichText::new("Clipboard").strong().size(11.0));
-                if ui.button(crate::i18n::t("header.copy")).clicked() {
+                if ui
+                    .add(crate::ui::icons::action_button("header.copy"))
+                    .clicked()
+                {
                     if !state.selected_cols.contains(&col_idx) {
                         state.selected_cols.clear();
                         state.selected_cols.insert(col_idx);
@@ -541,7 +541,7 @@ pub(super) fn draw_header_direct(
                     ui.close();
                 }
                 if ui
-                    .add_enabled(!readonly, egui::Button::new(crate::i18n::t("header.cut")))
+                    .add_enabled(!readonly, crate::ui::icons::action_button("header.cut"))
                     .clicked()
                 {
                     if !state.selected_cols.contains(&col_idx) {
@@ -552,7 +552,7 @@ pub(super) fn draw_header_direct(
                     ui.close();
                 }
                 if ui
-                    .add_enabled(!readonly, egui::Button::new(crate::i18n::t("header.paste")))
+                    .add_enabled(!readonly, crate::ui::icons::action_button("header.paste"))
                     .clicked()
                 {
                     interaction.ctx_paste = true;
@@ -573,22 +573,33 @@ pub(super) fn draw_header_direct(
                     };
                 mark_submenu(ui, col_keys, &col_anchor, table, interaction);
                 ui.separator();
-                if ui.button(crate::i18n::t("header.sort_az")).clicked() {
+                if ui
+                    .add(crate::ui::icons::action_button("header.sort_az"))
+                    .clicked()
+                {
                     interaction.sort_rows_asc_by = Some(col_idx);
                     ui.close();
                 }
-                if ui.button(crate::i18n::t("header.sort_za")).clicked() {
+                if ui
+                    .add(crate::ui::icons::action_button("header.sort_za"))
+                    .clicked()
+                {
                     interaction.sort_rows_desc_by = Some(col_idx);
                     ui.close();
                 }
                 // The same popup the header funnel opens, so a right-click
                 // and a funnel click give one filter, Shapes included.
-                if ui.button(crate::i18n::t("header.filter_values")).clicked() {
+                if ui
+                    .add(crate::ui::icons::action_button("header.filter_values"))
+                    .clicked()
+                {
                     open_facet(state, col_idx);
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.value_frequency"))
+                    .add(crate::ui::icons::action_button(
+                        "analyse_menu.value_frequency",
+                    ))
                     .clicked()
                 {
                     interaction.ctx_value_frequency = Some(col_idx);
@@ -609,7 +620,7 @@ pub(super) fn draw_header_direct(
                 });
                 if textish
                     && ui
-                        .button(crate::i18n::t("header.enrich_column"))
+                        .add(crate::ui::icons::action_button("header.enrich_column"))
                         .on_hover_text(crate::i18n::t("header.enrich_column_hint"))
                         .clicked()
                 {
@@ -618,31 +629,39 @@ pub(super) fn draw_header_direct(
                 }
                 if crate::data::is_numeric_data_type(&col.data_type)
                     && ui
-                        .button(crate::i18n::t("edit_menu.number_format"))
+                        .add(crate::ui::icons::action_button("edit_menu.number_format"))
                         .clicked()
                 {
                     interaction.ctx_column_format = Some(col_idx);
                     ui.close();
                 }
-                if can_hide && ui.button(crate::i18n::t("header.hide_column")).clicked() {
+                if can_hide
+                    && ui
+                        .add(crate::ui::icons::action_button("header.hide_column"))
+                        .clicked()
+                {
                     interaction.ctx_hide_column = Some(col_idx);
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("context_menu.freeze_to_here"))
+                    .add(crate::ui::icons::action_button(
+                        "context_menu.freeze_to_here",
+                    ))
                     .clicked()
                 {
                     state.frozen_cols = col_idx + 1;
                     ui.close();
                 }
                 if state.frozen_cols > 0
-                    && ui.button(crate::i18n::t("context_menu.unfreeze")).clicked()
+                    && ui
+                        .add(crate::ui::icons::action_button("context_menu.unfreeze"))
+                        .clicked()
                 {
                     state.frozen_cols = 0;
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("header.copy_column_names"))
+                    .add(crate::ui::icons::action_button("header.copy_column_names"))
                     .clicked()
                 {
                     // Multi-column when the right-clicked column is part of
@@ -666,7 +685,7 @@ pub(super) fn draw_header_direct(
                 if ui
                     .add_enabled(
                         !readonly,
-                        egui::Button::new(crate::i18n::t("toolbar.insert_column")),
+                        crate::ui::icons::action_button("toolbar.insert_column"),
                     )
                     .clicked()
                 {
@@ -686,7 +705,7 @@ pub(super) fn draw_header_direct(
                     ui.close();
                 }
                 ui.add_enabled_ui(!readonly, |ui| {
-                    ui.menu_button(crate::i18n::t("retype.menu"), |ui| {
+                    ui.menu_button(crate::ui::icons::submenu_atoms(ui, "retype.menu"), |ui| {
                         // Every target is offered, including ones that will not
                         // convert every value: `retype` converts what parses and
                         // leaves the rest as text, and the caller raises the
@@ -719,7 +738,7 @@ pub(super) fn draw_header_direct(
                     && ui
                         .add_enabled(
                             !readonly,
-                            egui::Button::new(crate::i18n::t("header.move_left")),
+                            crate::ui::icons::action_button("header.move_left"),
                         )
                         .clicked()
                 {
@@ -734,7 +753,7 @@ pub(super) fn draw_header_direct(
                     && ui
                         .add_enabled(
                             !readonly,
-                            egui::Button::new(crate::i18n::t("header.move_right")),
+                            crate::ui::icons::action_button("header.move_right"),
                         )
                         .clicked()
                 {
@@ -1358,7 +1377,7 @@ fn draw_facet_popup(
                 if ui
                     .add_enabled(
                         !state.facet_needs_seed && !refused,
-                        egui::Button::new(crate::i18n::t("facet.apply")),
+                        crate::ui::icons::action_button("facet.apply"),
                     )
                     .on_hover_text(crate::i18n::t("facet.apply_hint"))
                     .on_disabled_hover_text(crate::i18n::t(external_key(
@@ -1374,7 +1393,7 @@ fn draw_facet_popup(
                     apply = true;
                 }
                 if ui
-                    .button(crate::i18n::t("facet.clear"))
+                    .add(crate::ui::icons::action_button("facet.clear"))
                     .on_hover_text(crate::i18n::t("facet.clear_hint"))
                     .clicked()
                 {
@@ -1382,7 +1401,7 @@ fn draw_facet_popup(
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if ui
-                        .button(crate::i18n::t("facet.cancel"))
+                        .add(crate::ui::icons::action_button("facet.cancel"))
                         .on_hover_text(crate::i18n::t("facet.cancel_hint"))
                         .clicked()
                     {

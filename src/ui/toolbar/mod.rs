@@ -7,6 +7,7 @@ mod columns_menu;
 mod data_menu;
 mod edit_menu;
 mod file_menu;
+pub use file_menu::clipboard_source;
 mod help_menu;
 mod menu_button;
 mod search_menu;
@@ -55,6 +56,17 @@ const OPEN_AS_FORMATS: &[(&str, &str)] = &[
 /// and it means a new toolbar input is a named field rather than one more
 /// `bool` in a positional list of a dozen others.
 pub fn draw_toolbar(ui: &mut Ui, cx: ToolbarCtx<'_>, search: SearchControls<'_>) -> ToolbarAction {
+    draw_toolbar_with_command(ui, cx, search, 0.0, |_| {})
+}
+
+/// Keep the command entry pinned while menus and search remain scrollable.
+pub fn draw_toolbar_with_command(
+    ui: &mut Ui,
+    cx: ToolbarCtx<'_>,
+    search: SearchControls<'_>,
+    command_width: f32,
+    command: impl FnOnce(&mut Ui),
+) -> ToolbarAction {
     let mut action = ToolbarAction::default();
     // Destructured into locals with the original names so the bar's own body
     // below reads as it always did; `cx` stays whole (it is `Copy`) and is
@@ -144,7 +156,10 @@ pub fn draw_toolbar(ui: &mut Ui, cx: ToolbarCtx<'_>, search: SearchControls<'_>)
         } else {
             0.0
         };
-        let scroll_width = (ui.available_width() - reserved).max(120.0);
+        let available =
+            (ui.available_width() - reserved - 2.0 * ui.spacing().item_spacing.x).max(0.0);
+        let command_width = command_width.min(available * 0.65);
+        let scroll_width = (available - command_width).max(20.0);
         egui::ScrollArea::horizontal()
             .id_salt("toolbar_scroll")
             .max_width(scroll_width)
@@ -548,6 +563,14 @@ pub fn draw_toolbar(ui: &mut Ui, cx: ToolbarCtx<'_>, search: SearchControls<'_>)
                     }
                 });
             });
+
+        if command_width > 0.0 {
+            ui.allocate_ui_with_layout(
+                egui::vec2(command_width, 24.0),
+                egui::Layout::left_to_right(egui::Align::Center),
+                command,
+            );
+        }
 
         // Window controls - pinned to the far right of the same toolbar.
         // Only rendered when the user opted into a custom title bar

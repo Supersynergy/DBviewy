@@ -42,6 +42,8 @@ delete = "Izbriši"
 
 done = "Gotovo"
 [file_menu]
+copy_name = "Kopiraj naziv datoteke"
+copy_path = "Kopiraj putanju datoteke"
 save_password = "Spremi s lozinkom..."
 save_password_hint = "Sprema tablicu u zip zaštićen lozinkom (AES-256). Zapisuje se samo zip datoteka."
 save_cloud = "Spremi u oblak/SFTP..."

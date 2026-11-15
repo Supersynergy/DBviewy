@@ -46,6 +46,8 @@ delete = "Törlés"
 
 done = "Kész"
 [file_menu]
+copy_name = "Fájlnév másolása"
+copy_path = "Fájlútvonal másolása"
 save_password = "Mentés jelszóval..."
 save_password_hint = "A táblát jelszóval védett zipbe menti (AES-256). Csak egy zip fájl készül."
 save_cloud = "Mentés felhőbe/SFTP-re..."

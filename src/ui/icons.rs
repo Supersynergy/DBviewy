@@ -1,187 +1,130 @@
-//! Hand-drawn toolbar icons.
-//!
-//! Octa ships four fonts and none of them promises symbol coverage, so
-//! glyphs like "⛶" or "🖼" render as tofu. These icons are painted as egui
-//! strokes instead: they cannot be missing, they scale with the widget,
-//! and they inherit the theme's foreground colour.
+//! Lucide line icons. One 2× atlas is uploaded per egui context and tinted at draw time.
+//! Source: lucide-static 1.73.0 (ISC), see assets/lucide/LICENSE.
+//! Each discriminant indexes the corresponding tile in the atlas.
+use eframe::egui::{self, Color32, Painter, Rect, Vec2};
 
-use eframe::egui::{self, Color32, CornerRadius, Painter, Pos2, Rect, Stroke, Vec2};
-
-/// The pictograms [`paint_icon`] and [`icon_button`] understand.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[repr(u8)]
 pub enum Icon {
-    /// Chevron pointing left.
-    Prev,
-    /// Chevron pointing right.
-    Next,
-    /// Bar plus chevron: jump to the first item.
-    First,
-    /// Chevron plus bar: jump to the last item.
-    Last,
-    /// Magnifier with a minus.
-    ZoomOut,
-    /// Magnifier with a plus.
-    ZoomIn,
-    /// Four corner brackets: fit content to the window.
-    Fit,
-    /// Box with an arrow leaving top-right: external link.
-    OpenUrl,
-    /// Two overlapping sheets: copy.
-    Copy,
-    /// Window with a side column: toggle the details panel.
-    Details,
-    /// Cross: close.
-    Close,
+    Prev,       // chevron-left
+    Next,       // chevron-right
+    First,      // chevron-first
+    Last,       // chevron-last
+    ZoomOut,    // zoom-out
+    ZoomIn,     // zoom-in
+    Fit,        // maximize
+    OpenUrl,    // external-link
+    Copy,       // copy
+    Details,    // panel-right
+    File,       // file
+    FolderOpen, // folder-open
+    Save,       // save
+    Download,   // download
+    Upload,     // upload
+    Settings,   // settings
+    Search,     // search
+    Edit,       // pencil
+    Table,      // table
+    Columns,    // columns-3
+    Chart,      // chart-no-axes-combined
+    Help,       // circle-help
+    Plus,       // plus
+    Trash,      // trash-2
+    Undo,       // undo-2
+    Redo,       // redo-2
+    Refresh,    // refresh-cw
+    Filter,     // list-filter
+    ArrowUp,    // arrow-up
+    ArrowDown,  // arrow-down
+    ArrowLeft,  // arrow-left
+    ArrowRight, // arrow-right
+    Eye,        // eye
+    Check,      // check
+    Code,       // code
+    Link,       // link
+    Rows,       // rows-3
+    Sort,       // arrow-down-up
+    Sparkles,   // sparkles
+    Close,      // x
+    Clipboard,  // clipboard-paste
+    Cut,        // scissors
+    History,    // history
+    Database,   // database
+    Cloud,      // cloud
+    Lock,       // lock-keyhole
+    Book,       // book-open
+    Bookmark,   // bookmark
+    Palette,    // palette
+    Split,      // panels-top-left
+    Compare,    // git-compare-arrows
+    Merge,      // git-merge
+    Folder,     // folder
+    Globe,      // globe
+    Plug,       // plug
+    Shuffle,    // shuffle
+    Pivot,      // table-2
+    Quality,    // list-checks
+    Frequency,  // chart-column
+    Timeline,   // chart-line
+    Brush,      // brush-cleaning
+    Hash,       // hash
+    Type,       // type
+    Tag,        // tag
+    FileText,   // file-text
+    Exit,       // log-out
+    Hide,       // eye-off
+    Freeze,     // snowflake
+    Microphone, // mic
+    Send,       // arrow-up-right
+    Scan,       // scan-text
+    Flag,       // flag
+    Map,        // map
+    Layers,     // layers
+    Info,       // info
+    Transform,  // repeat-2
+    Workflow,   // workflow
+    Calculator, // calculator
+    Timer,      // timer
+    List,       // list
+    Pin,        // pin
 }
 
-/// Draw `icon` centred inside `rect`, stroked in `color`. The stroke width
-/// follows the icon size so a badge and a toolbar glyph read the same.
-pub fn paint_icon(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
-    let r = rect.shrink(rect.width().min(rect.height()) * 0.08);
-    let w = (r.width() / 9.0).clamp(0.8, 2.4);
-    let s = Stroke::new(w, color);
-    let (l, t, rr, b) = (r.left(), r.top(), r.right(), r.bottom());
-    let (cx, cy) = (r.center().x, r.center().y);
-    let line = |painter: &Painter, a: Pos2, bb: Pos2| painter.line_segment([a, bb], s);
-    match icon {
-        Icon::Prev => {
-            line(painter, Pos2::new(rr * 0.7 + cx * 0.3, t), Pos2::new(l, cy));
-            line(painter, Pos2::new(l, cy), Pos2::new(rr * 0.7 + cx * 0.3, b));
-        }
-        Icon::Next => {
-            line(painter, Pos2::new(l * 0.7 + cx * 0.3, t), Pos2::new(rr, cy));
-            line(painter, Pos2::new(rr, cy), Pos2::new(l * 0.7 + cx * 0.3, b));
-        }
-        Icon::First => {
-            line(
-                painter,
-                Pos2::new(l + w * 0.5, t),
-                Pos2::new(l + w * 0.5, b),
-            );
-            line(
-                painter,
-                Pos2::new(rr * 0.65 + cx * 0.35, t),
-                Pos2::new(l + w, cy),
-            );
-            line(
-                painter,
-                Pos2::new(l + w, cy),
-                Pos2::new(rr * 0.65 + cx * 0.35, b),
-            );
-        }
-        Icon::Last => {
-            line(
-                painter,
-                Pos2::new(rr - w * 0.5, t),
-                Pos2::new(rr - w * 0.5, b),
-            );
-            line(
-                painter,
-                Pos2::new(l * 0.65 + cx * 0.35, t),
-                Pos2::new(rr - w, cy),
-            );
-            line(
-                painter,
-                Pos2::new(rr - w, cy),
-                Pos2::new(l * 0.65 + cx * 0.35, b),
-            );
-        }
-        Icon::ZoomIn | Icon::ZoomOut => {
-            let ring = Rect::from_min_size(
-                Pos2::new(l, t),
-                egui::vec2(r.width() * 0.62, r.height() * 0.62),
-            );
-            painter.circle_stroke(ring.center(), ring.width() / 2.0, s);
-            let handle_from = ring.right_bottom() - Vec2::splat(ring.width() * 0.08);
-            line(
-                painter,
-                handle_from,
-                Pos2::new(
-                    handle_from.x + r.width() * 0.24,
-                    handle_from.y + r.height() * 0.24,
-                ),
-            );
-            let m = ring.center();
-            let arm = ring.width() * 0.26;
-            line(
-                painter,
-                Pos2::new(m.x - arm, m.y),
-                Pos2::new(m.x + arm, m.y),
-            );
-            if icon == Icon::ZoomIn {
-                line(
-                    painter,
-                    Pos2::new(m.x, m.y - arm),
-                    Pos2::new(m.x, m.y + arm),
-                );
-            }
-        }
-        Icon::Fit => {
-            let arm = r.width() * 0.28;
-            for (sx, sy) in [(l, t), (rr, t), (l, b), (rr, b)] {
-                let dx = if sx == l { arm } else { -arm };
-                let dy = if sy == t { arm } else { -arm };
-                line(painter, Pos2::new(sx + dx, sy), Pos2::new(sx, sy));
-                line(painter, Pos2::new(sx, sy + dy), Pos2::new(sx, sy));
-            }
-        }
-        Icon::OpenUrl => {
-            let boxr = Rect::from_min_max(
-                Pos2::new(l, t + r.height() * 0.3),
-                Pos2::new(l + r.width() * 0.7, b),
-            );
-            painter.rect_stroke(boxr, CornerRadius::same(2), s, egui::StrokeKind::Inside);
-            line(
-                painter,
-                Pos2::new(cx - r.width() * 0.1, cy + r.height() * 0.1),
-                Pos2::new(rr, t),
-            );
-            line(
-                painter,
-                Pos2::new(rr - r.width() * 0.3, t),
-                Pos2::new(rr, t),
-            );
-            line(
-                painter,
-                Pos2::new(rr, t + r.height() * 0.3),
-                Pos2::new(rr, t),
-            );
-        }
-        Icon::Copy => {
-            let back = Rect::from_min_max(
-                Pos2::new(l + r.width() * 0.22, t),
-                Pos2::new(rr, b - r.height() * 0.22),
-            );
-            let front = Rect::from_min_max(
-                Pos2::new(l, t + r.height() * 0.22),
-                Pos2::new(rr - r.width() * 0.22, b),
-            );
-            painter.rect_stroke(back, CornerRadius::same(1), s, egui::StrokeKind::Inside);
-            let fill = painter
-                .ctx()
-                .style_of(painter.ctx().theme())
-                .visuals
-                .panel_fill;
-            painter.rect(
-                front,
-                CornerRadius::same(1),
-                fill,
-                s,
-                egui::StrokeKind::Inside,
-            );
-        }
-        Icon::Details => {
-            painter.rect_stroke(r, CornerRadius::same(2), s, egui::StrokeKind::Inside);
-            let x = l + r.width() * 0.62;
-            line(painter, Pos2::new(x, t), Pos2::new(x, b));
-        }
-        Icon::Close => {
-            line(painter, Pos2::new(l, t), Pos2::new(rr, b));
-            line(painter, Pos2::new(rr, t), Pos2::new(l, b));
-        }
+fn atlas(ctx: &egui::Context) -> egui::TextureHandle {
+    let id = egui::Id::new("octa-lucide-atlas");
+    if let Some(texture) = ctx.data(|d| d.get_temp::<egui::TextureHandle>(id)) {
+        return texture;
     }
+    let image = image::load_from_memory(include_bytes!("../../assets/lucide/menu.png"))
+        .expect("bundled Lucide atlas")
+        .into_rgba8();
+    let texture = ctx.load_texture(
+        "Lucide",
+        egui::ColorImage::from_rgba_unmultiplied(
+            [image.width() as usize, image.height() as usize],
+            &image,
+        ),
+        egui::TextureOptions::LINEAR,
+    );
+    ctx.data_mut(|d| d.insert_temp(id, texture.clone()));
+    texture
 }
 
+fn uv(icon: Icon) -> Rect {
+    let i = icon as usize;
+    let tile = egui::vec2(1.0 / 10.0, 1.0 / 9.0);
+    Rect::from_min_size(
+        egui::pos2((i % 10) as f32 * tile.x, (i / 10) as f32 * tile.y),
+        tile,
+    )
+}
+pub fn paint_icon(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
+    painter.image(atlas(painter.ctx()).id(), rect, uv(icon), color);
+}
+pub fn icon_image(ui: &egui::Ui, icon: Icon) -> egui::Image<'static> {
+    egui::Image::new((atlas(ui.ctx()).id(), Vec2::splat(15.0)))
+        .uv(uv(icon))
+        .tint(ui.visuals().text_color())
+}
 /// A square toolbar button showing only an icon; `enabled` greys it like
 /// a normal button. The hover text carries the label plus the key hint.
 pub fn icon_button(ui: &mut egui::Ui, enabled: bool, icon: Icon, tip: impl Into<String>) -> bool {
@@ -219,4 +162,148 @@ pub fn icon_button(ui: &mut egui::Ui, enabled: bool, icon: Icon, tip: impl Into<
     };
     paint_icon(ui.painter(), rect.shrink(h * 0.18), icon, fg);
     response.clicked()
+}
+
+/// A menu action with a font-independent, theme-coloured line icon.
+/// The normal egui button retains its focus, keyboard and disabled semantics.
+pub fn menu_button(icon: Icon, label: impl Into<egui::WidgetText>) -> MenuIconButton {
+    MenuIconButton {
+        icon,
+        label: label.into(),
+        frame: true,
+    }
+}
+
+pub struct MenuIconButton {
+    icon: Icon,
+    label: egui::WidgetText,
+    frame: bool,
+}
+
+impl MenuIconButton {
+    pub fn frame(mut self, frame: bool) -> Self {
+        self.frame = frame;
+        self
+    }
+}
+
+impl egui::Widget for MenuIconButton {
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        ui.add(
+            egui::Button::image_and_text(icon_image(ui, self.icon), self.label).frame(self.frame),
+        )
+    }
+}
+
+/// Select a consistent action pictogram from the stable translation key.
+pub fn action_icon(key: &str) -> Icon {
+    let action = key.split_once('.').map_or(key, |(_, name)| name);
+    match action {
+        "open_url" | "open_in_browser" => Icon::OpenUrl,
+        "copy_path" | "copy_name" | "copy_column_names" => Icon::Copy,
+        "move_row_up" => Icon::ArrowUp,
+        "move_row_down" => Icon::ArrowDown,
+        "move_left" | "move_column_left" => Icon::ArrowLeft,
+        "move_right" | "move_column_right" => Icon::ArrowRight,
+        "open_api" => Icon::Plug,
+        "save_password" | "read_only" => Icon::Lock,
+        "recent_files" | "recent_databases" | "versions" | "cell_history" => Icon::History,
+        "exit" => Icon::Exit,
+        "cut" => Icon::Cut,
+        "paste" => Icon::Clipboard,
+        "pivot" | "transpose" => Icon::Pivot,
+        "random_sample" => Icon::Shuffle,
+        "quality" => Icon::Quality,
+        "timeseries" => Icon::Timeline,
+        "value_frequency" => Icon::Frequency,
+        "cleanup" | "harmonise" => Icon::Brush,
+        "about" => Icon::Info,
+        "documentation" => Icon::Book,
+        "describe" | "file_internals" | "schema_drift" => Icon::Scan,
+        "assistant" | "chat" => Icon::Sparkles,
+        "report" | "raw" => Icon::FileText,
+        "open" if key == "report.open" => Icon::OpenUrl,
+        _ => {
+            const RULES: &[(&str, Icon)] = &[
+                ("bookmark", Icon::Bookmark),
+                ("unpin", Icon::Pin),
+                ("pin_", Icon::Pin),
+                ("freeze", Icon::Freeze),
+                ("hide", Icon::Hide),
+                ("read_only", Icon::Lock),
+                ("compare", Icon::Compare),
+                ("merge", Icon::Merge),
+                ("join", Icon::Merge),
+                ("lookup", Icon::Search),
+                ("split", Icon::Split),
+                ("cloud", Icon::Cloud),
+                ("database", Icon::Database),
+                ("db_", Icon::Database),
+                ("cut", Icon::Cut),
+                ("paste", Icon::Clipboard),
+                ("delete", Icon::Trash),
+                ("remove", Icon::Trash),
+                ("clear", Icon::Trash),
+                ("copy", Icon::Copy),
+                ("duplicate", Icon::Copy),
+                ("undo", Icon::Undo),
+                ("redo", Icon::Redo),
+                ("save", Icon::Save),
+                ("export", Icon::Download),
+                ("import", Icon::Upload),
+                ("search", Icon::Search),
+                ("find", Icon::Search),
+                ("filter", Icon::Filter),
+                ("sort", Icon::Sort),
+                ("insert", Icon::Plus),
+                ("add_", Icon::Plus),
+                ("new", Icon::Plus),
+                ("settings", Icon::Settings),
+                ("chart", Icon::Chart),
+                ("correlation", Icon::Chart),
+                ("format", Icon::Palette),
+                ("color", Icon::Palette),
+                ("mark", Icon::Tag),
+                ("rename", Icon::Edit),
+                ("edit", Icon::Edit),
+                ("hash", Icon::Hash),
+                ("type", Icon::Type),
+                ("column", Icon::Columns),
+                ("row", Icon::Rows),
+                ("sql", Icon::Code),
+                ("parse", Icon::Code),
+                ("open", Icon::FolderOpen),
+                ("update", Icon::Refresh),
+                ("reload", Icon::Refresh),
+                ("view", Icon::Eye),
+                ("show", Icon::Eye),
+                ("convert", Icon::Transform),
+                ("table", Icon::Table),
+                ("recipe", Icon::Workflow),
+                ("time", Icon::Timer),
+                ("map", Icon::Map),
+                ("report", Icon::Flag),
+                ("analyse", Icon::Chart),
+                ("calc", Icon::Calculator),
+                ("close", Icon::Close),
+            ];
+            RULES
+                .iter()
+                .find(|(part, _)| action.contains(part))
+                .map(|(_, icon)| *icon)
+                .unwrap_or(if key.starts_with("analyse_menu.") {
+                    Icon::Chart
+                } else {
+                    Icon::List
+                })
+        }
+    }
+}
+
+pub fn action_button(key: &str) -> MenuIconButton {
+    menu_button(action_icon(key), crate::i18n::t(key))
+}
+
+pub fn submenu_atoms(ui: &egui::Ui, key: &str) -> (egui::Image<'static>, String) {
+    (icon_image(ui, action_icon(key)), crate::i18n::t(key))
 }

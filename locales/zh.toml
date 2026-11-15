@@ -35,6 +35,8 @@ delete = "删除"
 
 done = "完成"
 [file_menu]
+copy_name = "复制文件名"
+copy_path = "复制文件路径"
 save_password = "用密码保存..."
 save_password_hint = "把表格保存到受密码保护的 zip(AES-256)里。只会写出一个 zip 文件。"
 save_cloud = "保存到云/SFTP..."

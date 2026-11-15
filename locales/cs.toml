@@ -46,6 +46,8 @@ delete = "Smazat"
 
 done = "Hotovo"
 [file_menu]
+copy_name = "Kopírovat název souboru"
+copy_path = "Kopírovat cestu souboru"
 save_password = "Uložit s heslem..."
 save_password_hint = "Uloží tabulku do zipu chráněného heslem (AES-256). Zapíše se jen soubor zip."
 save_cloud = "Uložit do cloudu/SFTP..."

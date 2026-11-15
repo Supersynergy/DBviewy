@@ -27,11 +27,12 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
     } = cx;
     top_menu_button(
         ui,
-        RichText::new(format!("▤  {}", crate::i18n::t("menu.file"))).color(colors.text_primary),
+        crate::ui::icons::Icon::FolderOpen,
+        RichText::new(crate::i18n::t("menu.file")).color(colors.text_primary),
         |ui| {
             ui.set_min_width(180.0);
             if ui
-                .button(crate::i18n::t("file_menu.new_file"))
+                .add(crate::ui::icons::action_button("file_menu.new_file"))
                 .on_hover_text(crate::i18n::t("file_menu.new_file_hint"))
                 .clicked()
             {
@@ -39,7 +40,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("file_menu.new_table"))
+                .add(crate::ui::icons::action_button("file_menu.new_table"))
                 .on_hover_text(crate::i18n::t("file_menu.new_table_hint"))
                 .clicked()
             {
@@ -47,30 +48,135 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("common.open"))
+                .add(crate::ui::icons::action_button("common.open"))
                 .on_hover_text(crate::i18n::t("file_menu.open_hint"))
                 .clicked()
             {
                 action.open_file = true;
                 ui.close();
             }
+            ui.separator();
+            ui.menu_button(
+                crate::ui::icons::submenu_atoms(ui, "menu.recent_files"),
+                |ui| {
+                    ui.set_min_width(250.0);
+                    if recent_files.is_empty() {
+                        ui.add_enabled(
+                            false,
+                            crate::ui::icons::action_button("file_menu.recent_none"),
+                        );
+                    } else {
+                        for path in recent_files {
+                            let filename = recent_file_label(path, recent_files);
+                            let resp = ui
+                                .push_id(path, |ui| {
+                                    ui.add(crate::ui::icons::menu_button(
+                                        crate::ui::icons::Icon::File,
+                                        &filename,
+                                    ))
+                                })
+                                .inner
+                                .on_hover_text(path);
+                            if resp.clicked() {
+                                action.open_recent = Some(path.clone());
+                                ui.close();
+                            }
+                            resp.context_menu(|ui| {
+                                if ui
+                                    .add(crate::ui::icons::action_button("file_menu.copy_path"))
+                                    .clicked()
+                                {
+                                    ui.ctx().copy_text(clipboard_source(path, false));
+                                    ui.close();
+                                }
+                                if ui
+                                    .add(crate::ui::icons::action_button(
+                                        "file_menu.remove_from_list",
+                                    ))
+                                    .clicked()
+                                {
+                                    action.remove_recent = Some(path.clone());
+                                    ui.close();
+                                }
+                                ui.separator();
+                                if ui
+                                    .add(crate::ui::icons::action_button("file_menu.clear_all"))
+                                    .clicked()
+                                {
+                                    action.clear_recent = true;
+                                    ui.close();
+                                }
+                            });
+                        }
+                    }
+                },
+            );
+            ui.menu_button(
+                crate::ui::icons::submenu_atoms(ui, "menu.recent_databases"),
+                |ui| {
+                    ui.set_min_width(250.0);
+                    if recent_dbs.is_empty() {
+                        ui.add_enabled(
+                            false,
+                            crate::ui::icons::action_button("file_menu.recent_none"),
+                        );
+                    } else {
+                        for entry in recent_dbs {
+                            let resp = ui
+                                .add(crate::ui::icons::menu_button(
+                                    crate::ui::icons::Icon::Database,
+                                    entry.label(),
+                                ))
+                                .on_hover_text(format!("{}: {}", entry.conn_name, entry.conn_id));
+                            if resp.clicked() {
+                                action.open_recent_db = Some(entry.clone());
+                                ui.close();
+                            }
+                            resp.context_menu(|ui| {
+                                if ui
+                                    .add(crate::ui::icons::action_button(
+                                        "file_menu.remove_from_list",
+                                    ))
+                                    .clicked()
+                                {
+                                    action.remove_recent_db = Some(entry.clone());
+                                    ui.close();
+                                }
+                                ui.separator();
+                                if ui
+                                    .add(crate::ui::icons::action_button("file_menu.clear_all"))
+                                    .clicked()
+                                {
+                                    action.clear_recent_db = true;
+                                    ui.close();
+                                }
+                            });
+                        }
+                    }
+                },
+            );
+
+            ui.separator();
             // Open as... - pick the reader first, then the files. Opening the
             // picker straight from the chosen format keeps this to one step
             // and lets the picker stay unfiltered, which is the point: the
             // files worth opening this way are exactly the ones whose
             // extension Octa would otherwise route somewhere unhelpful.
-            ui.menu_button(crate::i18n::t("file_menu.open_as"), |ui| {
-                for (key, reader) in OPEN_AS_FORMATS {
-                    if ui.button(crate::i18n::t(key)).clicked() {
-                        action.open_as_files = Some(reader);
-                        ui.close();
+            ui.menu_button(
+                crate::ui::icons::submenu_atoms(ui, "file_menu.open_as"),
+                |ui| {
+                    for (key, reader) in OPEN_AS_FORMATS {
+                        if ui.add(crate::ui::icons::action_button(key)).clicked() {
+                            action.open_as_files = Some(reader);
+                            ui.close();
+                        }
                     }
-                }
-            })
+                },
+            )
             .response
             .on_hover_text(crate::i18n::t("file_menu.open_as_hint"));
             if ui
-                .button(crate::i18n::t("file_menu.open_directory"))
+                .add(crate::ui::icons::action_button("file_menu.open_directory"))
                 .on_hover_text(crate::i18n::t("file_menu.open_directory_hint"))
                 .clicked()
             {
@@ -79,7 +185,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             }
             if directory_tree_open
                 && ui
-                    .button(crate::i18n::t("file_menu.close_directory"))
+                    .add(crate::ui::icons::action_button("file_menu.close_directory"))
                     .on_hover_text(crate::i18n::t("file_menu.close_directory_hint"))
                     .clicked()
             {
@@ -87,7 +193,9 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("file_menu.open_table_folder"))
+                .add(crate::ui::icons::action_button(
+                    "file_menu.open_table_folder",
+                ))
                 .on_hover_text(crate::i18n::t("file_menu.open_table_folder_hint"))
                 .clicked()
             {
@@ -100,7 +208,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             // empty window and a URL to open - was the one
             // moment it was hidden.
             if ui
-                .button(crate::i18n::t("file_menu.open_url"))
+                .add(crate::ui::icons::action_button("file_menu.open_url"))
                 .on_hover_text(crate::i18n::t("file_menu.open_url_hint"))
                 .clicked()
             {
@@ -108,7 +216,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("file_menu.open_api"))
+                .add(crate::ui::icons::action_button("file_menu.open_api"))
                 .on_hover_text(crate::i18n::t("file_menu.open_api_hint"))
                 .clicked()
             {
@@ -116,7 +224,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("file_menu.batch_convert"))
+                .add(crate::ui::icons::action_button("file_menu.batch_convert"))
                 .on_hover_text(crate::i18n::t("file_menu.batch_convert_hint"))
                 .clicked()
             {
@@ -124,7 +232,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("file_menu.schema_drift"))
+                .add(crate::ui::icons::action_button("file_menu.schema_drift"))
                 .on_hover_text(crate::i18n::t("file_menu.schema_drift_hint"))
                 .clicked()
             {
@@ -132,7 +240,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("file_menu.merge_versions"))
+                .add(crate::ui::icons::action_button("file_menu.merge_versions"))
                 .on_hover_text(crate::i18n::t("file_menu.merge_versions_hint"))
                 .clicked()
             {
@@ -140,7 +248,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("file_menu.harmonise"))
+                .add(crate::ui::icons::action_button("file_menu.harmonise"))
                 .on_hover_text(crate::i18n::t("file_menu.harmonise_hint"))
                 .clicked()
             {
@@ -148,7 +256,9 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("file_menu.cloud_connections"))
+                .add(crate::ui::icons::action_button(
+                    "file_menu.cloud_connections",
+                ))
                 .on_hover_text(crate::i18n::t("file_menu.cloud_connections_hint"))
                 .clicked()
             {
@@ -156,12 +266,29 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("file_menu.databases"))
+                .add(crate::ui::icons::action_button("file_menu.databases"))
                 .on_hover_text(crate::i18n::t("file_menu.databases_hint"))
                 .clicked()
             {
                 action.toggle_db_browser = true;
                 ui.close();
+            }
+            ui.separator();
+            for (key, copy_name) in [
+                ("file_menu.copy_name", true),
+                ("file_menu.copy_path", false),
+            ] {
+                if ui
+                    .add_enabled(cx.has_source_path, crate::ui::icons::action_button(key))
+                    .clicked()
+                {
+                    if copy_name {
+                        action.copy_file_name = true;
+                    } else {
+                        action.copy_file_path = true;
+                    }
+                    ui.close();
+                }
             }
             // A text document (File -> New file, a raw view) has no columns
             // but saves all the same; gating this on `has_data` left it
@@ -174,7 +301,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 // used to sit between Save and Save as.
                 if can_save_in_place
                     && ui
-                        .button(crate::i18n::t("common.save"))
+                        .add(crate::ui::icons::action_button("common.save"))
                         .on_hover_text(crate::i18n::t("file_menu.save_hint"))
                         .clicked()
                 {
@@ -182,7 +309,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("common.save_as"))
+                    .add(crate::ui::icons::action_button("common.save_as"))
                     .on_hover_text(crate::i18n::t("file_menu.save_as_hint"))
                     .clicked()
                 {
@@ -190,7 +317,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("file_menu.save_password"))
+                    .add(crate::ui::icons::action_button("file_menu.save_password"))
                     .on_hover_text(crate::i18n::t("file_menu.save_password_hint"))
                     .clicked()
                 {
@@ -198,7 +325,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("file_menu.save_cloud"))
+                    .add(crate::ui::icons::action_button("file_menu.save_cloud"))
                     .on_hover_text(crate::i18n::t("file_menu.save_cloud_hint"))
                     .clicked()
                 {
@@ -207,7 +334,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 }
                 if has_data
                     && ui
-                        .button(crate::i18n::t("file_menu.save_to_db"))
+                        .add(crate::ui::icons::action_button("file_menu.save_to_db"))
                         .on_hover_text(crate::i18n::t("file_menu.save_to_db_hint"))
                         .clicked()
                 {
@@ -216,7 +343,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 }
                 if is_db_tab
                     && ui
-                        .button(crate::i18n::t("file_menu.save_sql"))
+                        .add(crate::ui::icons::action_button("file_menu.save_sql"))
                         .on_hover_text(crate::i18n::t("file_menu.save_sql_hint"))
                         .clicked()
                 {
@@ -228,7 +355,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 if can_save_in_place
                     && !is_db_tab
                     && ui
-                        .button(crate::i18n::t("file_menu.versions"))
+                        .add(crate::ui::icons::action_button("file_menu.versions"))
                         .on_hover_text(crate::i18n::t("file_menu.versions_hint"))
                         .clicked()
                 {
@@ -240,7 +367,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.separator();
 
                 if ui
-                    .button(crate::i18n::t("file_menu.export_workbook"))
+                    .add(crate::ui::icons::action_button("file_menu.export_workbook"))
                     .on_hover_text(crate::i18n::t("file_menu.export_workbook_hint"))
                     .clicked()
                 {
@@ -248,7 +375,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("file_menu.export_schema"))
+                    .add(crate::ui::icons::action_button("file_menu.export_schema"))
                     .on_hover_text(crate::i18n::t("file_menu.export_schema_hint"))
                     .clicked()
                 {
@@ -256,7 +383,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("file_menu.report"))
+                    .add(crate::ui::icons::action_button("file_menu.report"))
                     .on_hover_text(crate::i18n::t("file_menu.report_hint"))
                     .clicked()
                 {
@@ -264,7 +391,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("file_menu.export_pdf"))
+                    .add(crate::ui::icons::action_button("file_menu.export_pdf"))
                     .on_hover_text(crate::i18n::t("file_menu.export_pdf_hint"))
                     .clicked()
                 {
@@ -273,77 +400,8 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 }
             }
             ui.separator();
-            ui.menu_button(crate::i18n::t("menu.recent_files"), |ui| {
-                ui.set_min_width(250.0);
-                if recent_files.is_empty() {
-                    ui.add_enabled(
-                        false,
-                        egui::Button::new(crate::i18n::t("file_menu.recent_none")),
-                    );
-                } else {
-                    for path in recent_files {
-                        let filename = std::path::Path::new(path)
-                            .file_name()
-                            .map(|n| n.to_string_lossy().to_string())
-                            .unwrap_or_else(|| path.clone());
-                        let resp = ui.button(&filename).on_hover_text(path);
-                        if resp.clicked() {
-                            action.open_recent = Some(path.clone());
-                            ui.close();
-                        }
-                        resp.context_menu(|ui| {
-                            if ui
-                                .button(crate::i18n::t("file_menu.remove_from_list"))
-                                .clicked()
-                            {
-                                action.remove_recent = Some(path.clone());
-                                ui.close();
-                            }
-                            ui.separator();
-                            if ui.button(crate::i18n::t("file_menu.clear_all")).clicked() {
-                                action.clear_recent = true;
-                                ui.close();
-                            }
-                        });
-                    }
-                }
-            });
-            ui.menu_button(crate::i18n::t("menu.recent_databases"), |ui| {
-                ui.set_min_width(250.0);
-                if recent_dbs.is_empty() {
-                    ui.add_enabled(
-                        false,
-                        egui::Button::new(crate::i18n::t("file_menu.recent_none")),
-                    );
-                } else {
-                    for entry in recent_dbs {
-                        let resp = ui
-                            .button(entry.label())
-                            .on_hover_text(format!("{}: {}", entry.conn_name, entry.conn_id));
-                        if resp.clicked() {
-                            action.open_recent_db = Some(entry.clone());
-                            ui.close();
-                        }
-                        resp.context_menu(|ui| {
-                            if ui
-                                .button(crate::i18n::t("file_menu.remove_from_list"))
-                                .clicked()
-                            {
-                                action.remove_recent_db = Some(entry.clone());
-                                ui.close();
-                            }
-                            ui.separator();
-                            if ui.button(crate::i18n::t("file_menu.clear_all")).clicked() {
-                                action.clear_recent_db = true;
-                                ui.close();
-                            }
-                        });
-                    }
-                }
-            });
-            ui.separator();
             if ui
-                .button(crate::i18n::t("file_menu.exit"))
+                .add(crate::ui::icons::action_button("file_menu.exit"))
                 .on_hover_text(crate::i18n::t("file_menu.exit_hint"))
                 .clicked()
             {
@@ -353,3 +411,44 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
         },
     );
 }
+
+/// Keep names compact until another recent entry has the same basename.
+/// Copy the displayed source without resolving symlinks or requiring that a recent file still exists.
+pub fn clipboard_source(source: &str, name_only: bool) -> String {
+    let path = std::path::Path::new(source);
+    if name_only {
+        return path
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_else(|| source.to_owned());
+    }
+    if source.contains("://") {
+        return source.to_owned();
+    }
+    std::path::absolute(path)
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| source.to_owned())
+}
+
+fn recent_file_label(path: &str, recent: &[String]) -> String {
+    let path_ref = std::path::Path::new(path);
+    let Some(name) = path_ref.file_name() else {
+        return path.to_owned();
+    };
+    let duplicate = recent
+        .iter()
+        .any(|other| other != path && std::path::Path::new(other).file_name() == Some(name));
+    if duplicate {
+        format!(
+            "{} ({})",
+            name.to_string_lossy(),
+            path_ref.parent().unwrap_or(path_ref).display()
+        )
+    } else {
+        name.to_string_lossy().into_owned()
+    }
+}
+
+#[cfg(test)]
+#[path = "file_menu_tests.rs"]
+mod tests;

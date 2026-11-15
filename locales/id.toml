@@ -46,6 +46,8 @@ delete = "Hapus"
 
 done = "Selesai"
 [file_menu]
+copy_name = "Salin nama berkas"
+copy_path = "Salin jalur berkas"
 save_password = "Simpan dengan kata sandi..."
 save_password_hint = "Menyimpan tabel di dalam zip yang dilindungi kata sandi (AES-256). Hanya berkas zip yang ditulis."
 save_cloud = "Simpan ke cloud/SFTP..."

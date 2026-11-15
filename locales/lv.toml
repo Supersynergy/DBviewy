@@ -42,6 +42,8 @@ delete = "Dzēst"
 
 done = "Gatavs"
 [file_menu]
+copy_name = "Kopēt faila nosaukumu"
+copy_path = "Kopēt faila ceļu"
 save_password = "Saglabāt ar paroli..."
 save_password_hint = "Saglabā tabulu ar paroli aizsargātā zip (AES-256). Tiek ierakstīts tikai zip fails."
 save_cloud = "Saglabāt mākonī/SFTP..."

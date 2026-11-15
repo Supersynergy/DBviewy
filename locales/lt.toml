@@ -42,6 +42,8 @@ delete = "Pašalinti"
 
 done = "Atlikta"
 [file_menu]
+copy_name = "Kopijuoti failo pavadinimą"
+copy_path = "Kopijuoti failo kelią"
 save_password = "Išsaugoti su slaptažodžiu..."
 save_password_hint = "Išsaugo lentelę slaptažodžiu apsaugotame zip (AES-256). Įrašomas tik zip failas."
 save_cloud = "Išsaugoti debesyje/SFTP..."

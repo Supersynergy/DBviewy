@@ -339,11 +339,33 @@ impl OctaApp {
                     partial: search_partial,
                     full_scan,
                 };
-                let action = ui::toolbar::draw_toolbar(ui, cx, search);
+                let source = tab.table.source_path.as_deref();
+                let mut command_submitted = (false, false);
+                let command_width = (ui.available_width() * 0.30).clamp(108.0, 285.0);
+                let action =
+                    ui::toolbar::draw_toolbar_with_command(ui, cx, search, command_width, |ui| {
+                        command_submitted = self.chat.compact_command(ui, source);
+                    });
+                self.handle_compact_command(ctx, command_submitted);
                 self.search_focus_requested = false;
 
                 self.dispatch_toolbar_action(ctx, action);
             });
+    }
+
+    pub(crate) fn handle_compact_command(
+        &mut self,
+        ctx: &egui::Context,
+        (submitted, dictated): (bool, bool),
+    ) {
+        if (submitted || dictated) && self.apply_lead_chat_filter(ctx) {
+            return;
+        }
+        if submitted {
+            self.chat.visible = true;
+            self.chat.focus_input = true;
+            self.send_chat_message(ctx);
+        }
     }
 
     /// Lazily build the two logo textures the first frame they're needed (or
@@ -516,3 +538,7 @@ fn reveal_in_file_manager(path: &std::path::Path) {
             .spawn();
     }
 }
+
+#[cfg(test)]
+#[path = "toolbar_menu_tests.rs"]
+mod toolbar_menu_tests;

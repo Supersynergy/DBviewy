@@ -16,9 +16,11 @@ use super::chat::session::{ChatSessionState, TurnPhase};
 use super::chat::{ollama, secrets};
 use super::state::OctaApp;
 
+mod compact_command;
 mod context;
 mod controls;
 pub(crate) mod helpers;
+mod lead_filter;
 mod plan_ui;
 mod session;
 mod voice;
@@ -538,6 +540,8 @@ impl OctaApp {
     fn render_chat_input(&mut self, ui: &mut egui::Ui) {
         let running = self.chat.session.lock().unwrap().is_running();
         let ready = self.provider_ready();
+        let can_filter_leads = self.lead_filter_target(&self.chat.input).is_some();
+        let mut voice_filter = false;
 
         let input_id = egui::Id::new("octa_chat_input");
         // `@`-mention suggestions: open-tab handles/names + column names.
@@ -634,7 +638,7 @@ impl OctaApp {
                     self.cancel_chat();
                 }
             } else if ui
-                .add_enabled(ready, egui::Button::new(t("chat.send")))
+                .add_enabled(ready || can_filter_leads, egui::Button::new(t("chat.send")))
                 .clicked()
             {
                 send_now = true;
@@ -644,7 +648,7 @@ impl OctaApp {
             let filter_hint = t("search.ask_hint").replace("{profile}", &profile.name);
             filter_now = ui
                 .add_enabled(
-                    ready
+                    (ready || can_filter_leads)
                         && !running
                         && !self.chat.input.trim().is_empty()
                         && self.ask_filter_job.is_none()
@@ -667,9 +671,11 @@ impl OctaApp {
                 explain_now = true;
             }
 
+            let source = self.tabs[self.active_tab].table.source_path.as_deref();
             self.chat
                 .voice
-                .show(ui, &mut self.chat.input, &mut self.chat.focus_input);
+                .show(ui, &mut self.chat.input, &mut self.chat.focus_input, source);
+            voice_filter = self.chat.voice.completed_command && !running;
 
             // Prompts library: opens a manager window (save / insert / delete).
             if ui
@@ -699,7 +705,7 @@ impl OctaApp {
             if !popup_active
                 && resp.has_focus()
                 && ui.input(|i| i.key_pressed(egui::Key::Enter) && !i.modifiers.shift)
-                && ready
+                && (ready || can_filter_leads)
                 && !running
             {
                 send_now = true;
@@ -764,6 +770,9 @@ impl OctaApp {
             self.chat.ac_visible = false;
         }
 
+        if (voice_filter || filter_now) && self.apply_lead_chat_filter(ui.ctx()) {
+            return;
+        }
         if filter_now {
             self.ask_filter_for(
                 ui.ctx(),

@@ -42,6 +42,8 @@ delete = "Delete"
 
 done = "Done"
 [file_menu]
+copy_name = "Copy file name"
+copy_path = "Copy file path"
 save_password = "Save with password..."
 save_password_hint = "Save the table inside a password-protected zip (AES-256). Only a zip file is written."
 save_cloud = "Save to cloud/SFTP..."

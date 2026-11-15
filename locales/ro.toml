@@ -46,6 +46,8 @@ delete = "Șterge"
 
 done = "Gata"
 [file_menu]
+copy_name = "Copiază numele fișierului"
+copy_path = "Copiază calea fișierului"
 save_password = "Salvează cu parolă..."
 save_password_hint = "Salvează tabelul într-un zip protejat cu parolă (AES-256). Se scrie doar un fișier zip."
 save_cloud = "Salvează în cloud/SFTP..."

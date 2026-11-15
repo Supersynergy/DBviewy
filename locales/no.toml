@@ -35,6 +35,8 @@ delete = "Slett"
 
 done = "Ferdig"
 [file_menu]
+copy_name = "Kopier filnavn"
+copy_path = "Kopier filsti"
 save_password = "Lagre med passord..."
 save_password_hint = "Lagrer tabellen i en passordbeskyttet zip (AES-256). Bare en zip-fil skrives."
 save_cloud = "Lagre i sky/SFTP..."

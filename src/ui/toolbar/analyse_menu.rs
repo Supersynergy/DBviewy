@@ -28,7 +28,8 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
     } = cx;
     top_menu_button(
         ui,
-        RichText::new(format!("▧  {}", crate::i18n::t("menu.analyse"))).color(colors.text_primary),
+        crate::ui::icons::Icon::Chart,
+        RichText::new(crate::i18n::t("menu.analyse")).color(colors.text_primary),
         |ui| {
             ui.set_min_width(120.0);
             // SQL works even with no table open: attach a saved
@@ -36,7 +37,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
             // directly.
             if current_view_mode == ViewMode::Table
                 && ui
-                    .button(crate::i18n::t("analyse_menu.sql"))
+                    .add(crate::ui::icons::action_button("analyse_menu.sql"))
                     .on_hover_text(crate::i18n::t("analyse_menu.sql_hint"))
                     .clicked()
             {
@@ -46,7 +47,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
             let table_actions = current_view_mode == ViewMode::Table && has_data;
             if table_actions {
                 if ui
-                    .button(crate::i18n::t("analyse_menu.chart"))
+                    .add(crate::ui::icons::action_button("analyse_menu.chart"))
                     .on_hover_text(crate::i18n::t("analyse_menu.chart_hint"))
                     .clicked()
                 {
@@ -54,7 +55,9 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.value_frequency"))
+                    .add(crate::ui::icons::action_button(
+                        "analyse_menu.value_frequency",
+                    ))
                     .on_hover_text(crate::i18n::t("analyse_menu.value_frequency_hint"))
                     .clicked()
                 {
@@ -62,7 +65,9 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.random_sample"))
+                    .add(crate::ui::icons::action_button(
+                        "analyse_menu.random_sample",
+                    ))
                     .on_hover_text(crate::i18n::t("analyse_menu.random_sample_hint"))
                     .clicked()
                 {
@@ -70,7 +75,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.describe"))
+                    .add(crate::ui::icons::action_button("analyse_menu.describe"))
                     .on_hover_text(crate::i18n::t("analyse_menu.describe_hint"))
                     .clicked()
                 {
@@ -78,7 +83,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.quality"))
+                    .add(crate::ui::icons::action_button("analyse_menu.quality"))
                     .on_hover_text(crate::i18n::t("analyse_menu.quality_hint"))
                     .clicked()
                 {
@@ -86,7 +91,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.join_keys"))
+                    .add(crate::ui::icons::action_button("analyse_menu.join_keys"))
                     .on_hover_text(crate::i18n::t("analyse_menu.join_keys_hint"))
                     .clicked()
                 {
@@ -94,7 +99,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.join_diag"))
+                    .add(crate::ui::icons::action_button("analyse_menu.join_diag"))
                     .on_hover_text(crate::i18n::t("analyse_menu.join_diag_hint"))
                     .clicked()
                 {
@@ -102,7 +107,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.db_compare"))
+                    .add(crate::ui::icons::action_button("analyse_menu.db_compare"))
                     .on_hover_text(crate::i18n::t("analyse_menu.db_compare_hint"))
                     .clicked()
                 {
@@ -110,7 +115,9 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.folder_compare"))
+                    .add(crate::ui::icons::action_button(
+                        "analyse_menu.folder_compare",
+                    ))
                     .on_hover_text(crate::i18n::t("analyse_menu.folder_compare_hint"))
                     .clicked()
                 {
@@ -118,7 +125,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("datadrift.menu"))
+                    .add(crate::ui::icons::action_button("datadrift.menu"))
                     .on_hover_text(crate::i18n::t("datadrift.menu_hint"))
                     .clicked()
                 {
@@ -126,7 +133,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("relmap.menu"))
+                    .add(crate::ui::icons::action_button("relmap.menu"))
                     .on_hover_text(crate::i18n::t("relmap.menu_hint"))
                     .clicked()
                 {
@@ -134,7 +141,9 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.file_internals"))
+                    .add(crate::ui::icons::action_button(
+                        "analyse_menu.file_internals",
+                    ))
                     .on_hover_text(crate::i18n::t("analyse_menu.file_internals_hint"))
                     .clicked()
                 {
@@ -142,7 +151,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.pivot"))
+                    .add(crate::ui::icons::action_button("analyse_menu.pivot"))
                     .on_hover_text(crate::i18n::t("analyse_menu.pivot_hint"))
                     .clicked()
                 {
@@ -150,7 +159,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.timeseries"))
+                    .add(crate::ui::icons::action_button("analyse_menu.timeseries"))
                     .on_hover_text(crate::i18n::t("analyse_menu.timeseries_hint"))
                     .clicked()
                 {
@@ -158,7 +167,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.cleanup"))
+                    .add(crate::ui::icons::action_button("analyse_menu.cleanup"))
                     .on_hover_text(crate::i18n::t("analyse_menu.cleanup_hint"))
                     .clicked()
                 {
@@ -170,7 +179,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                 if ui
                     .add_enabled(
                         chat_profile_available,
-                        egui::Button::new(crate::i18n::t("chat.explain")),
+                        crate::ui::icons::action_button("chat.explain"),
                     )
                     .on_hover_text(crate::i18n::t("chat.explain_hint"))
                     .on_disabled_hover_text(crate::i18n::t("chat.explain_hint"))
@@ -180,7 +189,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.transpose"))
+                    .add(crate::ui::icons::action_button("analyse_menu.transpose"))
                     .on_hover_text(crate::i18n::t("analyse_menu.transpose_hint"))
                     .clicked()
                 {
@@ -194,7 +203,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                 if ui
                     .add_enabled(
                         comparable >= 2,
-                        egui::Button::new(crate::i18n::t("analyse_menu.row_compare")),
+                        crate::ui::icons::action_button("analyse_menu.row_compare"),
                     )
                     .on_hover_text(crate::i18n::t("analyse_menu.row_compare_hint"))
                     .on_disabled_hover_text(crate::i18n::t("analyse_menu.row_compare_hint"))
@@ -204,7 +213,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.correlation"))
+                    .add(crate::ui::icons::action_button("analyse_menu.correlation"))
                     .on_hover_text(crate::i18n::t("analyse_menu.correlation_hint"))
                     .clicked()
                 {
@@ -212,7 +221,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("analyse_menu.lookups"))
+                    .add(crate::ui::icons::action_button("analyse_menu.lookups"))
                     .on_hover_text(crate::i18n::t("analyse_menu.lookups_hint"))
                     .clicked()
                 {
@@ -220,7 +229,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("distcmp.menu"))
+                    .add(crate::ui::icons::action_button("distcmp.menu"))
                     .on_hover_text(crate::i18n::t("distcmp.menu_hint"))
                     .clicked()
                 {
@@ -228,7 +237,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("refint.menu"))
+                    .add(crate::ui::icons::action_button("refint.menu"))
                     .on_hover_text(crate::i18n::t("refint.menu_hint"))
                     .clicked()
                 {
@@ -236,7 +245,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("outliers.menu"))
+                    .add(crate::ui::icons::action_button("outliers.menu"))
                     .on_hover_text(crate::i18n::t("outliers.menu_hint"))
                     .clicked()
                 {
@@ -244,7 +253,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("pii.menu"))
+                    .add(crate::ui::icons::action_button("pii.menu"))
                     .on_hover_text(crate::i18n::t("pii.menu_hint"))
                     .clicked()
                 {
@@ -254,7 +263,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
                 ui.separator();
             }
             if ui
-                .button(crate::i18n::t("analyse_menu.assistant"))
+                .add(crate::ui::icons::action_button("analyse_menu.assistant"))
                 .on_hover_text(crate::i18n::t("analyse_menu.assistant_hint"))
                 .clicked()
             {

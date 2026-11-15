@@ -35,6 +35,8 @@ delete = "Verwijderen"
 
 done = "Klaar"
 [file_menu]
+copy_name = "Bestandsnaam kopiëren"
+copy_path = "Bestandspad kopiëren"
 save_password = "Opslaan met wachtwoord..."
 save_password_hint = "Slaat de tabel op in een met wachtwoord beveiligde zip (AES-256). Er wordt alleen een zipbestand geschreven."
 save_cloud = "Opslaan in cloud/SFTP..."

@@ -35,6 +35,8 @@ delete = "Sil"
 
 done = "Tamam"
 [file_menu]
+copy_name = "Dosya adını kopyala"
+copy_path = "Dosya yolunu kopyala"
 save_password = "Parolayla kaydet..."
 save_password_hint = "Tabloyu parolayla korunan bir zip içine kaydeder (AES-256). Yalnızca bir zip dosyası yazılır."
 save_cloud = "Buluta/SFTP'ye kaydet..."

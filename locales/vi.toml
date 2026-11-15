@@ -46,6 +46,8 @@ delete = "Xóa"
 
 done = "Xong"
 [file_menu]
+copy_name = "Sao chép tên tệp"
+copy_path = "Sao chép đường dẫn tệp"
 save_password = "Lưu có mật khẩu..."
 save_password_hint = "Lưu bảng vào một tệp zip được bảo vệ bằng mật khẩu (AES-256). Chỉ có một tệp zip được ghi."
 save_cloud = "Lưu lên đám mây/SFTP..."

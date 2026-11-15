@@ -16,6 +16,14 @@ impl OctaApp {
         ctx: &egui::Context,
         action: &ui::toolbar::ToolbarAction,
     ) {
+        if (action.copy_file_name || action.copy_file_path)
+            && let Some(path) = self.tabs[self.active_tab].table.source_path.as_ref()
+        {
+            ctx.copy_text(octa::ui::toolbar::clipboard_source(
+                path,
+                action.copy_file_name,
+            ));
+        }
         if action.new_file {
             self.new_file();
         }

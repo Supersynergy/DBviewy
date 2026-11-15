@@ -42,6 +42,8 @@ delete = "Kustuta"
 
 done = "Valmis"
 [file_menu]
+copy_name = "Kopeeri failinimi"
+copy_path = "Kopeeri failitee"
 save_password = "Salvesta parooliga..."
 save_password_hint = "Salvestab tabeli parooliga kaitstud zipi (AES-256). Kirjutatakse ainult zip-fail."
 save_cloud = "Salvesta pilve/SFTP-sse..."

@@ -58,7 +58,7 @@ pub(crate) fn render_about_dialog(app: &mut OctaApp, ctx: &egui::Context) {
         return;
     }
     let screen_center = ctx.content_rect().center();
-    let default_pos = screen_center - egui::vec2(160.0, 100.0);
+    let default_pos = screen_center - egui::vec2(180.0, 120.0);
     let mut close = false;
 
     let dialog_id = egui::Id::new("octa_about_dialog");
@@ -71,7 +71,9 @@ pub(crate) fn render_about_dialog(app: &mut OctaApp, ctx: &egui::Context) {
         .title_bar(false)
         .collapsible(false)
         .default_pos(default_pos);
-    let window = size_dialog_window(ctx, dialog_id, size, window, |w| w.resizable(true));
+    let window = size_dialog_window(ctx, dialog_id, size, window, |w| {
+        w.default_width(360.0).resizable(true)
+    });
 
     let inner = window.show(ctx, |ui| {
         if dialog_header(
@@ -87,28 +89,36 @@ pub(crate) fn render_about_dialog(app: &mut OctaApp, ctx: &egui::Context) {
             return;
         }
 
-        egui::CentralPanel::default().show(ui, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.add_space(8.0);
-                let title_id = egui::Id::new(TENTACLE_CLICK_ID);
-                let mut clicks: u8 = ui.data(|d| d.get_temp::<u8>(title_id).unwrap_or(0));
-                let title = ui
-                    .add(
-                        egui::Label::new(RichText::new("Octa").strong().size(20.0))
-                            .sense(egui::Sense::click()),
-                    )
-                    .on_hover_cursor(egui::CursorIcon::PointingHand);
-                if title.clicked() {
-                    clicks = clicks.saturating_add(1);
-                    ui.data_mut(|d| d.insert_temp(title_id, clicks));
-                }
-                ui.add_space(4.0);
-                ui.label(format!(
-                    "{} {}",
-                    octa::i18n::t("dialog.about_version"),
-                    VERSION
-                ));
-                ui.add_space(8.0);
+        egui::Frame::new().inner_margin(16.0).show(ui, |ui| {
+            ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.y = 5.0;
+                ui.horizontal(|ui| {
+                    if let Some(logo) = &app.welcome_logo_texture {
+                        ui.image((logo.id(), egui::vec2(42.0, 42.0)));
+                    }
+                    ui.vertical(|ui| {
+                        let title_id = egui::Id::new(TENTACLE_CLICK_ID);
+                        let mut clicks: u8 = ui.data(|d| d.get_temp::<u8>(title_id).unwrap_or(0));
+                        let title = ui
+                            .add(
+                                egui::Label::new(RichText::new("Octa").strong().size(20.0))
+                                    .sense(egui::Sense::click()),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand);
+                        if title.clicked() {
+                            clicks = clicks.saturating_add(1);
+                            ui.data_mut(|d| d.insert_temp(title_id, clicks));
+                        }
+                        ui.add_space(4.0);
+                        ui.label(format!(
+                            "{} {}",
+                            octa::i18n::t("dialog.about_version"),
+                            VERSION
+                        ));
+                    });
+                });
+                ui.add_space(6.0);
+                ui.separator();
                 ui.label(format!(
                     "{} {}",
                     octa::i18n::t("dialog.about_author"),
@@ -122,21 +132,16 @@ pub(crate) fn render_about_dialog(app: &mut OctaApp, ctx: &egui::Context) {
                     open_mailto(EMAIL);
                 }
                 ui.add_space(4.0);
-                if ui
-                    .hyperlink_to(octa::i18n::t("dialog.about_repo"), REPOSITORY)
-                    .clicked()
-                {
-                    // egui opens the link automatically
-                }
+                ui.hyperlink_to(octa::i18n::t("dialog.about_repo"), REPOSITORY)
+                    .on_hover_text(REPOSITORY);
                 ui.add_space(4.0);
+                ui.hyperlink_to(octa::i18n::t("dialog.about_docs"), DOCUMENTATION)
+                    .on_hover_text(DOCUMENTATION);
                 if ui
-                    .hyperlink_to(octa::i18n::t("dialog.about_docs"), DOCUMENTATION)
-                    .on_hover_text(DOCUMENTATION)
-                    .clicked()
+                    .data(|d| d.get_temp::<u8>(egui::Id::new(TENTACLE_CLICK_ID)))
+                    .unwrap_or(0)
+                    >= 8
                 {
-                    // egui opens the link automatically
-                }
-                if clicks >= 8 {
                     ui.add_space(8.0);
                     ui.label(
                         RichText::new(
@@ -150,7 +155,7 @@ pub(crate) fn render_about_dialog(app: &mut OctaApp, ctx: &egui::Context) {
                 ui.add_space(12.0);
                 if ui.button(octa::i18n::t("common.close")).clicked() {
                     app.show_about_dialog = false;
-                    ui.data_mut(|d| d.remove::<u8>(title_id));
+                    ui.data_mut(|d| d.remove::<u8>(egui::Id::new(TENTACLE_CLICK_ID)));
                 }
             });
         });

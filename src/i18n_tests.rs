@@ -376,6 +376,8 @@ const JUST_EXECUTES: &[&str] = &[
     "toolbar.delete_column",           // column right-click: deletes at once
     "toolbar.delete_selected_columns", // same, for a column selection
     "file_menu.close_directory",
+    "file_menu.copy_name",
+    "file_menu.copy_path",
     "file_menu.cloud_connections", // toggles the sidebar
     "file_menu.databases",         // toggles the sidebar
     "file_menu.exit",

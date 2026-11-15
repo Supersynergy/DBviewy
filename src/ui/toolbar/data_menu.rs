@@ -25,7 +25,8 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
     } = cx;
     top_menu_button(
         ui,
-        RichText::new(format!("▦  {}", crate::i18n::t("menu.data"))).color(colors.text_primary),
+        crate::ui::icons::Icon::Database,
+        RichText::new(crate::i18n::t("menu.data")).color(colors.text_primary),
         |ui| {
             if !has_data {
                 ui.weak(crate::i18n::t("menu.need_table"));
@@ -39,7 +40,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if ui
                 .add_enabled(
                     !edits_blocked,
-                    egui::Button::new(crate::i18n::t("toolbar.time_calc")),
+                    crate::ui::icons::action_button("toolbar.time_calc"),
                 )
                 .on_hover_text(crate::i18n::t("toolbar.time_calc_hint"))
                 .clicked()
@@ -50,7 +51,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if ui
                 .add_enabled(
                     !edits_blocked,
-                    egui::Button::new(crate::i18n::t("transform.menu")),
+                    crate::ui::icons::action_button("transform.menu"),
                 )
                 .on_hover_text(crate::i18n::t("transform.menu_hint"))
                 .clicked()
@@ -61,7 +62,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             let load_all = ui
                 .add_enabled(
                     source_has_more,
-                    egui::Button::new(crate::i18n::t("loadall.menu")),
+                    crate::ui::icons::action_button("loadall.menu"),
                 )
                 .on_hover_text(crate::i18n::t("loadall.menu_hint"))
                 .on_disabled_hover_text(crate::i18n::t("loadall.menu_disabled_hint"));
@@ -85,7 +86,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("bookmarks.add"))
+                .add(crate::ui::icons::action_button("bookmarks.add"))
                 .on_hover_text(crate::i18n::t("bookmarks.add_hint"))
                 .clicked()
             {
@@ -97,7 +98,9 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
 
             // Find duplicates covers highlight / new tab / filter / drop.
             if ui
-                .button(crate::i18n::t("search_menu.find_duplicates"))
+                .add(crate::ui::icons::action_button(
+                    "search_menu.find_duplicates",
+                ))
                 .on_hover_text(crate::i18n::t("search_menu.find_duplicates_hint"))
                 .clicked()
             {
@@ -105,7 +108,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("fuzzy_dup.menu"))
+                .add(crate::ui::icons::action_button("fuzzy_dup.menu"))
                 .on_hover_text(crate::i18n::t("fuzzy_dup.menu_hint"))
                 .clicked()
             {
@@ -113,7 +116,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("tabmem.menu"))
+                .add(crate::ui::icons::action_button("tabmem.menu"))
                 .on_hover_text(crate::i18n::t("tabmem.menu_hint"))
                 .clicked()
             {
@@ -124,7 +127,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if ui
                 .add_enabled(
                     !edits_blocked,
-                    egui::Button::new(crate::i18n::t("impute.menu")),
+                    crate::ui::icons::action_button("impute.menu"),
                 )
                 .on_hover_text(crate::i18n::t("impute.menu_hint"))
                 .clicked()
@@ -135,7 +138,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if ui
                 .add_enabled(
                     !edits_blocked,
-                    egui::Button::new(crate::i18n::t("anonymize.menu")),
+                    crate::ui::icons::action_button("anonymize.menu"),
                 )
                 .on_hover_text(crate::i18n::t("anonymize.menu_hint"))
                 .clicked()
@@ -144,7 +147,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("testdata.menu"))
+                .add(crate::ui::icons::action_button("testdata.menu"))
                 .on_hover_text(crate::i18n::t("testdata.menu_hint"))
                 .clicked()
             {
@@ -154,7 +157,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if ui
                 .add_enabled(
                     !edits_blocked,
-                    egui::Button::new(crate::i18n::t("tidyup.menu")),
+                    crate::ui::icons::action_button("tidyup.menu"),
                 )
                 .on_hover_text(crate::i18n::t("tidyup.menu_hint"))
                 .clicked()
@@ -168,7 +171,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             // like dedupe and impute above it, not about
             // how a column is displayed.
             if ui
-                .button(crate::i18n::t("edit_menu.validation"))
+                .add(crate::ui::icons::action_button("edit_menu.validation"))
                 .on_hover_text(crate::i18n::t("edit_menu.validation_hint"))
                 .clicked()
             {
@@ -183,7 +186,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if table_actions {
                 ui.separator();
                 if ui
-                    .button(crate::i18n::t("analyse_menu.multi_sort"))
+                    .add(crate::ui::icons::action_button("analyse_menu.multi_sort"))
                     .on_hover_text(crate::i18n::t("analyse_menu.multi_sort_hint"))
                     .clicked()
                 {
@@ -191,7 +194,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("union.menu"))
+                    .add(crate::ui::icons::action_button("union.menu"))
                     .on_hover_text(crate::i18n::t("union.menu_hint"))
                     .clicked()
                 {
@@ -199,7 +202,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("join.menu"))
+                    .add(crate::ui::icons::action_button("join.menu"))
                     .on_hover_text(crate::i18n::t("join.menu_hint"))
                     .clicked()
                 {
@@ -207,7 +210,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("fuzzy_join.menu"))
+                    .add(crate::ui::icons::action_button("fuzzy_join.menu"))
                     .on_hover_text(crate::i18n::t("fuzzy_join.menu_hint"))
                     .clicked()
                 {
@@ -215,7 +218,7 @@ pub(super) fn data_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                     ui.close();
                 }
                 if ui
-                    .button(crate::i18n::t("partition.menu"))
+                    .add(crate::ui::icons::action_button("partition.menu"))
                     .on_hover_text(crate::i18n::t("partition.menu_hint"))
                     .clicked()
                 {

@@ -231,6 +231,8 @@ pub struct ToolbarAction {
     /// Fired by **File -> New Table...**.
     pub new_table: bool,
     pub open_file: bool,
+    pub copy_file_name: bool,
+    pub copy_file_path: bool,
     /// User picked **View -> Reopen as -> <format>**: re-read the active tab's
     /// file through the named reader, for a file whose extension lies about its
     /// format. Carries the `FormatRegistry` reader name (e.g. "JSON").

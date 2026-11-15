@@ -35,6 +35,8 @@ delete = "Ta bort"
 
 done = "Klar"
 [file_menu]
+copy_name = "Kopiera filnamn"
+copy_path = "Kopiera filsökväg"
 save_password = "Spara med lösenord..."
 save_password_hint = "Sparar tabellen i en lösenordsskyddad zip (AES-256). Bara en zip-fil skrivs."
 save_cloud = "Spara i molnet/SFTP..."

@@ -19,7 +19,8 @@ pub(super) fn search_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarA
     } = cx;
     top_menu_button(
         ui,
-        RichText::new(format!("⚲  {}", crate::i18n::t("menu.search"))).color(colors.text_primary),
+        crate::ui::icons::Icon::Search,
+        RichText::new(crate::i18n::t("menu.search")).color(colors.text_primary),
         |ui| {
             if !has_data {
                 ui.weak(crate::i18n::t("menu.need_table"));
@@ -27,7 +28,7 @@ pub(super) fn search_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarA
             }
             ui.set_min_width(180.0);
             if ui
-                .button(crate::i18n::t("search_menu.find"))
+                .add(crate::ui::icons::action_button("search_menu.find"))
                 .on_hover_text(crate::i18n::t("search_menu.find_hint"))
                 .clicked()
             {
@@ -35,7 +36,7 @@ pub(super) fn search_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarA
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("search_menu.find_replace"))
+                .add(crate::ui::icons::action_button("search_menu.find_replace"))
                 .on_hover_text(crate::i18n::t("search_menu.find_replace_hint"))
                 .clicked()
             {
@@ -44,7 +45,7 @@ pub(super) fn search_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarA
             }
             ui.separator();
             if ui
-                .button(crate::i18n::t("search_menu.multi_search"))
+                .add(crate::ui::icons::action_button("search_menu.multi_search"))
                 .on_hover_text(crate::i18n::t("search_menu.multi_search_hint"))
                 .clicked()
             {

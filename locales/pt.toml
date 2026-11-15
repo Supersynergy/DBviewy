@@ -35,6 +35,8 @@ delete = "Excluir"
 
 done = "Concluído"
 [file_menu]
+copy_name = "Copiar nome do ficheiro"
+copy_path = "Copiar caminho do ficheiro"
 save_password = "Guardar com palavra-passe..."
 save_password_hint = "Guarda a tabela dentro de um zip protegido por palavra-passe (AES-256). Só é escrito um ficheiro zip."
 save_cloud = "Guardar na nuvem/SFTP..."

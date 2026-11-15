@@ -35,6 +35,8 @@ delete = "Usuń"
 
 done = "Gotowe"
 [file_menu]
+copy_name = "Kopiuj nazwę pliku"
+copy_path = "Kopiuj ścieżkę pliku"
 save_password = "Zapisz z hasłem..."
 save_password_hint = "Zapisuje tabelę w zipie chronionym hasłem (AES-256). Powstaje tylko plik zip."
 save_cloud = "Zapisz w chmurze/SFTP..."

@@ -246,6 +246,9 @@ impl OctaApp {
     }
 
     pub(crate) fn send_chat_message(&mut self, ctx: &egui::Context) {
+        if self.apply_lead_chat_filter(ctx) {
+            return;
+        }
         // Everything about the request comes from the active profile: provider,
         // model, temperature and thinking. Only the caps stay global.
         let profile = chat_profiles::active_profile(&self.settings);

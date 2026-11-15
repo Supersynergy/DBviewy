@@ -42,6 +42,8 @@ delete = "Изтриване"
 
 done = "Готово"
 [file_menu]
+copy_name = "Копиране на име на файл"
+copy_path = "Копиране на път до файл"
 save_password = "Запази с парола..."
 save_password_hint = "Запазва таблицата в zip, защитен с парола (AES-256). Записва се само zip файл."
 save_cloud = "Запази в облак/SFTP..."

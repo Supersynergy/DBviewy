@@ -18,10 +18,11 @@ use egui::{Ui, WidgetText};
 /// `SubMenuButton`, which carries its own hover-open logic for nested menus.
 pub(super) fn top_menu_button(
     ui: &mut Ui,
+    icon: crate::ui::icons::Icon,
     label: impl Into<WidgetText>,
     content: impl FnOnce(&mut Ui),
 ) -> egui::Response {
-    let resp = ui.add(egui::Button::new(label).frame(false));
+    let resp = ui.add(crate::ui::icons::menu_button(icon, label).frame(false));
     let ctx = ui.ctx().clone();
     let popup_id = resp.id;
     let was_open = egui::Popup::is_id_open(&ctx, popup_id);

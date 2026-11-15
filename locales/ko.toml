@@ -35,6 +35,8 @@ delete = "삭제"
 
 done = "완료"
 [file_menu]
+copy_name = "파일 이름 복사"
+copy_path = "파일 경로 복사"
 save_password = "비밀번호로 저장..."
 save_password_hint = "표를 비밀번호로 보호된 zip(AES-256) 안에 저장해요. zip 파일만 만들어져요."
 save_cloud = "클라우드/SFTP에 저장..."

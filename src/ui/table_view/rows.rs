@@ -772,7 +772,7 @@ pub(super) fn draw_data_row_direct(
                     state.selected_cell = Some((actual_row, col_idx));
                     if let Some(url) = &cell_link {
                         if ui
-                            .button(format!("↗  {}", crate::i18n::t("report.open")))
+                            .add(crate::ui::icons::action_button("report.open"))
                             .on_hover_text(url)
                             .clicked()
                         {
@@ -787,10 +787,7 @@ pub(super) fn draw_data_row_direct(
                     }
 
                     if ui
-                        .add_enabled(
-                            !readonly,
-                            egui::Button::new(format!("✎  {}", crate::i18n::t("menu.edit"))),
-                        )
+                        .add_enabled(!readonly, crate::ui::icons::action_button("menu.edit"))
                         .clicked()
                     {
                         let text = table
@@ -808,21 +805,23 @@ pub(super) fn draw_data_row_direct(
                             .size(11.0),
                     );
                     if ui
-                        .button(format!("⧉  {}", crate::i18n::t("header.copy")))
+                        .add(crate::ui::icons::action_button("header.copy"))
                         .clicked()
                     {
                         interaction.ctx_copy = true;
                         ui.close();
                     }
                     if ui
-                        .button(crate::i18n::t("context_menu.copy_markdown"))
+                        .add(crate::ui::icons::action_button(
+                            "context_menu.copy_markdown",
+                        ))
                         .clicked()
                     {
                         interaction.ctx_copy_markdown = true;
                         ui.close();
                     }
                     if ui
-                        .button(crate::i18n::t("context_menu.copy_in_list"))
+                        .add(crate::ui::icons::action_button("context_menu.copy_in_list"))
                         .on_hover_text(crate::i18n::t("context_menu.copy_in_list_hint"))
                         .clicked()
                     {
@@ -830,20 +829,14 @@ pub(super) fn draw_data_row_direct(
                         ui.close();
                     }
                     if ui
-                        .add_enabled(
-                            !readonly,
-                            egui::Button::new(format!("✂  {}", crate::i18n::t("header.cut"))),
-                        )
+                        .add_enabled(!readonly, crate::ui::icons::action_button("header.cut"))
                         .clicked()
                     {
                         interaction.ctx_cut = true;
                         ui.close();
                     }
                     if ui
-                        .add_enabled(
-                            !readonly,
-                            egui::Button::new(format!("▣  {}", crate::i18n::t("header.paste"))),
-                        )
+                        .add_enabled(!readonly, crate::ui::icons::action_button("header.paste"))
                         .clicked()
                     {
                         interaction.ctx_paste = true;
@@ -889,7 +882,7 @@ pub(super) fn draw_data_row_direct(
                     if ui
                         .add_enabled(
                             !readonly,
-                            egui::Button::new(crate::i18n::t("edit_menu.insert_row")),
+                            crate::ui::icons::action_button("edit_menu.insert_row"),
                         )
                         .clicked()
                     {
@@ -899,7 +892,7 @@ pub(super) fn draw_data_row_direct(
                     if ui
                         .add_enabled(
                             !readonly,
-                            egui::Button::new(crate::i18n::t("edit_menu.delete_row")),
+                            crate::ui::icons::action_button("edit_menu.delete_row"),
                         )
                         .clicked()
                     {
@@ -910,10 +903,7 @@ pub(super) fn draw_data_row_direct(
                         && ui
                             .add_enabled(
                                 !readonly,
-                                egui::Button::new(format!(
-                                    "↑  {}",
-                                    crate::i18n::t("edit_menu.move_row_up")
-                                )),
+                                crate::ui::icons::action_button("edit_menu.move_row_up"),
                             )
                             .clicked()
                     {
@@ -924,10 +914,7 @@ pub(super) fn draw_data_row_direct(
                         && ui
                             .add_enabled(
                                 !readonly,
-                                egui::Button::new(format!(
-                                    "↓  {}",
-                                    crate::i18n::t("edit_menu.move_row_down")
-                                )),
+                                crate::ui::icons::action_button("edit_menu.move_row_down"),
                             )
                             .clicked()
                     {
@@ -951,7 +938,7 @@ pub(super) fn draw_data_row_direct(
                     if ui
                         .add_enabled(
                             !readonly,
-                            egui::Button::new(crate::i18n::t("context_menu.rename_column")),
+                            crate::ui::icons::action_button("context_menu.rename_column"),
                         )
                         .clicked()
                     {
@@ -963,7 +950,7 @@ pub(super) fn draw_data_row_direct(
                     if ui
                         .add_enabled(
                             !readonly,
-                            egui::Button::new(crate::i18n::t("toolbar.insert_column")),
+                            crate::ui::icons::action_button("toolbar.insert_column"),
                         )
                         .clicked()
                     {
@@ -988,7 +975,7 @@ pub(super) fn draw_data_row_direct(
                         && ui
                             .add_enabled(
                                 !readonly,
-                                egui::Button::new(crate::i18n::t("edit_menu.move_col_left")),
+                                crate::ui::icons::action_button("edit_menu.move_col_left"),
                             )
                             .clicked()
                     {
@@ -999,7 +986,7 @@ pub(super) fn draw_data_row_direct(
                         && ui
                             .add_enabled(
                                 !readonly,
-                                egui::Button::new(crate::i18n::t("edit_menu.move_col_right")),
+                                crate::ui::icons::action_button("edit_menu.move_col_right"),
                             )
                             .clicked()
                     {
@@ -1013,18 +1000,24 @@ pub(super) fn draw_data_row_direct(
                             .strong()
                             .size(11.0),
                     );
-                    if ui.button(crate::i18n::t("header.sort_az")).clicked() {
+                    if ui
+                        .add(crate::ui::icons::action_button("header.sort_az"))
+                        .clicked()
+                    {
                         interaction.sort_rows_asc_by = Some(col_idx);
                         ui.close();
                     }
-                    if ui.button(crate::i18n::t("header.sort_za")).clicked() {
+                    if ui
+                        .add(crate::ui::icons::action_button("header.sort_za"))
+                        .clicked()
+                    {
                         interaction.sort_rows_desc_by = Some(col_idx);
                         ui.close();
                     }
 
                     ui.separator();
                     if ui
-                        .button(crate::i18n::t("bookmarks.add"))
+                        .add(crate::ui::icons::action_button("bookmarks.add"))
                         .on_hover_text(crate::i18n::t("bookmarks.add_hint"))
                         .clicked()
                     {
@@ -1036,35 +1029,48 @@ pub(super) fn draw_data_row_direct(
                     // Parse-in-new-tab submenu - mirrors the Edit menu
                     // entry so the user can launch the modal from
                     // wherever the cell they care about lives.
-                    ui.menu_button(crate::i18n::t("edit_menu.parse_in_new_tab"), |ui| {
-                        if ui.button(crate::i18n::t("edit_menu.scope_cell")).clicked() {
-                            interaction.ctx_parse_in_new_tab = Some(toolbar::ParseScope::Cell {
-                                row: actual_row,
-                                col: col_idx,
-                            });
-                            ui.close();
-                        }
-                        if ui.button(crate::i18n::t("edit_menu.scope_row")).clicked() {
-                            interaction.ctx_parse_in_new_tab =
-                                Some(toolbar::ParseScope::Row { row: actual_row });
-                            ui.close();
-                        }
-                        if ui
-                            .button(crate::i18n::t("edit_menu.scope_column"))
-                            .clicked()
-                        {
-                            interaction.ctx_parse_in_new_tab =
-                                Some(toolbar::ParseScope::Column { col: col_idx });
-                            ui.close();
-                        }
-                        if ui.button(crate::i18n::t("edit_menu.scope_table")).clicked() {
-                            interaction.ctx_parse_in_new_tab = Some(toolbar::ParseScope::Table);
-                            ui.close();
-                        }
-                    });
+                    ui.menu_button(
+                        crate::ui::icons::submenu_atoms(ui, "edit_menu.parse_in_new_tab"),
+                        |ui| {
+                            if ui
+                                .add(crate::ui::icons::action_button("edit_menu.scope_cell"))
+                                .clicked()
+                            {
+                                interaction.ctx_parse_in_new_tab =
+                                    Some(toolbar::ParseScope::Cell {
+                                        row: actual_row,
+                                        col: col_idx,
+                                    });
+                                ui.close();
+                            }
+                            if ui
+                                .add(crate::ui::icons::action_button("edit_menu.scope_row"))
+                                .clicked()
+                            {
+                                interaction.ctx_parse_in_new_tab =
+                                    Some(toolbar::ParseScope::Row { row: actual_row });
+                                ui.close();
+                            }
+                            if ui
+                                .add(crate::ui::icons::action_button("edit_menu.scope_column"))
+                                .clicked()
+                            {
+                                interaction.ctx_parse_in_new_tab =
+                                    Some(toolbar::ParseScope::Column { col: col_idx });
+                                ui.close();
+                            }
+                            if ui
+                                .add(crate::ui::icons::action_button("edit_menu.scope_table"))
+                                .clicked()
+                            {
+                                interaction.ctx_parse_in_new_tab = Some(toolbar::ParseScope::Table);
+                                ui.close();
+                            }
+                        },
+                    );
                     if matches!(table.get(actual_row, col_idx), Some(CellValue::Binary(_)))
                         && ui
-                            .button(crate::i18n::t("binview.menu"))
+                            .add(crate::ui::icons::action_button("binview.menu"))
                             .on_hover_text(crate::i18n::t("binview.menu_hint"))
                             .clicked()
                     {
@@ -1073,7 +1079,7 @@ pub(super) fn draw_data_row_direct(
                     }
                     if cell_image_url.is_some()
                         && ui
-                            .button(crate::i18n::t("imgview.menu"))
+                            .add(crate::ui::icons::action_button("imgview.menu"))
                             .on_hover_text(crate::i18n::t("imgview.menu_hint"))
                             .clicked()
                     {
@@ -1086,7 +1092,7 @@ pub(super) fn draw_data_row_direct(
                     }
                     let history = ui.add_enabled(
                         cell_history_unavailable.is_none(),
-                        egui::Button::new(crate::i18n::t("context_menu.cell_history")),
+                        crate::ui::icons::action_button("context_menu.cell_history"),
                     );
                     if history
                         .on_hover_text(crate::i18n::t("context_menu.cell_history_hint"))
@@ -1286,21 +1292,23 @@ pub(super) fn draw_data_row_direct(
                     .size(11.0),
             );
             if ui
-                .button(format!("⧉  {}", crate::i18n::t("header.copy")))
+                .add(crate::ui::icons::action_button("header.copy"))
                 .clicked()
             {
                 interaction.ctx_copy = true;
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("context_menu.copy_markdown"))
+                .add(crate::ui::icons::action_button(
+                    "context_menu.copy_markdown",
+                ))
                 .clicked()
             {
                 interaction.ctx_copy_markdown = true;
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("context_menu.copy_in_list"))
+                .add(crate::ui::icons::action_button("context_menu.copy_in_list"))
                 .on_hover_text(crate::i18n::t("context_menu.copy_in_list_hint"))
                 .clicked()
             {
@@ -1308,20 +1316,14 @@ pub(super) fn draw_data_row_direct(
                 ui.close();
             }
             if ui
-                .add_enabled(
-                    !readonly,
-                    egui::Button::new(format!("✂  {}", crate::i18n::t("header.cut"))),
-                )
+                .add_enabled(!readonly, crate::ui::icons::action_button("header.cut"))
                 .clicked()
             {
                 interaction.ctx_cut = true;
                 ui.close();
             }
             if ui
-                .add_enabled(
-                    !readonly,
-                    egui::Button::new(format!("▣  {}", crate::i18n::t("header.paste"))),
-                )
+                .add_enabled(!readonly, crate::ui::icons::action_button("header.paste"))
                 .clicked()
             {
                 interaction.ctx_paste = true;
@@ -1353,7 +1355,7 @@ pub(super) fn draw_data_row_direct(
             if ui
                 .add_enabled(
                     !readonly,
-                    egui::Button::new(crate::i18n::t("edit_menu.insert_row")),
+                    crate::ui::icons::action_button("edit_menu.insert_row"),
                 )
                 .clicked()
             {
@@ -1363,7 +1365,7 @@ pub(super) fn draw_data_row_direct(
             if ui
                 .add_enabled(
                     !readonly,
-                    egui::Button::new(crate::i18n::t("edit_menu.delete_row")),
+                    crate::ui::icons::action_button("edit_menu.delete_row"),
                 )
                 .clicked()
             {
@@ -1374,10 +1376,7 @@ pub(super) fn draw_data_row_direct(
                 && ui
                     .add_enabled(
                         !readonly,
-                        egui::Button::new(format!(
-                            "↑  {}",
-                            crate::i18n::t("edit_menu.move_row_up")
-                        )),
+                        crate::ui::icons::action_button("edit_menu.move_row_up"),
                     )
                     .clicked()
             {
@@ -1388,10 +1387,7 @@ pub(super) fn draw_data_row_direct(
                 && ui
                     .add_enabled(
                         !readonly,
-                        egui::Button::new(format!(
-                            "↓  {}",
-                            crate::i18n::t("edit_menu.move_row_down")
-                        )),
+                        crate::ui::icons::action_button("edit_menu.move_row_down"),
                     )
                     .clicked()
             {

@@ -35,6 +35,8 @@ delete = "Poista"
 
 done = "Valmis"
 [file_menu]
+copy_name = "Kopioi tiedostonimi"
+copy_path = "Kopioi tiedostopolku"
 save_password = "Tallenna salasanalla..."
 save_password_hint = "Tallentaa taulukon salasanalla suojattuun zip-tiedostoon (AES-256). Vain zip-tiedosto kirjoitetaan."
 save_cloud = "Tallenna pilveen/SFTP-palvelimelle..."

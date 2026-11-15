@@ -35,6 +35,8 @@ delete = "Löschen"
 
 done = "Fertig"
 [file_menu]
+copy_name = "Dateinamen kopieren"
+copy_path = "Dateipfad kopieren"
 save_password = "Mit Passwort speichern..."
 save_password_hint = "Speichert die Tabelle in einem passwortgeschützten Zip (AES-256). Es wird nur eine Zip-Datei geschrieben."
 save_cloud = "In Cloud/SFTP speichern..."

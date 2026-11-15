@@ -41,7 +41,8 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
     let has_selected_cell = selected_cell.is_some();
     top_menu_button(
         ui,
-        RichText::new(format!("✎  {}", crate::i18n::t("menu.edit"))).color(colors.text_primary),
+        crate::ui::icons::Icon::Edit,
+        RichText::new(crate::i18n::t("menu.edit")).color(colors.text_primary),
         |ui| {
             if !has_data {
                 ui.weak(crate::i18n::t("menu.need_table"));
@@ -57,7 +58,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if ui
                 .add_enabled(
                     can_undo && !edits_blocked,
-                    egui::Button::new(crate::i18n::t("edit_menu.undo")),
+                    crate::ui::icons::action_button("edit_menu.undo"),
                 )
                 .on_hover_text(crate::i18n::t("edit_menu.undo_hint"))
                 .clicked()
@@ -68,7 +69,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if ui
                 .add_enabled(
                     can_redo && !edits_blocked,
-                    egui::Button::new(crate::i18n::t("edit_menu.redo")),
+                    crate::ui::icons::action_button("edit_menu.redo"),
                 )
                 .on_hover_text(crate::i18n::t("edit_menu.redo_hint"))
                 .clicked()
@@ -79,7 +80,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if ui
                 .add_enabled(
                     can_reopen_tab,
-                    egui::Button::new(crate::i18n::t("edit_menu.reopen_tab")),
+                    crate::ui::icons::action_button("edit_menu.reopen_tab"),
                 )
                 .on_hover_text(crate::i18n::t("edit_menu.reopen_tab_hint"))
                 .clicked()
@@ -88,7 +89,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("edit_menu.fit_all_columns"))
+                .add(crate::ui::icons::action_button("edit_menu.fit_all_columns"))
                 .on_hover_text(crate::i18n::t("edit_menu.fit_all_columns_hint"))
                 .clicked()
             {
@@ -96,7 +97,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("edit_menu.fit_all_rows"))
+                .add(crate::ui::icons::action_button("edit_menu.fit_all_rows"))
                 .on_hover_text(crate::i18n::t("edit_menu.fit_all_rows_hint"))
                 .clicked()
             {
@@ -104,7 +105,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("edit_menu.copy_markdown"))
+                .add(crate::ui::icons::action_button("edit_menu.copy_markdown"))
                 .on_hover_text(crate::i18n::t("edit_menu.copy_markdown_hint"))
                 .clicked()
             {
@@ -112,7 +113,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("edit_menu.copy_in_list"))
+                .add(crate::ui::icons::action_button("edit_menu.copy_in_list"))
                 .on_hover_text(crate::i18n::t("edit_menu.copy_in_list_hint"))
                 .clicked()
             {
@@ -131,7 +132,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if ui
                 .add_enabled(
                     !edits_blocked,
-                    egui::Button::new(crate::i18n::t("edit_menu.insert_row")),
+                    crate::ui::icons::action_button("edit_menu.insert_row"),
                 )
                 .on_hover_text(crate::i18n::t("edit_menu.insert_row_hint"))
                 .clicked()
@@ -142,7 +143,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             let del_row = ui
                 .add_enabled(
                     has_selected_cell && !edits_blocked,
-                    egui::Button::new(crate::i18n::t("edit_menu.delete_row")),
+                    crate::ui::icons::action_button("edit_menu.delete_row"),
                 )
                 .on_hover_text(crate::i18n::t("edit_menu.delete_row_hint"));
             if del_row.clicked() {
@@ -158,7 +159,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             let up_btn = ui
                 .add_enabled(
                     can_move_up && !edits_blocked,
-                    egui::Button::new(crate::i18n::t("edit_menu.move_row_up")),
+                    crate::ui::icons::action_button("edit_menu.move_row_up"),
                 )
                 .on_hover_text(crate::i18n::t("edit_menu.move_row_up_hint"));
             if up_btn.clicked() {
@@ -168,7 +169,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             let down_btn = ui
                 .add_enabled(
                     can_move_down && !edits_blocked,
-                    egui::Button::new(crate::i18n::t("edit_menu.move_row_down")),
+                    crate::ui::icons::action_button("edit_menu.move_row_down"),
                 )
                 .on_hover_text(crate::i18n::t("edit_menu.move_row_down_hint"));
             if down_btn.clicked() {
@@ -184,42 +185,48 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             // in a new tab. Cell / Row / Column require a selected
             // cell so we know which row+col to target; Whole table
             // is always available.
-            ui.menu_button(crate::i18n::t("edit_menu.parse_in_new_tab"), |ui| {
-                let cell_btn = ui.add_enabled(
-                    has_selected_cell,
-                    egui::Button::new(crate::i18n::t("edit_menu.scope_cell")),
-                );
-                if cell_btn.clicked()
-                    && let Some((row, col)) = selected_cell
-                {
-                    action.parse_in_new_tab = Some(ParseScope::Cell { row, col });
-                    ui.close();
-                }
-                let row_btn = ui.add_enabled(
-                    has_selected_cell,
-                    egui::Button::new(crate::i18n::t("edit_menu.scope_row")),
-                );
-                if row_btn.clicked()
-                    && let Some((row, _)) = selected_cell
-                {
-                    action.parse_in_new_tab = Some(ParseScope::Row { row });
-                    ui.close();
-                }
-                let col_btn = ui.add_enabled(
-                    has_selected_cell,
-                    egui::Button::new(crate::i18n::t("edit_menu.scope_column")),
-                );
-                if col_btn.clicked()
-                    && let Some((_, col)) = selected_cell
-                {
-                    action.parse_in_new_tab = Some(ParseScope::Column { col });
-                    ui.close();
-                }
-                if ui.button(crate::i18n::t("edit_menu.scope_table")).clicked() {
-                    action.parse_in_new_tab = Some(ParseScope::Table);
-                    ui.close();
-                }
-            })
+            ui.menu_button(
+                crate::ui::icons::submenu_atoms(ui, "edit_menu.parse_in_new_tab"),
+                |ui| {
+                    let cell_btn = ui.add_enabled(
+                        has_selected_cell,
+                        crate::ui::icons::action_button("edit_menu.scope_cell"),
+                    );
+                    if cell_btn.clicked()
+                        && let Some((row, col)) = selected_cell
+                    {
+                        action.parse_in_new_tab = Some(ParseScope::Cell { row, col });
+                        ui.close();
+                    }
+                    let row_btn = ui.add_enabled(
+                        has_selected_cell,
+                        crate::ui::icons::action_button("edit_menu.scope_row"),
+                    );
+                    if row_btn.clicked()
+                        && let Some((row, _)) = selected_cell
+                    {
+                        action.parse_in_new_tab = Some(ParseScope::Row { row });
+                        ui.close();
+                    }
+                    let col_btn = ui.add_enabled(
+                        has_selected_cell,
+                        crate::ui::icons::action_button("edit_menu.scope_column"),
+                    );
+                    if col_btn.clicked()
+                        && let Some((_, col)) = selected_cell
+                    {
+                        action.parse_in_new_tab = Some(ParseScope::Column { col });
+                        ui.close();
+                    }
+                    if ui
+                        .add(crate::ui::icons::action_button("edit_menu.scope_table"))
+                        .clicked()
+                    {
+                        action.parse_in_new_tab = Some(ParseScope::Table);
+                        ui.close();
+                    }
+                },
+            )
             .response
             .on_hover_text(crate::i18n::t("edit_menu.parse_in_new_tab_hint"));
 
@@ -234,7 +241,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             let sort_asc = ui
                 .add_enabled(
                     can_sort,
-                    egui::Button::new(crate::i18n::t("edit_menu.sort_asc")),
+                    crate::ui::icons::action_button("edit_menu.sort_asc"),
                 )
                 .on_hover_text(crate::i18n::t("edit_menu.sort_asc_hint"));
             if sort_asc.clicked() {
@@ -246,7 +253,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             let sort_desc = ui
                 .add_enabled(
                     can_sort,
-                    egui::Button::new(crate::i18n::t("edit_menu.sort_desc")),
+                    crate::ui::icons::action_button("edit_menu.sort_desc"),
                 )
                 .on_hover_text(crate::i18n::t("edit_menu.sort_desc_hint"));
             if sort_desc.clicked() {
@@ -285,44 +292,50 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             // table has marks somewhere (so "Clear all marks" applies).
             let menu_enabled = has_marks_keys || table_has_any_marks;
             ui.add_enabled_ui(menu_enabled, |ui| {
-                ui.menu_button(crate::i18n::t("edit_menu.mark"), |ui| {
-                    // Color buttons + scoped Clear act on the current
-                    // selection; greyed when there is none so the user
-                    // can still reach the always-available "Clear all
-                    // marks" entry below.
-                    ui.add_enabled_ui(has_marks_keys, |ui| {
-                        for &color in MarkColor::ALL {
-                            let swatch = ThemeColors::mark_swatch(color);
-                            let label = color.label_t();
-                            let btn = egui::Button::new(RichText::new(label).color(swatch));
-                            if ui.add(btn).clicked() {
-                                for k in &mark_keys {
-                                    action.set_marks.push((k.clone(), color));
+                ui.menu_button(
+                    crate::ui::icons::submenu_atoms(ui, "edit_menu.mark"),
+                    |ui| {
+                        // Color buttons + scoped Clear act on the current
+                        // selection; greyed when there is none so the user
+                        // can still reach the always-available "Clear all
+                        // marks" entry below.
+                        ui.add_enabled_ui(has_marks_keys, |ui| {
+                            for &color in MarkColor::ALL {
+                                let swatch = ThemeColors::mark_swatch(color);
+                                let label = color.label_t();
+                                let btn = egui::Button::new(RichText::new(label).color(swatch));
+                                if ui.add(btn).clicked() {
+                                    for k in &mark_keys {
+                                        action.set_marks.push((k.clone(), color));
+                                    }
+                                    ui.close();
                                 }
-                                ui.close();
                             }
-                        }
-                        if any_currently_marked {
+                            if any_currently_marked {
+                                ui.separator();
+                                if ui
+                                    .add(crate::ui::icons::action_button("edit_menu.clear"))
+                                    .clicked()
+                                {
+                                    for k in &mark_keys {
+                                        action.clear_marks.push(k.clone());
+                                    }
+                                    ui.close();
+                                }
+                            }
+                        });
+                        if table_has_any_marks {
                             ui.separator();
-                            if ui.button(crate::i18n::t("edit_menu.clear")).clicked() {
-                                for k in &mark_keys {
-                                    action.clear_marks.push(k.clone());
-                                }
+                            if ui
+                                .add(crate::ui::icons::action_button("edit_menu.clear_all_marks"))
+                                .clicked()
+                            {
+                                action.clear_all_marks = true;
                                 ui.close();
                             }
                         }
-                    });
-                    if table_has_any_marks {
-                        ui.separator();
-                        if ui
-                            .button(crate::i18n::t("edit_menu.clear_all_marks"))
-                            .clicked()
-                        {
-                            action.clear_all_marks = true;
-                            ui.close();
-                        }
-                    }
-                })
+                    },
+                )
                 .response
                 .on_hover_text(crate::i18n::t("edit_menu.mark_hint"));
             });
@@ -347,7 +360,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
 
             ui.separator();
             if ui
-                .button(crate::i18n::t("edit_menu.edit_audit"))
+                .add(crate::ui::icons::action_button("edit_menu.edit_audit"))
                 .on_hover_text(crate::i18n::t("edit_menu.edit_audit_hint"))
                 .clicked()
             {
@@ -355,7 +368,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("edit_menu.recipe_panel"))
+                .add(crate::ui::icons::action_button("edit_menu.recipe_panel"))
                 .on_hover_text(crate::i18n::t("edit_menu.recipe_panel_hint"))
                 .clicked()
             {
@@ -363,7 +376,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
             if ui
-                .button(crate::i18n::t("edit_menu.apply_recipe"))
+                .add(crate::ui::icons::action_button("edit_menu.apply_recipe"))
                 .on_hover_text(crate::i18n::t("edit_menu.apply_recipe_hint"))
                 .clicked()
             {
@@ -376,7 +389,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 if ui
                     .add_enabled(
                         !edits_blocked,
-                        egui::Button::new(crate::i18n::t("edit_menu.discard_all_edits")),
+                        crate::ui::icons::action_button("edit_menu.discard_all_edits"),
                     )
                     .on_hover_text(crate::i18n::t("edit_menu.discard_all_edits_hint"))
                     .clicked()

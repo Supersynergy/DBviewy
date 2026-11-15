@@ -35,6 +35,8 @@ delete = "Supprimer"
 
 done = "Terminé"
 [file_menu]
+copy_name = "Copier le nom du fichier"
+copy_path = "Copier le chemin du fichier"
 save_password = "Enregistrer avec mot de passe..."
 save_password_hint = "Enregistre le tableau dans un zip protégé par mot de passe (AES-256). Seul un fichier zip est écrit."
 save_cloud = "Enregistrer dans le cloud/SFTP..."

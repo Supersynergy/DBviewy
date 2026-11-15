@@ -32,6 +32,7 @@ struct TabBarAction {
     export_pdf: Option<usize>,
     refresh: Option<usize>,
     load_all: Option<usize>,
+    copy_source: Option<(usize, bool)>,
 }
 
 /// What the right-click menu needs to know about the tab it belongs to.
@@ -274,6 +275,11 @@ impl OctaApp {
     }
 
     fn apply_tab_bar_action(&mut self, action: TabBarAction, ctx: &egui::Context) {
+        if let Some((idx, name_only)) = action.copy_source
+            && let Some(path) = self.tabs[idx].table.source_path.as_ref()
+        {
+            ctx.copy_text(octa::ui::toolbar::clipboard_source(path, name_only));
+        }
         if let Some(idx) = action.activate {
             self.active_tab = idx;
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(
@@ -321,9 +327,24 @@ impl OctaApp {
 /// file-backed ones (scratch tabs have nowhere to persist).
 fn tab_context_menu(ui: &mut egui::Ui, menu: &TabMenuContext, action: &mut TabBarAction) {
     let idx = menu.idx;
+    for (key, name_only) in [
+        ("file_menu.copy_name", true),
+        ("file_menu.copy_path", false),
+    ] {
+        if ui
+            .add_enabled(menu.has_source, octa::ui::icons::action_button(key))
+            .clicked()
+        {
+            action.copy_source = Some((idx, name_only));
+            ui.close();
+        }
+    }
+    ui.separator();
     if !menu.is_active
         && ui
-            .button(octa::i18n::t("context_menu.compare_active"))
+            .add(octa::ui::icons::action_button(
+                "context_menu.compare_active",
+            ))
             .clicked()
     {
         action.compare_with = Some(idx);
@@ -332,7 +353,7 @@ fn tab_context_menu(ui: &mut egui::Ui, menu: &TabMenuContext, action: &mut TabBa
     if ui
         .add_enabled(
             menu.can_refresh,
-            egui::Button::new(octa::i18n::t("refresh.menu")),
+            octa::ui::icons::action_button("refresh.menu"),
         )
         .on_hover_text(octa::i18n::t("refresh.menu_hint"))
         .on_disabled_hover_text(octa::i18n::t("refresh.menu_disabled_hint"))
@@ -344,7 +365,7 @@ fn tab_context_menu(ui: &mut egui::Ui, menu: &TabMenuContext, action: &mut TabBa
     if ui
         .add_enabled(
             menu.has_more,
-            egui::Button::new(octa::i18n::t("loadall.menu")),
+            octa::ui::icons::action_button("loadall.menu"),
         )
         .on_hover_text(octa::i18n::t("loadall.menu_hint"))
         .on_disabled_hover_text(octa::i18n::t("loadall.menu_disabled_hint"))
@@ -372,7 +393,7 @@ fn tab_context_menu(ui: &mut egui::Ui, menu: &TabMenuContext, action: &mut TabBa
         ui.close();
     }
     if ui
-        .button(octa::i18n::t("context_menu.rename_tab"))
+        .add(octa::ui::icons::action_button("context_menu.rename_tab"))
         .clicked()
     {
         action.rename = Some(idx);
@@ -383,7 +404,7 @@ fn tab_context_menu(ui: &mut egui::Ui, menu: &TabMenuContext, action: &mut TabBa
     if ui
         .add_enabled(
             menu.has_data,
-            egui::Button::new(octa::i18n::t("context_menu.export_pdf")),
+            octa::ui::icons::action_button("context_menu.export_pdf"),
         )
         .on_hover_text(octa::i18n::t("file_menu.export_pdf_hint"))
         .on_disabled_hover_text(octa::i18n::t("file_menu.export_pdf_hint"))

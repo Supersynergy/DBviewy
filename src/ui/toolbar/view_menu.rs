@@ -40,7 +40,8 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
     } = cx;
     top_menu_button(
         ui,
-        RichText::new(format!("◫  {}", crate::i18n::t("menu.view"))).color(colors.text_primary),
+        crate::ui::icons::Icon::Eye,
+        RichText::new(crate::i18n::t("menu.view")).color(colors.text_primary),
         |ui| {
             if !has_data {
                 ui.weak(crate::i18n::t("menu.need_table"));
@@ -158,7 +159,7 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             // active tab into Compare view.
             ui.separator();
             if ui
-                .button(crate::i18n::t("view_menu.compare_with"))
+                .add(crate::ui::icons::action_button("view_menu.compare_with"))
                 .on_hover_text(crate::i18n::t("view_menu.compare_with_hint"))
                 .clicked()
             {
@@ -167,7 +168,7 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             }
             if has_source_path
                 && ui
-                    .button(crate::i18n::t("view_menu.compare_git"))
+                    .add(crate::ui::icons::action_button("view_menu.compare_git"))
                     .on_hover_text(crate::i18n::t("view_menu.compare_git_hint"))
                     .clicked()
             {
@@ -182,14 +183,17 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             // file that is not open yet.
             if has_source_path {
                 ui.separator();
-                ui.menu_button(crate::i18n::t("view_menu.reopen_as"), |ui| {
-                    for (key, reader) in OPEN_AS_FORMATS {
-                        if ui.button(crate::i18n::t(key)).clicked() {
-                            action.open_as = Some(reader);
-                            ui.close();
+                ui.menu_button(
+                    crate::ui::icons::submenu_atoms(ui, "view_menu.reopen_as"),
+                    |ui| {
+                        for (key, reader) in OPEN_AS_FORMATS {
+                            if ui.add(crate::ui::icons::action_button(key)).clicked() {
+                                action.open_as = Some(reader);
+                                ui.close();
+                            }
                         }
-                    }
-                })
+                    },
+                )
                 .response
                 .on_hover_text(crate::i18n::t("view_menu.reopen_as_hint"));
             }
@@ -240,7 +244,7 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if ui
                 .add_enabled(
                     is_table && can_add,
-                    egui::Button::new(crate::i18n::t("view_menu.add_pane")),
+                    crate::ui::icons::action_button("view_menu.add_pane"),
                 )
                 .on_hover_text(crate::i18n::t("view_menu.add_pane_hint"))
                 .on_disabled_hover_text(crate::i18n::t("view_menu.add_pane_hint"))
@@ -252,7 +256,7 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             if ui
                 .add_enabled(
                     is_table && split_view && split_panes > 2,
-                    egui::Button::new(crate::i18n::t("view_menu.remove_pane")),
+                    crate::ui::icons::action_button("view_menu.remove_pane"),
                 )
                 .on_hover_text(crate::i18n::t("view_menu.remove_pane_hint"))
                 .on_disabled_hover_text(crate::i18n::t("view_menu.remove_pane_hint"))
@@ -287,7 +291,9 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             }
 
             if ui
-                .button(crate::i18n::t("view_menu.column_navigator"))
+                .add(crate::ui::icons::action_button(
+                    "view_menu.column_navigator",
+                ))
                 .on_hover_text(crate::i18n::t("view_menu.column_navigator_hint"))
                 .clicked()
             {
@@ -313,7 +319,7 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             });
             if zoom_percent != 100
                 && ui
-                    .button(crate::i18n::t("view_menu.zoom_reset"))
+                    .add(crate::ui::icons::action_button("view_menu.zoom_reset"))
                     .on_hover_text(crate::i18n::t("view_menu.zoom_reset_hint"))
                     .clicked()
             {

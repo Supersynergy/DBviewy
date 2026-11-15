@@ -12,6 +12,8 @@ use octa::i18n::t;
 
 #[derive(Default)]
 pub(super) struct VoiceInput {
+    pub(super) completed_command: bool,
+    source: Option<String>,
     stop: Option<Sender<()>>,
     // Dropping the active panel/session disconnects the worker in every stage.
     cancel: Option<Sender<()>>,
@@ -191,7 +193,8 @@ fn transcribe_mlx(audio: &Path, directory: &Path, cancel: &Receiver<()>) -> Resu
 mod tests;
 
 impl VoiceInput {
-    fn start(&mut self, ctx: egui::Context, audio: Option<PathBuf>) {
+    fn start(&mut self, ctx: egui::Context, audio: Option<PathBuf>, source: Option<&str>) {
+        self.source = source.map(str::to_owned);
         let (tx, rx) = mpsc::channel();
         let (stop, control) = mpsc::channel();
         let (guard, cancel) = mpsc::channel();
@@ -217,7 +220,25 @@ impl VoiceInput {
         });
     }
 
-    pub(super) fn show(&mut self, ui: &mut egui::Ui, draft: &mut String, focus: &mut bool) {
+    pub(super) fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        draft: &mut String,
+        focus: &mut bool,
+        source: Option<&str>,
+    ) {
+        self.show_with_label(ui, draft, focus, source, "Parakeet");
+    }
+
+    pub(super) fn show_with_label(
+        &mut self,
+        ui: &mut egui::Ui,
+        draft: &mut String,
+        focus: &mut bool,
+        source: Option<&str>,
+        label: &str,
+    ) {
+        self.completed_command = false;
         if let Some(rx) = &self.result {
             let result = match rx.try_recv() {
                 Ok(value) => Some(value),
@@ -232,6 +253,9 @@ impl VoiceInput {
                 self.stop = None;
                 match result {
                     Ok(text) => {
+                        self.completed_command = draft.trim().is_empty()
+                            && source.is_some()
+                            && self.source.as_deref() == source;
                         if !draft.is_empty() && !draft.ends_with(char::is_whitespace) {
                             draft.push(' ');
                         }
@@ -254,7 +278,18 @@ impl VoiceInput {
         } else if self.result.is_some() {
             ui.spinner().on_hover_text(t("chat.voice_hint"));
         } else {
-            ui.menu_button("Parakeet", |ui| {
+            let atoms = if label == "🎙" {
+                egui::Atoms::new(octa::ui::icons::icon_image(
+                    ui,
+                    octa::ui::icons::Icon::Microphone,
+                ))
+            } else {
+                egui::Atoms::new((
+                    octa::ui::icons::icon_image(ui, octa::ui::icons::Icon::Microphone),
+                    label,
+                ))
+            };
+            ui.menu_button(atoms, |ui| {
                 if cfg!(target_os = "macos")
                     && ui
                         .button(t("chat.voice_record"))
@@ -262,7 +297,7 @@ impl VoiceInput {
                         .clicked()
                 {
                     ui.close();
-                    self.start(ui.ctx().clone(), None);
+                    self.start(ui.ctx().clone(), None, source);
                 }
                 if ui
                     .button(t("chat.voice_file"))
@@ -277,7 +312,7 @@ impl VoiceInput {
                         )
                         .pick_file()
                     {
-                        self.start(ui.ctx().clone(), Some(path));
+                        self.start(ui.ctx().clone(), Some(path), source);
                     }
                 }
             })

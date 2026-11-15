@@ -1446,9 +1446,7 @@ fn edit_from_cell_menu_commits_the_supplied_text_on_enter() {
         .shapes
         .iter()
         .find_map(|shape| match &shape.shape {
-            egui::Shape::Text(t)
-                if t.galley.text() == format!("✎  {}", crate::i18n::t("menu.edit")) =>
-            {
+            egui::Shape::Text(t) if t.galley.text() == crate::i18n::t("menu.edit") => {
                 Some(t.pos + t.galley.size() / 2.0)
             }
             _ => None,
