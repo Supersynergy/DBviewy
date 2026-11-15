@@ -41,7 +41,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
     let has_selected_cell = selected_cell.is_some();
     top_menu_button(
         ui,
-        RichText::new(crate::i18n::t("menu.edit")).color(colors.text_primary),
+        RichText::new(format!("✎  {}", crate::i18n::t("menu.edit"))).color(colors.text_primary),
         |ui| {
             if !has_data {
                 ui.weak(crate::i18n::t("menu.need_table"));

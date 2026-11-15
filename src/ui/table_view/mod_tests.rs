@@ -1326,3 +1326,148 @@ fn row_grip_drops_on_the_lower_half_of_a_filtered_data_row() {
     assert_eq!(moved, Some((1, 8)));
     assert!(state.row_heights.is_empty());
 }
+
+#[test]
+fn domain_cell_opens_from_command_click_and_context_menu() {
+    let ctx = egui::Context::default();
+    let mut table = scrollable_table();
+    table.columns[0].name = "Domain".into();
+    table.rows[0][0] = crate::data::CellValue::String("example.org".into());
+    let mut state = TableViewState::default();
+    let mut frame = |events| {
+        frame_with(
+            &ctx,
+            &mut table,
+            &mut state,
+            events,
+            None,
+            |ui, table, state, mut cx| {
+                cx.clickable_links = true;
+                draw_table(ui, table, state, cx);
+            },
+        )
+    };
+    let cell = egui::pos2(80.0, HEADER_HEIGHT + base_row_height(13.0) * 0.5);
+    let command = egui::Modifiers {
+        command: true,
+        mac_cmd: true,
+        ..Default::default()
+    };
+    let plain = egui::Modifiers::default();
+    let click = |pos, button, pressed, modifiers| egui::Event::PointerButton {
+        pos,
+        button,
+        pressed,
+        modifiers,
+    };
+    let opened = |out: &egui::FullOutput| {
+        out.platform_output.commands.iter().any(
+            |c| matches!(c, egui::OutputCommand::OpenUrl(url) if url.url == "https://example.org"),
+        )
+    };
+    frame(vec![]);
+    frame(vec![
+        egui::Event::PointerMoved(cell),
+        egui::Event::ModifiersChanged(command),
+    ]);
+    frame(vec![click(
+        cell,
+        egui::PointerButton::Primary,
+        true,
+        command,
+    )]);
+    assert!(opened(&frame(vec![click(
+        cell,
+        egui::PointerButton::Primary,
+        false,
+        command
+    )])));
+    frame(vec![
+        egui::Event::ModifiersChanged(plain),
+        click(cell, egui::PointerButton::Secondary, true, plain),
+    ]);
+    frame(vec![click(
+        cell,
+        egui::PointerButton::Secondary,
+        false,
+        plain,
+    )]);
+    let out = frame(vec![]);
+    let item = out
+        .shapes
+        .iter()
+        .find_map(|shape| match &shape.shape {
+            egui::Shape::Text(t) if t.galley.text().contains(&crate::i18n::t("report.open")) => {
+                Some(t.pos + t.galley.size() / 2.0)
+            }
+            _ => None,
+        })
+        .expect("browser command visible in cell menu");
+    frame(vec![egui::Event::PointerMoved(item)]);
+    frame(vec![click(item, egui::PointerButton::Primary, true, plain)]);
+    assert!(opened(&frame(vec![click(
+        item,
+        egui::PointerButton::Primary,
+        false,
+        plain
+    )])));
+}
+
+#[test]
+fn edit_from_cell_menu_commits_the_supplied_text_on_enter() {
+    let ctx = egui::Context::default();
+    let mut table = scrollable_table();
+    let mut state = TableViewState::default();
+    let mut frame = |events| {
+        frame_with(
+            &ctx,
+            &mut table,
+            &mut state,
+            events,
+            None,
+            |ui, table, state, cx| {
+                draw_table(ui, table, state, cx);
+            },
+        )
+    };
+    let cell = egui::pos2(80.0, HEADER_HEIGHT + base_row_height(13.0) * 0.5);
+    let click = |pos, button, pressed| egui::Event::PointerButton {
+        pos,
+        button,
+        pressed,
+        modifiers: Default::default(),
+    };
+    frame(vec![]);
+    frame(vec![egui::Event::PointerMoved(cell)]);
+    frame(vec![click(cell, egui::PointerButton::Secondary, true)]);
+    frame(vec![click(cell, egui::PointerButton::Secondary, false)]);
+    let out = frame(vec![]);
+    let item = out
+        .shapes
+        .iter()
+        .find_map(|shape| match &shape.shape {
+            egui::Shape::Text(t)
+                if t.galley.text() == format!("✎  {}", crate::i18n::t("menu.edit")) =>
+            {
+                Some(t.pos + t.galley.size() / 2.0)
+            }
+            _ => None,
+        })
+        .expect("edit command visible in cell menu");
+    frame(vec![egui::Event::PointerMoved(item)]);
+    frame(vec![click(item, egui::PointerButton::Primary, true)]);
+    frame(vec![click(item, egui::PointerButton::Primary, false)]);
+    frame(vec![]);
+    frame(vec![egui::Event::Text("Geprüft".into())]);
+    frame(vec![egui::Event::Key {
+        key: egui::Key::Enter,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: Default::default(),
+    }]);
+    assert_eq!(
+        table.get(0, 0),
+        Some(&crate::data::CellValue::String("Geprüft".into()))
+    );
+}

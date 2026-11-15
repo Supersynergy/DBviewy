@@ -40,7 +40,7 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
     } = cx;
     top_menu_button(
         ui,
-        RichText::new(crate::i18n::t("menu.view")).color(colors.text_primary),
+        RichText::new(format!("◫  {}", crate::i18n::t("menu.view"))).color(colors.text_primary),
         |ui| {
             if !has_data {
                 ui.weak(crate::i18n::t("menu.need_table"));

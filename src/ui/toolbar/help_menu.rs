@@ -16,7 +16,7 @@ pub(super) fn help_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
     let ToolbarCtx { colors, .. } = cx;
     top_menu_button(
         ui,
-        RichText::new(crate::i18n::t("menu.help")).color(colors.text_primary),
+        RichText::new(format!("ⓘ  {}", crate::i18n::t("menu.help"))).color(colors.text_primary),
         |ui| {
             ui.set_min_width(180.0);
             if ui

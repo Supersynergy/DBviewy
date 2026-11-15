@@ -28,7 +28,7 @@ pub(super) fn analyse_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut Toolbar
     } = cx;
     top_menu_button(
         ui,
-        RichText::new(crate::i18n::t("menu.analyse")).color(colors.text_primary),
+        RichText::new(format!("▧  {}", crate::i18n::t("menu.analyse"))).color(colors.text_primary),
         |ui| {
             ui.set_min_width(120.0);
             // SQL works even with no table open: attach a saved

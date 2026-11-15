@@ -47,7 +47,7 @@ impl ThemeColors {
             bg_primary: Color32::from_rgb(255, 255, 255),
             bg_secondary: Color32::from_rgb(244, 246, 250),
             bg_tertiary: Color32::from_rgb(232, 236, 244),
-            bg_header: Color32::from_rgb(218, 224, 238),
+            bg_header: Color32::from_rgb(232, 237, 244),
             bg_selected: Color32::from_rgb(191, 219, 254),
             bg_hover: Color32::from_rgb(232, 236, 244),
             bg_edited: Color32::from_rgb(255, 249, 219),
@@ -67,7 +67,7 @@ impl ThemeColors {
             error: Color32::from_rgb(220, 38, 38),
 
             row_even: Color32::from_rgb(255, 255, 255),
-            row_odd: Color32::from_rgb(240, 242, 245),
+            row_odd: Color32::from_rgb(245, 247, 249),
             row_number_bg: Color32::from_rgb(243, 244, 246),
             row_number_text: Color32::from_rgb(156, 163, 175),
 

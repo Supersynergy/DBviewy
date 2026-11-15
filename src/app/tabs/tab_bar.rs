@@ -129,10 +129,21 @@ impl OctaApp {
         let full_label = tab.title_display();
         // 📌 prefix marks pinned tabs at a glance. U+1F4CC, supplementary
         // plane - covered by the bundled NotoEmoji font.
+        let short = tab.sheet_name.as_ref().filter(|sheet| {
+            tab.user_tab_name.is_none()
+                && tab.custom_tab_label.is_none()
+                && !self.tabs.iter().any(|other| {
+                    other.sheet_name.as_ref() == Some(sheet)
+                        && other.table.source_path != tab.table.source_path
+                })
+        });
+        let visible = short
+            .map(|sheet| format!("{sheet}{}", if tab.is_modified() { " *" } else { "" }))
+            .unwrap_or_else(|| full_label.clone());
         let label = if tab.pinned {
-            format!("\u{1f4cc} {}", full_label)
+            format!("\u{1f4cc} {}", visible)
         } else {
-            full_label.clone()
+            visible
         };
         let menu = TabMenuContext {
             idx,

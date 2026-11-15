@@ -21,7 +21,7 @@ pub(super) fn top_menu_button(
     label: impl Into<WidgetText>,
     content: impl FnOnce(&mut Ui),
 ) -> egui::Response {
-    let resp = ui.add(egui::Button::new(label));
+    let resp = ui.add(egui::Button::new(label).frame(false));
     let ctx = ui.ctx().clone();
     let popup_id = resp.id;
     let was_open = egui::Popup::is_id_open(&ctx, popup_id);
@@ -55,6 +55,8 @@ pub(super) fn top_menu_button(
             // look cramped. `Extend` lets the popup grow to the widest item
             // instead, applied once here so every top menu inherits it.
             ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+            ui.spacing_mut().button_padding = egui::vec2(8.0, 4.0);
+            ui.spacing_mut().item_spacing.y = 3.0;
             content(ui);
         });
 

@@ -143,16 +143,13 @@ pub(super) fn draw_data_row_direct(
             // can be styled as a hyperlink and opened on Ctrl+click. Computed
             // here so both the draw and click blocks can see it. Cheap: skipped
             // entirely when the setting is off.
-            let cell_link: Option<String> = if clickable_links
-                && !table
-                    .columns
-                    .get(col_idx)
-                    .is_some_and(|c| is_numeric_data_type(&c.data_type))
-            {
-                table.get(actual_row, col_idx).and_then(|v| {
-                    let text = v.display_with_binary_mode(binary_display_mode);
-                    crate::data::links::detect_url(&text).map(|u| u.to_string())
-                })
+            let cell_link: Option<String> = if clickable_links {
+                match table.get(actual_row, col_idx) {
+                    Some(crate::data::CellValue::String(text)) => {
+                        crate::data::links::cell_url(text, &table.columns[col_idx].name)
+                    }
+                    _ => None,
+                }
             } else {
                 None
             };
@@ -250,6 +247,31 @@ pub(super) fn draw_data_row_direct(
                 row_bg
             };
             col_painter.rect_filled(rect, 0.0, cell_bg);
+            if !is_editing
+                && table.columns[col_idx].name == "Prüfstatus Name"
+                && let Some(CellValue::String(status)) = table.get(actual_row, col_idx)
+            {
+                let signal = match status.as_str() {
+                    "Ausgangsname im Impressum belegt" | "Im Impressum neu gelesen" => {
+                        Some(colors.success)
+                    }
+                    "Person oder Rolle offen"
+                    | "Andere Betreiber-Domain prüfen"
+                    | "Impressum nicht eindeutig" => Some(colors.warning),
+                    "Kein Name in der Quelle" => Some(colors.text_muted),
+                    s if s.starts_with("Abruf fehlgeschlagen") => Some(colors.error),
+                    _ => None,
+                };
+                if let Some(color) = signal {
+                    col_painter.line_segment(
+                        [
+                            rect.left_top() + egui::vec2(2.0, 4.0),
+                            rect.left_bottom() + egui::vec2(2.0, -4.0),
+                        ],
+                        egui::Stroke::new(2.0, color),
+                    );
+                }
+            }
 
             col_painter.line_segment(
                 [rect.right_top(), rect.right_bottom()],
@@ -460,6 +482,14 @@ pub(super) fn draw_data_row_direct(
                         );
                     };
 
+                    let cell_font = if matches!(value, CellValue::String(_))
+                        && !col_numeric
+                        && !cell_line_breaks
+                    {
+                        egui::FontId::proportional(font_size)
+                    } else {
+                        egui::FontId::monospace(font_size)
+                    };
                     let galley = if invisibles {
                         // Show invisible characters: every space, tab and
                         // zero-width character drawn as an ASCII marker, the
@@ -491,7 +521,7 @@ pub(super) fn draw_data_row_direct(
                             &display_text,
                             0.0,
                             egui::TextFormat {
-                                font_id: egui::FontId::new(font_size, egui::FontFamily::Monospace),
+                                font_id: cell_font,
                                 color: text_color,
                                 underline: egui::Stroke::new(1.0_f32, text_color),
                                 ..Default::default()
@@ -508,7 +538,7 @@ pub(super) fn draw_data_row_direct(
                         // lands exactly at the column edge.
                         let mut job = egui::text::LayoutJob::simple(
                             display_text,
-                            egui::FontId::new(font_size, egui::FontFamily::Monospace),
+                            cell_font,
                             text_color,
                             text_rect.width(),
                         );
@@ -518,18 +548,14 @@ pub(super) fn draw_data_row_direct(
                     } else if !match_ranges.is_empty() {
                         let mut job = egui::text::LayoutJob::simple(
                             display_text,
-                            egui::FontId::new(font_size, egui::FontFamily::Monospace),
+                            cell_font,
                             text_color,
                             f32::INFINITY,
                         );
                         mark_matches(&mut job);
                         painter.layout_job(job)
                     } else {
-                        painter.layout_no_wrap(
-                            display_text,
-                            egui::FontId::new(font_size, egui::FontFamily::Monospace),
-                            text_color,
-                        )
+                        painter.layout_no_wrap(display_text, cell_font, text_color)
                     };
                     let col_is_numeric = table
                         .columns
@@ -651,6 +677,19 @@ pub(super) fn draw_data_row_direct(
                         cell_image_url.clone().unwrap_or_default(),
                         crate::i18n::t("imgview.thumb_hint")
                     ))
+                } else if let Some(url) = &cell_link {
+                    if response.hovered() && ui.input(|i| i.modifiers.command) {
+                        ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+                    }
+                    let modifier = if cfg!(target_os = "macos") {
+                        "⌘"
+                    } else {
+                        "Ctrl"
+                    };
+                    response.on_hover_text(format!(
+                        "{modifier} + click · {}\n{url}",
+                        crate::i18n::t("report.open")
+                    ))
                 } else {
                     response
                 };
@@ -731,18 +770,47 @@ pub(super) fn draw_data_row_direct(
                 // Right-click context menu on cell
                 response.context_menu(|ui| {
                     state.selected_cell = Some((actual_row, col_idx));
+                    if let Some(url) = &cell_link {
+                        if ui
+                            .button(format!("↗  {}", crate::i18n::t("report.open")))
+                            .on_hover_text(url)
+                            .clicked()
+                        {
+                            ui.ctx().open_url(egui::OpenUrl::new_tab(url));
+                            ui.close();
+                        }
+                        ui.separator();
+                    }
                     if readonly {
                         ui.weak(crate::i18n::t("context_menu.header_row_readonly"));
                         ui.separator();
                     }
 
+                    if ui
+                        .add_enabled(
+                            !readonly,
+                            egui::Button::new(format!("✎  {}", crate::i18n::t("menu.edit"))),
+                        )
+                        .clicked()
+                    {
+                        let text = table
+                            .get(actual_row, col_idx)
+                            .map(|v| v.display_with_binary_mode(binary_display_mode))
+                            .unwrap_or_default();
+                        state.editing_cell = Some((actual_row, col_idx, text));
+                        state.edit_needs_focus = true;
+                        ui.close();
+                    }
                     // --- Copy / Cut / Paste ---
                     ui.label(
                         RichText::new(crate::i18n::t("context_menu.sec_clipboard"))
                             .strong()
                             .size(11.0),
                     );
-                    if ui.button(crate::i18n::t("header.copy")).clicked() {
+                    if ui
+                        .button(format!("⧉  {}", crate::i18n::t("header.copy")))
+                        .clicked()
+                    {
                         interaction.ctx_copy = true;
                         ui.close();
                     }
@@ -762,14 +830,20 @@ pub(super) fn draw_data_row_direct(
                         ui.close();
                     }
                     if ui
-                        .add_enabled(!readonly, egui::Button::new(crate::i18n::t("header.cut")))
+                        .add_enabled(
+                            !readonly,
+                            egui::Button::new(format!("✂  {}", crate::i18n::t("header.cut"))),
+                        )
                         .clicked()
                     {
                         interaction.ctx_cut = true;
                         ui.close();
                     }
                     if ui
-                        .add_enabled(!readonly, egui::Button::new(crate::i18n::t("header.paste")))
+                        .add_enabled(
+                            !readonly,
+                            egui::Button::new(format!("▣  {}", crate::i18n::t("header.paste"))),
+                        )
                         .clicked()
                     {
                         interaction.ctx_paste = true;
@@ -836,7 +910,10 @@ pub(super) fn draw_data_row_direct(
                         && ui
                             .add_enabled(
                                 !readonly,
-                                egui::Button::new(crate::i18n::t("edit_menu.move_row_up")),
+                                egui::Button::new(format!(
+                                    "↑  {}",
+                                    crate::i18n::t("edit_menu.move_row_up")
+                                )),
                             )
                             .clicked()
                     {
@@ -847,7 +924,10 @@ pub(super) fn draw_data_row_direct(
                         && ui
                             .add_enabled(
                                 !readonly,
-                                egui::Button::new(crate::i18n::t("edit_menu.move_row_down")),
+                                egui::Button::new(format!(
+                                    "↓  {}",
+                                    crate::i18n::t("edit_menu.move_row_down")
+                                )),
                             )
                             .clicked()
                     {
@@ -1205,7 +1285,10 @@ pub(super) fn draw_data_row_direct(
                     .strong()
                     .size(11.0),
             );
-            if ui.button(crate::i18n::t("header.copy")).clicked() {
+            if ui
+                .button(format!("⧉  {}", crate::i18n::t("header.copy")))
+                .clicked()
+            {
                 interaction.ctx_copy = true;
                 ui.close();
             }
@@ -1225,14 +1308,20 @@ pub(super) fn draw_data_row_direct(
                 ui.close();
             }
             if ui
-                .add_enabled(!readonly, egui::Button::new(crate::i18n::t("header.cut")))
+                .add_enabled(
+                    !readonly,
+                    egui::Button::new(format!("✂  {}", crate::i18n::t("header.cut"))),
+                )
                 .clicked()
             {
                 interaction.ctx_cut = true;
                 ui.close();
             }
             if ui
-                .add_enabled(!readonly, egui::Button::new(crate::i18n::t("header.paste")))
+                .add_enabled(
+                    !readonly,
+                    egui::Button::new(format!("▣  {}", crate::i18n::t("header.paste"))),
+                )
                 .clicked()
             {
                 interaction.ctx_paste = true;
@@ -1285,7 +1374,10 @@ pub(super) fn draw_data_row_direct(
                 && ui
                     .add_enabled(
                         !readonly,
-                        egui::Button::new(crate::i18n::t("edit_menu.move_row_up")),
+                        egui::Button::new(format!(
+                            "↑  {}",
+                            crate::i18n::t("edit_menu.move_row_up")
+                        )),
                     )
                     .clicked()
             {
@@ -1296,7 +1388,10 @@ pub(super) fn draw_data_row_direct(
                 && ui
                     .add_enabled(
                         !readonly,
-                        egui::Button::new(crate::i18n::t("edit_menu.move_row_down")),
+                        egui::Button::new(format!(
+                            "↓  {}",
+                            crate::i18n::t("edit_menu.move_row_down")
+                        )),
                     )
                     .clicked()
             {

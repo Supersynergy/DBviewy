@@ -87,3 +87,27 @@ fn image_cells_walks_rows_and_columns() {
     // Filtered order is honoured: reversed rows walk reversed.
     assert_eq!(image_cells(&t, &[1, 0]), vec![(1, 1), (0, 1)]);
 }
+
+#[test]
+fn lead_domains_open_with_https_and_keep_paths() {
+    for (text, col, expected) in [
+        (" shop.de ", "Domain", Some("https://shop.de")),
+        (
+            "müller.de/impressum?a=1#info",
+            "Website",
+            Some("https://müller.de/impressum?a=1#info"),
+        ),
+        (
+            "www.example.org/",
+            "Quelle",
+            Some("https://www.example.org/"),
+        ),
+        ("report.xlsx", "Datei", None),
+        ("someone@example.org", "Domain", None),
+        ("host.de\\@other.de", "Domain", None),
+        ("a..de", "Domain", None),
+        ("javascript:foo.de", "Domain", None),
+    ] {
+        assert_eq!(cell_url(text, col).as_deref(), expected);
+    }
+}

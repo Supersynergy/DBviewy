@@ -27,7 +27,7 @@ pub(super) fn file_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
     } = cx;
     top_menu_button(
         ui,
-        RichText::new(crate::i18n::t("menu.file")).color(colors.text_primary),
+        RichText::new(format!("▤  {}", crate::i18n::t("menu.file"))).color(colors.text_primary),
         |ui| {
             ui.set_min_width(180.0);
             if ui

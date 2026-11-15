@@ -38,6 +38,47 @@ pub fn detect_url(text: &str) -> Option<&str> {
     Some(trimmed)
 }
 
+/// Recognise addresses without a scheme in website fields. Ordinary dotted
+/// values in arbitrary columns (filenames, versions) stay ordinary text.
+pub fn cell_url(text: &str, column: &str) -> Option<String> {
+    if let Some(url) = detect_url(text) {
+        return Some(url.to_owned());
+    }
+    let address = text.trim();
+    let host = address.split(['/', '?', '#']).next()?;
+    if address
+        .chars()
+        .any(|c| c.is_whitespace() || c.is_control() || c == '\\')
+    {
+        return None;
+    }
+    if !host.contains('.')
+        || !(["domain", "website", "webseite", "url", "homepage"]
+            .iter()
+            .any(|name| column.trim().eq_ignore_ascii_case(name))
+            || host
+                .get(..4)
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case("www.")))
+    {
+        return None;
+    }
+    let suffix = host.rsplit('.').next()?;
+    if host.len() > 253
+        || suffix.len() < 2
+        || !suffix.chars().all(char::is_alphabetic)
+        || !host.split('.').all(|part| {
+            !part.is_empty()
+                && part.len() <= 63
+                && !part.starts_with('-')
+                && !part.ends_with('-')
+                && part.chars().all(|c| c.is_alphanumeric() || c == '-')
+        })
+    {
+        return None;
+    }
+    Some(format!("https://{address}"))
+}
+
 /// File extensions `detect_image_url` treats as pictures. Kept to what
 /// `binary_kind::decode_image` can actually render: the `image` crate's
 /// enabled formats plus SVG, which that function draws through its own path.

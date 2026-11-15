@@ -17,7 +17,8 @@ impl TableViewState {
         if !self.widths_initialized || self.col_widths.len() != table.col_count() {
             self.col_widths = vec![DEFAULT_COL_WIDTH; table.col_count()];
             for (i, col) in table.columns.iter().enumerate() {
-                let name_width = col.name.len() as f32 * 8.0 + 32.0 + SORT_ARROW_SIZE * 2.0 + 8.0;
+                let name_width =
+                    col.name.chars().count() as f32 * 8.0 + 32.0 + SORT_ARROW_SIZE * 2.0 + 8.0;
                 let type_width = col.data_type.len() as f32 * 6.5 + 32.0;
                 let mut max_width = name_width.max(type_width);
 
@@ -25,12 +26,12 @@ impl TableViewState {
                 for row in 0..sample_count {
                     if let Some(val) = table.get(row, i) {
                         let text = val.to_string();
-                        let text_width = text.len() as f32 * 7.5 + 20.0;
+                        let text_width = text.chars().take(50).count() as f32 * 7.5 + 20.0;
                         max_width = max_width.max(text_width);
                     }
                 }
 
-                self.col_widths[i] = max_width.max(MIN_COL_WIDTH);
+                self.col_widths[i] = max_width.clamp(MIN_COL_WIDTH, 320.0);
             }
             self.widths_initialized = true;
             self.invalidate_row_heights();

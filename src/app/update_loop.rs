@@ -20,6 +20,14 @@ impl eframe::App for OctaApp {
         }
         #[cfg(target_os = "macos")]
         {
+            for tag in crate::macos_documents::menu_actions(&self.settings.language) {
+                match tag {
+                    0 => self.open_file(),
+                    1 => self.toggle_column_navigator(),
+                    2 => self.settings_dialog.open(&self.settings),
+                    _ => {}
+                }
+            }
             let files = crate::macos_documents::take();
             if self.startup_pin_load_done {
                 if !files.is_empty() {
