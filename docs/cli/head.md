@@ -117,7 +117,9 @@ queries on a local file, create its index with `qsv index sales.csv`.
 Then `octa-csv --indexed slice sales.csv 900000 20` seeks directly to
 the requested record, and `octa-csv --indexed count sales.csv` reads
 the stored count. Supply an index built from that exact file. Rebuild
-it after changing or replacing the CSV. On macOS the
+it after changing or replacing the CSV. To check every recorded offset
+against a full CSV parse, run `octa-csv verify-index sales.csv`. It prints
+the data record count on success and exits with an error on a mismatch. On macOS the
 executable is inside `Octa.app/Contents/MacOS/`.
 
 ## Performance
