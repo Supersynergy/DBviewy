@@ -297,11 +297,11 @@ impl OctaApp {
         if interaction.ctx_copy {
             self.do_copy(ctx);
         }
-        if interaction.ctx_copy_markdown {
-            self.do_copy_markdown(ctx);
+        if let Some(f) = interaction.ctx_copy_as {
+            self.do_copy_as(ctx, f);
         }
-        if interaction.ctx_copy_in_list {
-            self.do_copy_in_list(ctx);
+        if interaction.ctx_fill_series {
+            self.open_fill_series();
         }
         if interaction.ctx_cut {
             self.do_cut(ctx);
@@ -382,12 +382,11 @@ impl OctaApp {
 
         // --- Hide column (right-click) ---
         if let Some(col_idx) = interaction.ctx_hide_column {
-            let tab = &mut self.tabs[self.active_tab];
-            if octa::ui::table_view::can_hide_column(tab.table.col_count(), &tab.hidden_columns) {
-                tab.hidden_columns.insert(col_idx);
-            }
+            self.tabs[self.active_tab].hide_columns_from(Some(col_idx));
         }
-
+        if let Some(row_idx) = interaction.ctx_hide_row {
+            self.tabs[self.active_tab].hide_rows_from(Some(row_idx));
+        }
         if interaction.restore_hidden_columns {
             self.tabs[self.active_tab].hidden_columns.clear();
         }
@@ -461,7 +460,7 @@ impl OctaApp {
             const SETTLE: std::time::Duration = std::time::Duration::from_millis(400);
             let mut filter_ready = want == applied;
             if !filter_ready {
-                match &self.large_filter_pending {
+                match &self.tabs[self.active_tab].large_filter_pending {
                     Some((pending, since)) if *pending == want => {
                         if since.elapsed() >= SETTLE {
                             filter_ready = true;
@@ -470,13 +469,14 @@ impl OctaApp {
                         }
                     }
                     _ => {
-                        self.large_filter_pending = Some((want.clone(), std::time::Instant::now()));
+                        self.tabs[self.active_tab].large_filter_pending =
+                            Some((want.clone(), std::time::Instant::now()));
                         ctx.request_repaint_after(SETTLE);
                     }
                 }
             }
             if filter_ready {
-                self.large_filter_pending = None;
+                self.tabs[self.active_tab].large_filter_pending = None;
                 if want != applied && !refused.is_empty() {
                     self.status_message = Some((
                         octa::i18n::t("largefile.filter_refused")

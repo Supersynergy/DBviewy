@@ -34,6 +34,8 @@ fn ctx_with_tab(unlocked: bool) -> ToolContext {
         table: t,
         window: None,
         view_rows: None,
+        read_only: false,
+        db: None,
     }];
     ctx.active_tab = Some(0);
     ctx.allow_existing_writes = unlocked;
@@ -125,6 +127,15 @@ fn refuses_unknown_tab() {
         ..params(Extract::Status, None)
     };
     assert!(run(&ctx, &p).is_err());
+}
+
+#[test]
+fn read_only_tab_refuses_enrichment_before_fetching() {
+    let mut ctx = ctx_with_tab(true);
+    ctx.open_tabs[0].read_only = true;
+    let err = run(&ctx, &params(Extract::Status, None)).unwrap_err();
+    assert!(err.to_string().contains("read-only"));
+    assert!(ctx.pending_tab_edits.unwrap().lock().unwrap().is_empty());
 }
 
 #[test]

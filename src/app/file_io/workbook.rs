@@ -50,7 +50,7 @@ pub(super) fn original(table: &DataTable, path: &Path) -> bool {
                 .is_some_and(|p| path.canonicalize().ok().as_ref() == Some(&p)))
 }
 
-fn attr(tag: &BytesStart<'_>, key: &[u8]) -> Result<Option<String>> {
+fn attr(tag: &BytesStart<'_>, key: &str) -> Result<Option<String>> {
     tag.try_get_attribute(key)?
         .map(|a| {
             Ok(a.normalized_value(quick_xml::XmlVersion::Implicit1_0)?
@@ -59,7 +59,7 @@ fn attr(tag: &BytesStart<'_>, key: &[u8]) -> Result<Option<String>> {
         .transpose()
 }
 
-fn lookup(xml: &str, element: &[u8], key: &[u8], value: &str, result: &[u8]) -> Result<String> {
+fn lookup(xml: &str, element: &str, key: &str, value: &str, result: &str) -> Result<String> {
     let mut reader = Reader::from_str(xml);
     let mut found = None;
     loop {
@@ -131,7 +131,7 @@ fn replace_cell(
 ) -> Result<String> {
     for attribute in tag.attributes() {
         ensure!(
-            matches!(attribute?.key.as_ref(), b"r" | b"s" | b"t"),
+            matches!(attribute?.key.as_ref(), "r" | "s" | "t"),
             "Unsupported metadata at {address}"
         );
     }
@@ -150,7 +150,7 @@ fn replace_cell(
     );
     let (kind, contents) = cell_value(value)?;
     let mut out = format!("<c r=\"{address}\"");
-    if let Some(style) = attr(tag, b"s")? {
+    if let Some(style) = attr(tag, "s")? {
         let id: u32 = style.parse()?;
         out.push_str(&format!(" s=\"{id}\""));
     }
@@ -170,18 +170,18 @@ fn patch(xml: &str, mut changes: HashMap<String, &CellValue>) -> Result<String> 
             Event::Start(ref e) | Event::Empty(ref e) => {
                 let name = e.name();
                 ensure!(
-                    name.local_name().as_ref() != b"sheetProtection",
+                    name.local_name().as_ref() != "sheetProtection",
                     "This worksheet is protected"
                 );
-                if name.local_name().as_ref() == b"f" {
+                if name.local_name().as_ref() == "f" {
                     ensure!(
-                        attr(e, b"ref")?.is_none(),
+                        attr(e, "ref")?.is_none(),
                         "Range formulas require an Excel editor"
                     );
                 }
-                if name.as_ref() == b"c"
-                    && stack == [b"worksheet".as_slice(), b"sheetData", b"row"]
-                    && let Some(address) = attr(e, b"r")?
+                if name.as_ref() == "c"
+                    && stack == ["worksheet", "sheetData", "row"]
+                    && let Some(address) = attr(e, "r")?
                     && let Some(value) = changes.remove(&address)
                 {
                     let body = if matches!(event, Event::Start(_)) {
@@ -194,7 +194,7 @@ fn patch(xml: &str, mut changes: HashMap<String, &CellValue>) -> Result<String> 
                     out.push_str(&replace_cell(e, body, &address, value)?);
                     copied = reader.buffer_position() as usize;
                 } else if matches!(event, Event::Start(_)) {
-                    stack.push(name.as_ref().to_vec());
+                    stack.push(name.as_ref().to_owned());
                 }
             }
             Event::End(_) => {
@@ -227,21 +227,21 @@ fn request_recalculation(xml: &str) -> Result<String> {
                 let name = tag.name();
                 if depth == 0 {
                     ensure!(
-                        name.as_ref() == b"workbook",
+                        name.as_ref() == "workbook",
                         "Unsupported workbook namespace"
                     );
-                } else if depth == 1 && name.as_ref() == b"calcPr" {
+                } else if depth == 1 && name.as_ref() == "calcPr" {
                     ensure!(
-                        attr(tag, b"calcMode")?.as_deref() != Some("manual"),
+                        attr(tag, "calcMode")?.as_deref() != Some("manual"),
                         "Workbook uses manual calculation. Use Export workbook to export the active table"
                     );
-                    if matches!(attr(tag, b"fullCalcOnLoad")?.as_deref(), Some("1" | "true")) {
+                    if matches!(attr(tag, "fullCalcOnLoad")?.as_deref(), Some("1" | "true")) {
                         return Ok(xml.to_owned());
                     }
                     let mut patched = BytesStart::new("calcPr");
                     for attribute in tag.attributes() {
                         let attribute = attribute?;
-                        if attribute.key.as_ref() != b"fullCalcOnLoad" {
+                        if attribute.key.as_ref() != "fullCalcOnLoad" {
                             patched.push_attribute(attribute);
                         }
                     }
@@ -261,15 +261,15 @@ fn request_recalculation(xml: &str) -> Result<String> {
                 } else if depth == 1
                     && matches!(
                         name.as_ref(),
-                        b"oleSize"
-                            | b"customWorkbookViews"
-                            | b"pivotCaches"
-                            | b"smartTagPr"
-                            | b"smartTagTypes"
-                            | b"webPublishing"
-                            | b"fileRecoveryPr"
-                            | b"webPublishObjects"
-                            | b"extLst"
+                        "oleSize"
+                            | "customWorkbookViews"
+                            | "pivotCaches"
+                            | "smartTagPr"
+                            | "smartTagTypes"
+                            | "webPublishing"
+                            | "fileRecoveryPr"
+                            | "webPublishObjects"
+                            | "extLst"
                     )
                 {
                     insertion.get_or_insert(begin);
@@ -472,13 +472,13 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
     }
     let workbook = part(&mut archive, "xl/workbook.xml")?;
     let recalc = request_recalculation(&workbook)?;
-    let id = lookup(&workbook, b"sheet", b"name", name, b"r:id")?;
+    let id = lookup(&workbook, "sheet", "name", name, "r:id")?;
     let target = lookup(
         &part(&mut archive, "xl/_rels/workbook.xml.rels")?,
-        b"Relationship",
-        b"Id",
+        "Relationship",
+        "Id",
         &id,
-        b"Target",
+        "Target",
     )?;
     let member = target
         .strip_prefix('/')

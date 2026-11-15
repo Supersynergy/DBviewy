@@ -1,5 +1,5 @@
 use super::*;
-use rust_xlsxwriter::{Format, Formula, Workbook};
+use rust_xlsxwriter::{Color, Format, Formula, Workbook};
 
 fn fixture() -> (tempfile::TempDir, std::path::PathBuf, DataTable) {
     let dir = tempfile::tempdir().unwrap();
@@ -14,11 +14,20 @@ fn fixture() -> (tempfile::TempDir, std::path::PathBuf, DataTable) {
     sheet.write_string(2, 3, "Amount").unwrap();
     sheet.write_string(2, 4, "Double").unwrap();
     sheet
-        .write_number_with_format(3, 3, 12.0, &Format::new().set_bold())
+        .write_number_with_format(
+            3,
+            3,
+            12.0,
+            &Format::new()
+                .set_bold()
+                .set_background_color(Color::RGB(0x99cc99)),
+        )
         .unwrap();
     sheet
         .write_formula(3, 4, Formula::new("=D4*2").set_result("24"))
         .unwrap();
+    sheet.write_number(4, 3, 700).unwrap();
+    sheet.autofilter(2, 3, 4, 4).unwrap();
     book.save(&path).unwrap();
     let table = ExcelReader.read_table(&path, "Costs & sales").unwrap();
     (dir, path, table)
@@ -52,6 +61,7 @@ fn preserves_other_parts_formulas_and_cell_styles() {
     let part = "xl/worksheets/sheet2.xml";
     let previous = String::from_utf8(before.remove(part).unwrap()).unwrap();
     let next = String::from_utf8(after.remove(part).unwrap()).unwrap();
+    assert!(previous.contains(r#"<autoFilter ref="D3:E5""#));
     let replaced = previous.replace("<c r=\"D4\" s=\"1\"><v>12</v></c>", "<c r=\"D4\" s=\"1\" t=\"inlineStr\"><is><t xml:space=\"preserve\"> &lt;&amp;&gt; </t></is></c>");
     assert_ne!(previous, replaced);
     assert_eq!(next, replaced);
@@ -266,7 +276,21 @@ fn gui_save_as_rejected_edit_leaves_existing_target_and_new_name_untouched() {
         Some(source.as_path())
     );
     assert!(app.tabs[idx].table.is_modified());
-    assert_eq!(std::fs::read(source).unwrap(), original);
+    assert_eq!(std::fs::read(&source).unwrap(), original);
+
+    app.settings.auto_save_enabled = true;
+    app.settings.auto_save_interval_minutes = 1;
+    app.last_auto_save = std::time::Instant::now() - std::time::Duration::from_secs(61);
+    app.drive_auto_save(&eframe::egui::Context::default());
+    assert!(app.tabs[idx].table.is_modified());
+    assert!(
+        app.status_message
+            .as_ref()
+            .unwrap()
+            .0
+            .contains("Formula cells")
+    );
+    assert_eq!(std::fs::read(&source).unwrap(), original);
 }
 
 #[cfg(unix)]
@@ -305,4 +329,39 @@ fn saving_relative_symlink_updates_its_target_and_rejects_conflicting_links() {
         std::fs::read_link(&destination).unwrap(),
         Path::new("../other.xlsx")
     );
+}
+
+#[test]
+fn filtered_edit_saves_the_underlying_row_and_filtered_export_stays_a_table() {
+    use crate::app::state::OctaApp;
+    use octa::ui::settings::{AppSettings, IconVariant};
+
+    let (dir, source, _) = fixture();
+    let mut app = OctaApp::new(vec![], AppSettings::default(), IconVariant::Rose);
+    app.load_file(source.clone());
+    let idx = app
+        .tabs
+        .iter()
+        .position(|t| t.sheet_name.as_deref() == Some("Costs & sales"))
+        .unwrap();
+    app.active_tab = idx;
+    app.tabs[idx].search_text = "700".into();
+    app.recompute_filter();
+    assert_eq!(app.tabs[idx].filtered_rows, [1]);
+    let row = app.tabs[idx].filtered_rows[0];
+    app.tabs[idx].table.set(row, 0, CellValue::Int(1700));
+    app.save_tab(idx);
+
+    let result = ExcelReader.read_table(&source, "Costs & sales").unwrap();
+    assert!(same_value(&result.rows[0][0], &CellValue::Int(12)));
+    assert!(same_value(&result.rows[1][0], &CellValue::Int(1700)));
+    assert!(result.formula(0, 1).is_some());
+    assert_eq!(open_workbook_auto(&source).unwrap().sheet_names().len(), 2);
+
+    let export = dir.path().join("filtered.xlsx");
+    app.finish_save_as(idx, export.clone(), true, false, None);
+    assert_eq!(open_workbook_auto(&export).unwrap().sheet_names().len(), 1);
+    let exported = ExcelReader.read_file(&export).unwrap();
+    assert_eq!(exported.row_count(), 1);
+    assert!(same_value(&exported.rows[0][0], &CellValue::Int(1700)));
 }

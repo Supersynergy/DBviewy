@@ -46,6 +46,10 @@ pub(crate) fn round_table_in_place(
                 let rounded = match cell {
                     CellValue::Int(n) => Some(round_value(*n as f64, *fmt)),
                     CellValue::Float(f) => Some(round_value(*f, *fmt)),
+                    // A number kept as its digits (more than a float holds).
+                    CellValue::String(s) if octa::data::decimal::Exact::parse(s).is_some() => {
+                        s.parse().ok().map(|f| round_value(f, *fmt))
+                    }
                     _ => None,
                 };
                 if let Some(v) = rounded {
@@ -955,7 +959,7 @@ impl OctaApp {
             if self.settings.write_protection {
                 self.status_message = Some((
                     "This save adds or removes database columns, which is turned off. \
-                     Turn off Write protection in Settings to allow it."
+                     Switch off \"Refuse column changes in database files\" in Settings > Databases to allow it."
                         .to_string(),
                     std::time::Instant::now(),
                 ));
@@ -1028,36 +1032,38 @@ impl OctaApp {
         // (`save_job`): CSV, TSV and Parquet slice by slice, any other format
         // put back together by the worker. Only the diff-based database
         // writers, which need the live table's row identity, write while the
-        // window waits.
+        // window waits. A folder format takes the worker at any size: its first
+        // save can download DuckDB's extension, and that must not freeze the window.
         let tab = &self.tabs[tab_idx];
         let rows_to_write = snapshot_rows
             .as_ref()
             .map_or(tab.table.row_count(), Vec::len);
         let slice_rows = crate::app::slice_feed::slice_rows(tab.table.col_count());
         let reader_name = reader.name().to_string();
-        let writer = if preserve_workbook || rows_to_write <= slice_rows {
-            None
-        } else if let Some((opts, delimiter)) = &delimited {
-            Some(JobWriter::Slices(formats::SliceFormat::Delimited {
-                opts: opts.clone(),
-                delimiter: *delimiter,
-            }))
-        } else if reader_name == "Parquet" {
-            Some(JobWriter::Slices(formats::SliceFormat::Parquet(
-                opts.parquet.clone(),
-            )))
-        } else if tab.table.db_meta.is_none() && !reader.writes_in_place() {
-            Some(JobWriter::Whole {
-                reader: reader_name,
-                opts: Box::new(opts.clone()),
-                carry: match mode {
-                    SaveMode::Rebase => Carry::of(&tab.table),
-                    SaveMode::Copy { .. } => Carry::default(),
-                },
-            })
-        } else {
-            None
-        };
+        let writer =
+            if preserve_workbook || (rows_to_write <= slice_rows && !reader.writes_a_folder()) {
+                None
+            } else if let Some((opts, delimiter)) = &delimited {
+                Some(JobWriter::Slices(formats::SliceFormat::Delimited {
+                    opts: opts.clone(),
+                    delimiter: *delimiter,
+                }))
+            } else if reader_name == "Parquet" {
+                Some(JobWriter::Slices(formats::SliceFormat::Parquet(
+                    opts.parquet.clone(),
+                )))
+            } else if tab.table.db_meta.is_none() && !reader.writes_in_place() {
+                Some(JobWriter::Whole {
+                    reader: reader_name,
+                    opts: Box::new(opts.clone()),
+                    carry: match mode {
+                        SaveMode::Rebase => Carry::of(&tab.table),
+                        SaveMode::Copy { .. } => Carry::default(),
+                    },
+                })
+            } else {
+                None
+            };
         if let Some(writer) = writer {
             let tab = &mut self.tabs[tab_idx];
             let back = SaveBack::of(tab, &path).filter(|_| mode == SaveMode::Rebase);

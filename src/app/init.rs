@@ -48,6 +48,7 @@ impl OctaApp {
         settings: AppSettings,
         resolved_icon: IconVariant,
     ) -> Self {
+        let zoom_percent = settings.zoom_percent();
         let theme_mode = settings.default_theme;
         let search_mode = settings.default_search_mode;
         let search_result_mode = settings.search_result_mode;
@@ -171,7 +172,6 @@ impl OctaApp {
             last_auto_save: std::time::Instant::now(),
             recent_files,
             recent_dbs,
-            zoom_percent: 100,
             nav_input: String::new(),
             nav_focus_requested: false,
             reload_target: None,
@@ -233,7 +233,6 @@ impl OctaApp {
             large_convert_job: None,
             large_open_job: None,
             large_check_bypass: None,
-            large_filter_pending: None,
             rel_map_dialog: None,
             db_copy_dialog: None,
             db_export_dialog: None,
@@ -317,6 +316,31 @@ impl OctaApp {
             sql_history: octa::sql::history::load(),
             server_columns: Default::default(),
             db_load_job: None,
+            pending_snippet_delete: None,
+            tab_groups: Vec::new(),
+            tile_sets: Vec::new(),
+            tile_drawing: None,
+            tab_group_dialog: None,
+            close_queue: Vec::new(),
+            exit_queue: None,
+            zoom_percent,
+            last_work_calendar: None,
+            pending_layout: None,
+            pending_editors: Vec::new(),
+            calculated_column_dialog: None,
+            classify_dialog: None,
+            fill_series_dialog: None,
+            command_search: None,
+            cohort_dialog: None,
+            funnel_dialog: None,
+            rfm_dialog: None,
+            bands_dialog: None,
+            reference_jobs: Default::default(),
+            reference_started: false,
+            reference_errors: Vec::new(),
+            reference_dialog: None,
+            auto_refresh_dialog: None,
+            billed_warned: std::collections::HashSet::new(),
         }
     }
 

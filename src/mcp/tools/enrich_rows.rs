@@ -591,6 +591,12 @@ pub fn run_ctl(ctx: &ToolContext, p: &Params, ctl: &RunCtl) -> anyhow::Result<Va
             p.open_tab
         );
     }
+    if snap.read_only {
+        anyhow::bail!(
+            "{} is read-only; enrichment requires an editable tab",
+            p.open_tab
+        );
+    }
     let table = &snap.table;
     let n = table.row_count();
     let url_col = match &p.url_column {

@@ -10,6 +10,8 @@
 //! - `mod`     - the connection model and its auth / pagination enums.
 //! - `client`  - the fetch-and-paginate loop.
 //! - `records` - finding the rows inside a response envelope.
+//! - `jev`     - TypeSafe AI's decision model, for Classify with Jev. Not a
+//!   data source: it shares this module only because it is a REST call.
 //!
 //! The model is shaped after [`octa::db::DbConnection`] rather than
 //! `CloudConnection`, because what varies between two endpoints is mostly
@@ -17,6 +19,7 @@
 //! fieldless-mirror pattern that a settings form needs.
 
 pub mod client;
+pub mod jev;
 pub mod records;
 
 use serde::{Deserialize, Serialize};
@@ -209,13 +212,7 @@ impl ApiConnection {
     /// A fresh id. Frozen for the connection's life, because it names the
     /// keyring entry that holds its secret.
     pub fn fresh_id() -> String {
-        format!(
-            "api-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_nanos())
-                .unwrap_or(0)
-        )
+        format!("api-{:032x}", rand::random::<u128>())
     }
 
     /// Full URL for `path`, or the connection's own path when `None`.

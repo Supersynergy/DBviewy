@@ -23,6 +23,7 @@ fn sample_ctx() -> ToolContext {
         vec![CellValue::Int(2), CellValue::String("b".into())],
     ];
     ToolContext {
+        loaded_rows_note: Default::default(),
         large_file_min_bytes: 0,
         open_tabs: vec![TableSnapshot {
             handle: "#1".into(),
@@ -31,6 +32,8 @@ fn sample_ctx() -> ToolContext {
             table,
             window: None,
             view_rows: None,
+            read_only: false,
+            db: None,
         }],
         active_tab: Some(0),
         default_row_limit: Some(1000),
@@ -64,11 +67,14 @@ fn id_tab(handle: &str, name: &str, ids: &[i64]) -> TableSnapshot {
         table,
         window: None,
         view_rows: None,
+        read_only: false,
+        db: None,
     }
 }
 
 fn multi_ctx() -> ToolContext {
     ToolContext {
+        loaded_rows_note: Default::default(),
         large_file_min_bytes: 0,
         open_tabs: vec![
             id_tab("#1", "a.csv", &[1, 2, 3]),
@@ -203,6 +209,7 @@ fn text_ctx(lines: &[&str], source_path: Option<&str>) -> ToolContext {
         .map(|l| vec![CellValue::String((*l).into())])
         .collect();
     ToolContext {
+        loaded_rows_note: Default::default(),
         large_file_min_bytes: 0,
         open_tabs: vec![TableSnapshot {
             handle: "#1".into(),
@@ -211,6 +218,8 @@ fn text_ctx(lines: &[&str], source_path: Option<&str>) -> ToolContext {
             table,
             window: None,
             view_rows: None,
+            read_only: false,
+            db: None,
         }],
         active_tab: Some(0),
         default_row_limit: Some(1000),
@@ -499,5 +508,46 @@ fn the_core_payload_stays_small() {
     assert!(
         initial * 2 < full,
         "the split has to be worth having: ~{initial} of ~{full}"
+    );
+}
+
+/// The report: "missing field `op`" four times. The error has to carry what the
+/// tool takes, or a model has nothing to correct and keeps guessing.
+#[test]
+fn a_bad_call_is_told_the_shape_the_tool_takes() {
+    let err = dispatch(
+        &sample_ctx(),
+        "edit_open_tab",
+        serde_json::json!({ "open_tab": "#1", "ops": [{ "action": "add_column" }] }),
+    )
+    .unwrap_err();
+    assert!(err.contains("missing field `op`"), "{err}");
+    assert!(err.contains("Nothing was run"), "{err}");
+    assert!(
+        err.contains("add_column") && err.contains("expression"),
+        "{err}"
+    );
+}
+
+/// Reporting success for an edit the tab then turns down is how a reply ends up
+/// claiming a column nobody can find.
+#[test]
+fn an_edit_to_a_read_only_tab_is_refused_at_once() {
+    let mut ctx = sample_ctx();
+    ctx.allow_existing_writes = true;
+    ctx.pending_tab_edits = Some(Default::default());
+    ctx.open_tabs[0].read_only = true;
+    let err = dispatch(
+        &ctx,
+        "edit_open_tab",
+        serde_json::json!({
+            "open_tab": "#1",
+            "ops": [{ "op": "add_column", "name": "t", "expression": "1" }]
+        }),
+    )
+    .unwrap_err();
+    assert!(
+        err.contains("read-only") && err.contains("nothing was changed"),
+        "{err}"
     );
 }
