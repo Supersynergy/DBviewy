@@ -244,6 +244,8 @@ fn main() -> ExitCode {
             #[cfg(target_os = "macos")]
             macos_documents::attach(&cc.egui_ctx);
             let mut app = OctaApp::new(initial_files, settings, resolved_icon);
+            app.pending_crash_offer = octa::diagnostics::crash::check_and_mark_running()
+                || octa::diagnostics::crash::has_last_crash();
             if app.settings.open_in_running_instance
                 && let Some(dir) = config_dir.as_deref()
             {

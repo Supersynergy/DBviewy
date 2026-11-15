@@ -119,13 +119,9 @@ impl OctaApp {
         );
         // Build the chat panel state from settings before `settings` is moved.
         let chat = super::chat_panel::ChatPanelState::new(&settings);
-        // Mark this session running (sentinel) and detect an unclean prior exit
-        // or a waiting crash file, to offer a debug report once.
-        let pending_crash_offer = octa::diagnostics::crash::check_and_mark_running()
-            || octa::diagnostics::crash::has_last_crash();
         Self {
             chat,
-            pending_crash_offer,
+            pending_crash_offer: false,
             tabs: vec![TabState::new(search_mode)],
             active_tab: 0,
             pending_close_tab: None,

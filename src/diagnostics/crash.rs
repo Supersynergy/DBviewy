@@ -1,15 +1,24 @@
 //! Crash capture. Two complementary mechanisms (both under `config_dir/logs`):
 //! 1. A panic hook that logs the panic and writes `last_crash.txt`.
-//! 2. A `running.lock` sentinel: present at next launch => the previous run
+//! 2. A per-session sentinel: unlocked at next launch => the previous run
 //!    ended uncleanly (a hard crash the Rust panic hook could not catch).
 
 use std::path::{Path, PathBuf};
 
 use super::logs_dir;
 
-fn lock_path() -> Option<PathBuf> {
-    logs_dir().map(|d| d.join("running.lock"))
+struct Session {
+    path: PathBuf,
+    _lock: std::fs::File,
 }
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+static SESSION: std::sync::Mutex<Option<Session>> = std::sync::Mutex::new(None);
 
 fn crash_path() -> Option<PathBuf> {
     logs_dir().map(|d| d.join("last_crash.txt"))
@@ -18,25 +27,61 @@ fn crash_path() -> Option<PathBuf> {
 /// Returns true if the previous run ended uncleanly (the lock was still there),
 /// then (re)creates the lock for this session. Call once at startup.
 pub fn check_and_mark_running() -> bool {
-    match logs_dir() {
-        Some(d) => mark_running_in(&d),
-        None => false,
+    let mut session = SESSION.lock().unwrap_or_else(|err| err.into_inner());
+    if session.is_some() {
+        return false;
     }
-}
-
-fn mark_running_in(dir: &Path) -> bool {
-    let p = dir.join("running.lock");
-    let unclean = p.exists();
-    let _ = std::fs::create_dir_all(dir);
-    let _ = std::fs::write(&p, format!("pid {}", std::process::id()));
+    let Some(dir) = logs_dir() else { return false };
+    let (unclean, marker) = mark_running_in(&dir);
+    *session = marker;
     unclean
 }
 
-/// Remove the sentinel on a clean shutdown.
-pub fn clear_running() {
-    if let Some(p) = lock_path() {
-        let _ = std::fs::remove_file(p);
+fn mark_running_in(dir: &Path) -> (bool, Option<Session>) {
+    use std::fs::{self, OpenOptions};
+    let mut unclean = false;
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with("session-")
+                && name.ends_with(".lock")
+                && let Ok(file) = OpenOptions::new().read(true).write(true).open(entry.path())
+                && file.try_lock().is_ok()
+            {
+                unclean |= fs::remove_file(entry.path()).is_ok();
+            }
+        }
     }
+    // Older Unix builds hold no advisory lock. A live owner can still be
+    // running that version alongside DBviewy.
+    #[cfg(unix)]
+    {
+        let legacy = dir.join("running.lock");
+        if let Some(pid) = fs::read_to_string(&legacy)
+            .ok()
+            .and_then(|s| s.strip_prefix("pid ")?.trim().parse::<i32>().ok())
+            && pid > 0
+            && unsafe { libc::kill(pid, 0) } == -1
+            && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH)
+        {
+            unclean |= fs::remove_file(legacy).is_ok();
+        }
+    }
+    let marker = (|| {
+        fs::create_dir_all(dir).ok()?;
+        let temp = tempfile::NamedTempFile::new_in(dir).ok()?;
+        temp.as_file().try_lock().ok()?;
+        let path = dir.join(format!("session-{:032x}.lock", rand::random::<u128>()));
+        let lock = temp.persist_noclobber(&path).ok()?;
+        Some(Session { path, _lock: lock })
+    })();
+    (unclean, marker)
+}
+
+/// Only retire the marker owned by this GUI session.
+pub fn clear_running() {
+    SESSION.lock().unwrap_or_else(|err| err.into_inner()).take();
 }
 
 /// True if a `last_crash.txt` is waiting (does not delete it).

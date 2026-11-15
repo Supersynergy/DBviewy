@@ -336,7 +336,7 @@ impl OctaApp {
         let minimized = size == DialogSize::Minimized;
         let mut chrome_close = false;
 
-        let center = center_on_first_show(ctx, egui::vec2(460.0, 240.0));
+        let center = center_on_first_show(ctx, egui::vec2(460.0, 128.0));
         let window = egui::Window::new("octa_crash_offer")
             .id(dialog_id)
             .title_bar(false)
@@ -344,9 +344,9 @@ impl OctaApp {
         let window = size_dialog_window(ctx, dialog_id, size, window, |w| {
             w.resizable(true)
                 .default_width(460.0)
-                .default_height(240.0)
+                .default_height(128.0)
                 .min_width(320.0)
-                .min_height(150.0)
+                .min_height(96.0)
                 .default_pos(center)
         });
         let inner = window.show(ctx, |ui| {
