@@ -4604,6 +4604,7 @@ need_name = "Zakonči cestu názvom súboru, napríklad sales.csv."
 no_writer = "Octa nevie zapísať {name}. Použi príponu ako .csv alebo .parquet."
 
 [imgview]
+import = "Importovať obrázok..."
 title = "Obrázok"
 menu = "Zobraziť obrázok"
 menu_hint = "Otvoriť tento obrázok v prehliadači"

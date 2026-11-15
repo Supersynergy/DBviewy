@@ -4595,6 +4595,7 @@ need_name = "请以文件名结束路径，例如 sales.csv。"
 no_writer = "Octa 无法写入 {name}。请使用 .csv 或 .parquet 这样的扩展名。"
 
 [imgview]
+import = "导入图像..."
 title = "图片"
 menu = "查看图片"
 menu_hint = "在查看器中打开此图片"

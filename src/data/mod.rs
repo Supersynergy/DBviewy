@@ -25,6 +25,7 @@ pub mod distribution_compare;
 pub mod drift;
 pub mod duplicates;
 pub mod edit_audit;
+pub mod embedded_media;
 pub mod encoding;
 pub mod file_internals;
 pub mod fill_series;

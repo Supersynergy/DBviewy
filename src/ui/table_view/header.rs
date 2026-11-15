@@ -7,10 +7,10 @@ use egui::{Align2, Color32, CursorIcon, RichText, Sense, Ui, Vec2};
 use crate::data::{DataTable, MarkKey};
 
 use super::{
-    COL_INDEX_HEIGHT, DEFAULT_COL_WIDTH, FACET_HIT_WIDTH, FACET_ICON_SIZE, HEADER_CONTROLS_WIDTH,
-    HEADER_HEIGHT, MIN_COL_WIDTH, MIN_ROW_HEIGHT, RESIZE_HANDLE_WIDTH, ROW_RESIZE_HANDLE_HEIGHT,
-    SORT_ARROW_SIZE, TableInteraction, TableViewState, base_row_height, col_index_letter,
-    compute_optimal_col_width, mark_submenu,
+    COL_INDEX_HEIGHT, FACET_HIT_WIDTH, FACET_ICON_SIZE, HEADER_CONTROLS_WIDTH, HEADER_HEIGHT,
+    MIN_COL_WIDTH, MIN_ROW_HEIGHT, RESIZE_HANDLE_WIDTH, ROW_RESIZE_HANDLE_HEIGHT, SORT_ARROW_SIZE,
+    TableInteraction, TableViewState, base_row_height, col_index_letter, compute_optimal_col_width,
+    mark_submenu,
 };
 
 pub(super) fn draw_header_direct(
@@ -99,29 +99,63 @@ pub(super) fn draw_header_direct(
             scrolled_interact
         };
         let region_painter = painter.with_clip_rect(region_clip);
-        // Hidden columns collapse to zero width and skip every paint /
-        // interaction inside this loop. col_idx arithmetic is otherwise
-        // unchanged so col_widths, marks, edits, sort arrows, selected_cols
-        // - everything keyed by col_idx - stays correct.
-        let hidden = hidden_columns.contains(&col_idx);
-        let w = if hidden {
-            0.0
-        } else {
-            state
-                .col_widths
-                .get(col_idx)
-                .copied()
-                .unwrap_or(DEFAULT_COL_WIDTH)
-        };
-
+        let w = super::displayed_col_width(&state.col_widths, hidden_columns, col_idx);
         col_starts.push(x);
-
-        if hidden {
-            // No header paint, no resize handle, no x advance.
+        let rect = egui::Rect::from_min_size(egui::pos2(x, top_y), Vec2::new(w, HEADER_HEIGHT));
+        if hidden_columns.contains(&col_idx) {
+            let hit = rect.intersect(region_clip);
+            if hit.is_positive() {
+                let hint = format!("{}: {}", col.name, crate::i18n::t("navigator.visible_hint"));
+                let response = ui
+                    .interact(
+                        hit,
+                        ui.id().with(("restore_column", col_idx)),
+                        Sense::click(),
+                    )
+                    .on_hover_text(&hint);
+                response.widget_info(|| {
+                    egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &hint)
+                });
+                let painter = region_painter.with_clip_rect(hit);
+                let highlighted = response.hovered() || response.has_focus();
+                painter.rect_filled(
+                    rect,
+                    0.0,
+                    if highlighted {
+                        colors.bg_selected
+                    } else {
+                        colors.bg_header
+                    },
+                );
+                painter.text(
+                    egui::pos2(rect.center().x, rect.top() + 1.0),
+                    Align2::CENTER_TOP,
+                    col_index_letter(col_idx),
+                    egui::FontId::monospace((font_size * 0.7).round()),
+                    colors.text_muted,
+                );
+                draw_fold(
+                    &painter,
+                    rect.center() + egui::vec2(0.0, COL_INDEX_HEIGHT / 2.0),
+                    true,
+                    colors.accent,
+                );
+                painter.vline(
+                    rect.right() - 0.5,
+                    rect.y_range(),
+                    egui::Stroke::new(1.0, colors.border_subtle),
+                );
+                if response.clicked() {
+                    interaction.header_column_visibility = Some((col_idx, true));
+                }
+            }
+            if is_frozen {
+                x_frozen += w;
+            } else {
+                x_scrolled += w;
+            }
             continue;
         }
-
-        let rect = egui::Rect::from_min_size(egui::pos2(x, top_y), Vec2::new(w, HEADER_HEIGHT));
 
         let is_dragging = state.dragging_col == Some(col_idx);
         let is_drop_target = state.drag_drop_target == Some(col_idx);
@@ -372,7 +406,7 @@ pub(super) fn draw_header_direct(
             };
             draw_fold(&region_painter, fold_hit.center(), false, color);
             if response.clicked() {
-                interaction.ctx_hide_column = Some(col_idx);
+                interaction.header_column_visibility = Some((col_idx, false));
             }
         }
 
@@ -804,6 +838,7 @@ pub(super) fn draw_header_direct(
                     let target = super::drag_target_at_x(
                         pointer_pos.x - data_left,
                         &state.col_widths,
+                        hidden_columns,
                         frozen_cols,
                         frozen_width,
                         state.scroll_x,
@@ -889,12 +924,7 @@ pub(super) fn draw_header_direct(
     {
         let target_x = col_starts.get(to).copied().unwrap_or(x_scrolled);
         let indicator_x = if to > from {
-            target_x
-                + state
-                    .col_widths
-                    .get(to)
-                    .copied()
-                    .unwrap_or(DEFAULT_COL_WIDTH)
+            target_x + super::displayed_col_width(&state.col_widths, hidden_columns, to)
         } else {
             target_x
         };

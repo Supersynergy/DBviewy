@@ -4604,6 +4604,7 @@ need_name = "Užbaik kelią failo vardu, pvz., sales.csv."
 no_writer = "Octa negali įrašyti {name}. Naudok plėtinį, pvz., .csv arba .parquet."
 
 [imgview]
+import = "Importuoti vaizdą..."
 title = "Paveikslėlis"
 menu = "Žiūrėti paveikslėlį"
 menu_hint = "Atidaryti šį paveikslėlį peržiūroje"

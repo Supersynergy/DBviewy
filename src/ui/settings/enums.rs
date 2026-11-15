@@ -34,17 +34,15 @@ impl RefreshBehaviour {
 }
 
 /// How big the thumbnail is in a cell that holds an image URL
-/// (`data::links::detect_image_url`). `Off` fetches nothing: no network
-/// traffic happens for pictures until the user turns this on or opens one
-/// in the image viewer.
+/// (`data::links::detect_image_url`). `Off` disables automatic fetching in the grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ImageThumbSize {
     /// No thumbnails and no fetching.
-    #[default]
     Off,
     /// 20 px square: fits a default-height row without growing it.
     Small,
     /// 32 px square.
+    #[default]
     Medium,
     /// 48 px square.
     Large,

@@ -4607,6 +4607,7 @@ need_name = "Avsluta sökvägen med ett filnamn, till exempel sales.csv."
 no_writer = "Octa kan inte skriva {name}. Använd en filändelse som .csv eller .parquet."
 
 [imgview]
+import = "Importera bild..."
 title = "Bild"
 menu = "Visa bild"
 menu_hint = "Öppna den här bilden i visaren"

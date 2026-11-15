@@ -1216,6 +1216,8 @@ pub(crate) struct OctaApp {
     /// Active image viewer, or `None` when closed (see
     /// `src/app/dialogs/image_viewer.rs`).
     pub(crate) image_viewer: Option<ImageViewerState>,
+    pub(crate) gallery_table_picker: bool,
+    pub(crate) image_import: Option<super::dialogs::image_import::ImageImport>,
     /// URL -> texture cache for remote pictures: table thumbnails and the
     /// image viewer share it, so an address is fetched once per session.
     pub(crate) image_cache: octa::ui::images::ImageCache,

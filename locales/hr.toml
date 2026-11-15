@@ -4604,6 +4604,7 @@ need_name = "Završi putanju imenom datoteke, npr. sales.csv."
 no_writer = "Octa ne može zapisati {name}. Uzmi nastavak poput .csv ili .parquet."
 
 [imgview]
+import = "Uvezi sliku..."
 title = "Slika"
 menu = "Prikaži sliku"
 menu_hint = "Otvori ovu sliku u pregledniku"

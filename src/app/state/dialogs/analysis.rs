@@ -552,15 +552,17 @@ pub(crate) struct ImageItem {
     pub(crate) url: String,
 }
 
-/// The image viewer (cell menu **View image**, a thumbnail click). `items`
-/// is every image-bearing cell of the tab captured when it opened, in the
-/// order the table showed them then; `pos` points at the current one. The
-/// picture comes from the shared [`octa::ui::images::ImageCache`], so cells
-/// and the viewer never fetch the same address twice.
+/// The current record in the filtered grid. Only its image cells are retained.
 pub(crate) struct ImageViewerState {
     pub(crate) size: octa::ui::settings::DialogSize,
+    pub(crate) tab_id: crate::app::tabs::TabId,
+    pub(crate) row: usize,
+    pub(crate) row_pos: usize,
+    pub(crate) grid_col: usize,
     pub(crate) items: Vec<ImageItem>,
     pub(crate) pos: usize,
+    pub(crate) reveal_row: bool,
+    pub(crate) fit_scale: f32,
     /// `None` = fit the picture into the view; `Some(z)` = `z` times its
     /// pixel size, panned with the scroll bars.
     pub(crate) zoom: Option<f32>,

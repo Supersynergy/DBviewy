@@ -4607,6 +4607,7 @@ need_name = "Päätä polku tiedostonimeen, esimerkiksi sales.csv."
 no_writer = "Octa ei osaa kirjoittaa tiedostoa {name}. Käytä päätettä kuten .csv tai .parquet."
 
 [imgview]
+import = "Tuo kuva..."
 title = "Kuva"
 menu = "Näytä kuva"
 menu_hint = "Avaa tämä kuva näkymässä"

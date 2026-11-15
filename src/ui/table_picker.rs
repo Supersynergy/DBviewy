@@ -33,6 +33,22 @@ pub enum TablePickerAction {
 pub fn render_table_picker(ctx: &egui::Context, state: &mut TablePickerState) -> TablePickerAction {
     let mut action = TablePickerAction::None;
     let mut close = false;
+    let previous = state.selected;
+    let key = |key| ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, key));
+    if key(egui::Key::Escape) {
+        return TablePickerAction::Cancel;
+    }
+    if key(egui::Key::ArrowDown) {
+        state.selected = (state.selected + 1).min(state.tables.len().saturating_sub(1));
+    }
+    if key(egui::Key::ArrowUp) {
+        state.selected = state.selected.saturating_sub(1);
+    }
+    if key(egui::Key::Enter)
+        && let Some(table) = state.tables.get(state.selected)
+    {
+        return TablePickerAction::Open(state.path.clone(), table.qualified_name());
+    }
 
     // Fit-to-content up to `visible_rows`: with 5 tables and a cap of 10 the
     // dialog only reserves height for 5 rows. The user can still drag the
@@ -122,7 +138,7 @@ pub fn render_table_picker(ctx: &egui::Context, state: &mut TablePickerState) ->
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE)
             .show(ui, |ui| {
-                render_picker_body(ui, state);
+                render_picker_body(ui, state, previous != state.selected);
             });
     });
 
@@ -137,7 +153,7 @@ pub fn render_table_picker(ctx: &egui::Context, state: &mut TablePickerState) ->
     action
 }
 
-fn render_picker_body(ui: &mut egui::Ui, state: &mut TablePickerState) {
+fn render_picker_body(ui: &mut egui::Ui, state: &mut TablePickerState, reveal: bool) {
     ui.label(format!(
         "{} {} {} {}",
         state
@@ -180,7 +196,11 @@ fn render_picker_body(ui: &mut egui::Ui, state: &mut TablePickerState) {
                                 Some(n) => format!("{qualified}  ({n})"),
                                 None => qualified,
                             };
-                            if ui.selectable_label(state.selected == idx, label).clicked() {
+                            let response = ui.selectable_label(state.selected == idx, label);
+                            if reveal && state.selected == idx {
+                                response.scroll_to_me(None);
+                            }
+                            if response.clicked() {
                                 state.selected = idx;
                             }
                         }

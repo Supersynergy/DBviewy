@@ -4609,6 +4609,7 @@ need_name = "Akhiri jalur dengan nama file, misalnya sales.csv."
 no_writer = "Octa tidak bisa menulis {name}. Pakai akhiran seperti .csv atau .parquet."
 
 [imgview]
+import = "Impor gambar..."
 title = "Gambar"
 menu = "Lihat gambar"
 menu_hint = "Buka gambar ini di penampil"

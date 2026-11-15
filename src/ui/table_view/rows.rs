@@ -110,7 +110,12 @@ pub(super) fn draw_data_row_direct(
 
     for col_idx in 0..col_count {
         if hidden_columns.contains(&col_idx) {
-            // Hidden column: zero width, no paint, no x advance.
+            // Keep the remaining cells aligned with their header controls.
+            if col_idx < frozen_cols {
+                x_frozen += super::FOLDED_COL_WIDTH;
+            } else {
+                x_scrolled += super::FOLDED_COL_WIDTH;
+            }
             continue;
         }
         let is_frozen = col_idx < frozen_cols;
@@ -159,23 +164,19 @@ pub(super) fn draw_data_row_direct(
             // available, and only an explicit open fetches anything. The
             // URL is kept for the menu and the thumbnail; the viewer
             // re-derives it from (row, col) when it opens.
-            let cell_image_url: Option<String> = if !table
-                .columns
-                .get(col_idx)
-                .is_some_and(|c| is_numeric_data_type(&c.data_type))
-            {
-                table.get(actual_row, col_idx).and_then(|v| {
-                    let text = v.display_with_binary_mode(binary_display_mode);
-                    crate::data::links::detect_image_url(&text).map(|u| u.to_string())
-                })
-            } else {
-                None
+            let cell_image_url = match table.get(actual_row, col_idx) {
+                Some(crate::data::CellValue::String(text)) => {
+                    crate::data::links::detect_image_url(text).map(str::to_owned)
+                }
+                _ => None,
             };
-            // The thumbnail only earns its pixels when the column is wide
-            // enough to still show something of the address next to it.
+            // A narrow column may show only the picture. Keep both the picture
+            // and its hit area inside the cell when a user shrinks the column.
             let thumb_rect = cell_image_url.as_ref().and_then(|_| {
-                let px = image_thumbs.map(|t| t.px).unwrap_or(0) as f32;
-                (px > 0.0 && rect.width() > px + 30.0).then(|| {
+                let px = (image_thumbs.map(|t| t.px).unwrap_or(0) as f32)
+                    .min(rect.width() - 18.0)
+                    .min(rect.height() - 2.0);
+                (px >= 8.0).then(|| {
                     egui::Rect::from_center_size(
                         egui::pos2(rect.left() + 6.0 + px / 2.0, rect.center().y),
                         Vec2::splat(px),
@@ -1120,6 +1121,13 @@ pub(super) fn draw_data_row_direct(
                             .clicked()
                     {
                         interaction.ctx_view_image = Some((actual_row, col_idx));
+                        ui.close();
+                    }
+                    if !readonly
+                        && table.format_name.as_deref() == Some("SQLite")
+                        && ui.button(crate::i18n::t("imgview.import")).clicked()
+                    {
+                        interaction.ctx_import_image = Some((actual_row, col_idx));
                         ui.close();
                     }
                     if let Some(labels) = folder_compare_labels {

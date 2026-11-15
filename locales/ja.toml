@@ -4595,6 +4595,7 @@ need_name = "パスの最後にファイル名を付けてください (sales.cs
 no_writer = "Octa は {name} を書き込めません。.csv や .parquet などの拡張子を使ってください。"
 
 [imgview]
+import = "画像をインポート..."
 title = "画像"
 menu = "画像を表示"
 menu_hint = "この画像をビューアで開く"

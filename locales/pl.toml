@@ -4607,6 +4607,7 @@ need_name = "Zakończ ścieżkę nazwą pliku, np. sales.csv."
 no_writer = "Octa nie potrafi zapisać {name}. Użyj rozszerzenia takiego jak .csv albo .parquet."
 
 [imgview]
+import = "Importuj obraz..."
 title = "Obraz"
 menu = "Zobacz obraz"
 menu_hint = "Otwórz ten obraz w przeglądarce"

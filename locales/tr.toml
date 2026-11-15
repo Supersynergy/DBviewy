@@ -4607,6 +4607,7 @@ need_name = "Yolu bir dosya adıyla bitir, örneğin sales.csv."
 no_writer = "Octa {name} dosyasını yazamaz. .csv ya da .parquet gibi bir uzantı kullan."
 
 [imgview]
+import = "Resim içe aktar..."
 title = "Görsel"
 menu = "Görseli görüntüle"
 menu_hint = "Bu görseli görüntüleyicide aç"

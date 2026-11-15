@@ -4604,6 +4604,7 @@ need_name = "Beidz ceļu ar faila nosaukumu, piemēram, sales.csv."
 no_writer = "Octa nevar ierakstīt {name}. Izmanto paplašinājumu, piemēram, .csv vai .parquet."
 
 [imgview]
+import = "Importēt attēlu..."
 title = "Attēls"
 menu = "Skatīt attēlu"
 menu_hint = "Atvērt šo attēlu skatītājā"

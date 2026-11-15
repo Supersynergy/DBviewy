@@ -34,6 +34,14 @@ pub(super) fn scroll_row_into_view(
     state.scroll_y = state.scroll_y.clamp(0.0, max_scroll_y);
 }
 
+pub(super) fn displayed_col_width(widths: &[f32], hidden: &HashSet<usize>, col: usize) -> f32 {
+    if hidden.contains(&col) {
+        super::FOLDED_COL_WIDTH
+    } else {
+        widths.get(col).copied().unwrap_or(DEFAULT_COL_WIDTH)
+    }
+}
+
 /// Scroll horizontally so the given column index stays visible. Frozen
 /// columns are always visible, so they never move the scroll; for the rest
 /// the visible window starts after the frozen band.
@@ -44,20 +52,16 @@ pub(super) fn scroll_col_into_view(
     max_scroll_x: f32,
     frozen_cols: usize,
     frozen_width: f32,
+    hidden: &HashSet<usize>,
 ) {
     if col_idx < frozen_cols {
         state.scroll_x = state.scroll_x.clamp(0.0, max_scroll_x);
         return;
     }
-    let col_left: f32 = state.col_widths[frozen_cols.min(col_idx)..col_idx]
-        .iter()
+    let col_left: f32 = (frozen_cols..col_idx)
+        .map(|i| displayed_col_width(&state.col_widths, hidden, i))
         .sum();
-    let col_right = col_left
-        + state
-            .col_widths
-            .get(col_idx)
-            .copied()
-            .unwrap_or(DEFAULT_COL_WIDTH);
+    let col_right = col_left + displayed_col_width(&state.col_widths, hidden, col_idx);
     let window = view_width - state.row_number_width - frozen_width;
     if col_left < state.scroll_x {
         state.scroll_x = col_left;
@@ -68,17 +72,18 @@ pub(super) fn scroll_col_into_view(
 }
 
 /// Width of the frozen band: the effective painted widths (hidden columns
-/// count 0) of the first `frozen_cols` columns.
+/// keep their restore controls) of the first `frozen_cols` columns.
 pub(super) fn frozen_band_width(
     col_widths: &[f32],
     hidden_columns: &HashSet<usize>,
     frozen_cols: usize,
 ) -> f32 {
-    col_widths
-        .iter()
-        .enumerate()
-        .take(frozen_cols)
-        .map(|(i, w)| if hidden_columns.contains(&i) { 0.0 } else { *w })
+    let count = frozen_cols.min(col_widths.len());
+    if hidden_columns.is_empty() {
+        return col_widths[..count].iter().sum();
+    }
+    (0..count)
+        .map(|i| displayed_col_width(col_widths, hidden_columns, i))
         .sum()
 }
 
@@ -90,6 +95,7 @@ pub(super) fn frozen_band_width(
 pub(super) fn drag_target_at_x(
     rel_x: f32,
     col_widths: &[f32],
+    hidden: &HashSet<usize>,
     frozen_cols: usize,
     frozen_width: f32,
     scroll_x: f32,
@@ -102,7 +108,8 @@ pub(super) fn drag_target_at_x(
     if frozen_cols > 0 && rel_x < frozen_width {
         let mut acc = 0.0f32;
         let mut target = frozen_cols - 1;
-        for (i, &cw) in col_widths.iter().enumerate().take(frozen_cols) {
+        for i in 0..frozen_cols {
+            let cw = displayed_col_width(col_widths, hidden, i);
             if rel_x < acc + cw / 2.0 {
                 target = i;
                 break;
@@ -116,7 +123,8 @@ pub(super) fn drag_target_at_x(
     let content_x = rel_x - frozen_width + scroll_x;
     let mut acc = 0.0f32;
     let mut target = n - 1;
-    for (i, &cw) in col_widths.iter().enumerate().skip(frozen_cols) {
+    for i in frozen_cols..n {
+        let cw = displayed_col_width(col_widths, hidden, i);
         if content_x < acc + cw / 2.0 {
             target = i;
             break;
@@ -276,8 +284,8 @@ pub(super) fn compute_row_height(
     let font_id = egui::FontId::new(opts.font_size, egui::FontFamily::Monospace);
     for col_idx in 0..table.col_count() {
         if let Some(value) = table.get(actual_row, col_idx) {
-            let text = value.display_with_binary_mode(opts.binary_display_mode);
             if opts.wrap {
+                let text = value.display_with_binary_mode(opts.binary_display_mode);
                 let col_width = col_widths
                     .get(col_idx)
                     .copied()
@@ -294,7 +302,10 @@ pub(super) fn compute_row_height(
                 let text_height = galley.size().y + 4.0; // small vertical padding
                 max_height = max_height.max(text_height);
             }
-            if opts.image_thumb_px > 0 && crate::data::links::detect_image_url(&text).is_some() {
+            if opts.image_thumb_px > 0
+                && let crate::data::CellValue::String(text) = value
+                && crate::data::links::detect_image_url(text).is_some()
+            {
                 max_height = max_height.max(opts.image_thumb_px as f32 + 8.0);
             }
         }

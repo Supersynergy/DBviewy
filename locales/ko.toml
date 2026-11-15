@@ -4595,6 +4595,7 @@ need_name = "경로 끝에 파일 이름을 붙여 (sales.csv 등)."
 no_writer = "Octa는 {name}을(를) 쓸 수 없어. .csv나 .parquet 같은 확장자를 써."
 
 [imgview]
+import = "이미지 가져오기..."
 title = "이미지"
 menu = "이미지 보기"
 menu_hint = "이 이미지를 뷰어에서 열기"

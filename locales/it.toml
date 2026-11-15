@@ -4607,6 +4607,7 @@ need_name = "Termina il percorso con un nome di file, per esempio sales.csv."
 no_writer = "Octa non sa scrivere {name}. Usa un'estensione come .csv o .parquet."
 
 [imgview]
+import = "Importa immagine..."
 title = "Immagine"
 menu = "Visualizza immagine"
 menu_hint = "Apri questa immagine nel visualizzatore"

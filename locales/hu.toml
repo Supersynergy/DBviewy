@@ -4608,6 +4608,7 @@ need_name = "Fejezd be az útvonalat egy fájlnévvel, például sales.csv."
 no_writer = "Az Octa nem tudja írni a(z) {name} fájlt. Használj olyan kiterjesztést, mint a .csv vagy a .parquet."
 
 [imgview]
+import = "Kép importálása..."
 title = "Kép"
 menu = "Kép megtekintése"
 menu_hint = "Nyisd meg ezt a képet a nézegetőben"

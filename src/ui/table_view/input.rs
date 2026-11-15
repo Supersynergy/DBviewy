@@ -9,7 +9,8 @@ use crate::ui::shortcuts::{ShortcutAction, Shortcuts};
 
 /// The viewport numbers the navigation needs to scroll a moved selection
 /// back into view.
-pub(super) struct NavGeometry {
+pub(super) struct NavGeometry<'a> {
+    pub hidden_columns: &'a std::collections::HashSet<usize>,
     pub row_height: f32,
     pub data_area_height: f32,
     pub max_scroll_y: f32,
@@ -36,10 +37,11 @@ pub(super) fn handle_keyboard_nav(
     table: &DataTable,
     filtered_rows: &[usize],
     shortcuts: &Shortcuts,
-    geometry: NavGeometry,
+    geometry: NavGeometry<'_>,
     interaction: &mut TableInteraction,
 ) {
     let NavGeometry {
+        hidden_columns,
         row_height,
         data_area_height,
         max_scroll_y,
@@ -180,6 +182,7 @@ pub(super) fn handle_keyboard_nav(
             max_scroll_x,
             frozen_cols,
             frozen_width,
+            hidden_columns,
         );
         handled = true;
     }
@@ -237,6 +240,7 @@ pub(super) fn handle_keyboard_nav(
                 max_scroll_x,
                 frozen_cols,
                 frozen_width,
+                hidden_columns,
             );
             handled = true;
         }
@@ -333,6 +337,7 @@ pub(super) fn handle_keyboard_nav(
                     max_scroll_x,
                     frozen_cols,
                     frozen_width,
+                    hidden_columns,
                 );
             }
         }

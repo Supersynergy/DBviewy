@@ -71,6 +71,14 @@ impl OctaApp {
 
         // Remote pictures land on worker threads; collect whatever
         // finished so thumbnails and the image viewer see them.
+        self.image_cache.set_document(
+            self.tabs[self.active_tab]
+                .table
+                .source_path
+                .as_deref()
+                .map(std::path::Path::new),
+            self.tabs[self.active_tab].id.0,
+        );
         self.image_cache.drain(ctx);
 
         // Recompute filter before drawing (toolbar actions earlier in the

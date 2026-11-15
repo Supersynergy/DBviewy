@@ -1581,24 +1581,25 @@ Small (20 px), Medium (32 px) or Large (48 px).
 - Off means nothing is fetched automatically. The cell menu's **View
   image** still works and downloads only the one picture you open.
 
-## The image viewer
 
-Right-click an image cell and choose **View image** (this works even with
-thumbnails off), or click a thumbnail.
-The viewer collects every image-bearing cell of the tab, in the order the
-current filter and sort show them, so the arrow keys walk the sheet's
-pictures.
+Choose the thumbnail size under **Settings > Table**. Cells containing an image address or a SQLite image attachment show previews as they enter the visible grid. Web previews are cached on disk. For file paths in a sheet, open the image viewer and choose the folder containing the images when prompted.
 
-- **Left / Up / PageUp** and **Right / Down / PageDown** step to the
-  previous or next picture. Neighbouring pictures are fetched ahead, so
-  stepping feels instant once the first one landed.
-- **+** and **-** (or the toolbar buttons) zoom in steps up to 16x; scroll
-  bars or a drag pan the zoomed picture. **0** fits the picture to the
-  window again.
-- **Open URL** hands the image address to your browser.
-- **Esc** closes. The keys do nothing while a text field (SQL panel, chat
-  input) owns the keyboard.
+In a writable SQLite table, right-click a cell and select **Import image...**. Choose a local file or paste an HTTP or HTTPS address and select **Save**. DBviewy opens the **Bildimporte** table. The image and its compressed thumbnail travel with the database. Repeat imports of the same bytes and source reuse the same entry.
 
-The details column shows the cell's row: column name, position, URL, image
-size and the neighbouring cells' values.
+## Browse records and pictures
+
+Click a thumbnail or press **Shift+F6** on any row. The viewer follows the current sort and filter and includes records without pictures.
+
+| Key | Action |
+| --- | --- |
+| Up / Down or Page Up / Page Down | Previous or next record |
+| Left / Right or Shift+Space / Space | Previous or next picture, then the neighbouring record |
+| Home / End | First or last record |
+| + / - | Zoom in or out |
+| 0 | Fit to window |
+| D | Toggle record details |
+| T | Choose a SQLite table with Up/Down and Enter |
+| Esc | Return to the last viewed record in the grid |
+
+Drag the window edge to resize, drag a zoomed picture to pan, or double-click it to switch between fit and its pixel size.
 "#;

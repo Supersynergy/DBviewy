@@ -4604,6 +4604,7 @@ need_name = "Lõpeta tee faili nimega, näiteks sales.csv."
 no_writer = "Octa ei saa kirjutada faili {name}. Kasuta laiendit nagu .csv või .parquet."
 
 [imgview]
+import = "Impordi pilt..."
 title = "Pilt"
 menu = "Kuva pilt"
 menu_hint = "Ava see pilt vaaturis"

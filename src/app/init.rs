@@ -255,6 +255,8 @@ impl OctaApp {
             binary_viewer: None,
             binary_temp_dir: None,
             image_viewer: None,
+            gallery_table_picker: false,
+            image_import: None,
             image_cache: octa::ui::images::ImageCache::new(),
             dist_compare_dialog: None,
             referential_dialog: None,

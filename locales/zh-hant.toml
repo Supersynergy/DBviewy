@@ -5267,6 +5267,7 @@ open_settings_hint = "開啟設定裡的線上資料。"
 close_hint = "關閉這則訊息。"
 
 [imgview]
+import = "匯入影像..."
 title = "圖片"
 menu = "查看圖片"
 menu_hint = "在查看器中打開此圖片"

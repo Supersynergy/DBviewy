@@ -5267,6 +5267,7 @@ open_settings_hint = "Abre as Definições em Dados online."
 close_hint = "Fechar esta mensagem."
 
 [imgview]
+import = "Importar imagem..."
 title = "Imagem"
 menu = "Ver imagem"
 menu_hint = "Abrir esta imagem no visualizador"

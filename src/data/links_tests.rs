@@ -111,3 +111,26 @@ fn lead_domains_open_with_https_and_keep_paths() {
         assert_eq!(cell_url(text, col).as_deref(), expected);
     }
 }
+
+#[test]
+fn pictures_accept_explicit_local_and_query_references() {
+    for v in [
+        "/home/user/My photo.png",
+        "./files/photo.jpeg",
+        "photo.jpg",
+        "file:///tmp/My%20Photo.webp",
+        "file://localhost/tmp/name.png",
+        "https://cdn.example.test/download?filename=My%20Photo.png",
+        "https://cdn.example.test/image?fm=webp",
+    ] {
+        assert_eq!(detect_image_url(v), Some(v), "{v}");
+    }
+    for v in [
+        "file://server/share/x.png",
+        "file:////server/share.png",
+        "https://looks-like-image.png",
+        "ftp://test/photo.jpg",
+    ] {
+        assert_eq!(detect_image_url(v), None, "{v}");
+    }
+}

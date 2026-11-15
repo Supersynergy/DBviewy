@@ -20,6 +20,36 @@ impl OctaApp {
         if octa::ui::shortcuts::capture_mode() {
             return;
         }
+        // --- Handle close request ---
+        if ctx.input(|i| i.viewport().close_requested())
+            && self.tabs.iter().any(|t| t.is_modified())
+            && !self.confirmed_close
+        {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            self.request_exit(ctx);
+        }
+        if self.image_viewer.is_some()
+            || self.image_import.is_some()
+            || self.pending_table_picker.is_some()
+        {
+            return;
+        }
+        let tab = &self.tabs[self.active_tab];
+        if tab.view_mode == ViewMode::Table
+            && !ctx.egui_wants_keyboard_input()
+            && !tab.filtered_rows.is_empty()
+            && ctx.input_mut(|i| {
+                i.modifiers == egui::Modifiers::SHIFT
+                    && i.consume_key(egui::Modifiers::SHIFT, egui::Key::F6)
+            })
+        {
+            let (row, col) = tab
+                .table_state
+                .selected_cell
+                .unwrap_or((tab.filtered_rows[0], 0));
+            self.open_image_viewer(row, col);
+            return;
+        }
         let shortcuts = self.settings.shortcuts.clone();
         let action_fired = |a: SA| ctx.input(|i| shortcuts.triggered(a, i));
 
@@ -980,15 +1010,6 @@ impl OctaApp {
             if action_fired(SA::RemoveSplitPane) {
                 self.change_split_panes(false);
             }
-        }
-
-        // --- Handle close request ---
-        if ctx.input(|i| i.viewport().close_requested())
-            && self.tabs.iter().any(|t| t.is_modified())
-            && !self.confirmed_close
-        {
-            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
-            self.request_exit(ctx);
         }
     }
 

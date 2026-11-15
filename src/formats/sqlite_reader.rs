@@ -12,7 +12,7 @@ use super::{FormatReader, TableInfo};
 pub struct SqliteReader;
 
 const USER_TABLE_NAMES: &str =
-    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
+    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND NOT (name = 'dbviewy_media' AND (SELECT group_concat(name) FROM pragma_table_info('dbviewy_media')) = 'id,preview,thumbnail') ORDER BY name";
 
 impl FormatReader for SqliteReader {
     fn name(&self) -> &str {

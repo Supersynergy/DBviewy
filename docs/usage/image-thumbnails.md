@@ -1,44 +1,22 @@
-# Image Thumbnails and Viewer
+# Image thumbnails and the image viewer
 
-Cells that hold an image URL (ending in .png, .jpg, .webp and friends) can
-show the picture itself instead of the address. This is off by default;
-turn it on under **Settings > Table > Image thumbnails** and pick a size:
-Small (20 px), Medium (32 px) or Large (48 px).
+Choose the thumbnail size under **Settings > Table**. Cells containing an image address or a SQLite image attachment show previews as they enter the visible grid. Web previews are cached on disk. For file paths in a sheet, open the image viewer and choose the folder containing the images when prompted.
 
-## What the table does
+In a writable SQLite table, right-click a cell and select **Import image...**. Choose a local file or paste an HTTP or HTTPS address and select **Save**. DBviewy opens the **Bildimporte** table. The image and its compressed thumbnail travel with the database. Repeat imports of the same bytes and source reuse the same entry.
 
-- Only cells whose text is a bare image URL get a thumbnail. A URL inside a
-  sentence stays plain text, and clicking it still opens the link.
-- Only pictures on screen are fetched, on a background thread, so a table
-  with a million image URLs never downloads them all. A finished fetch
-  appears on the next repaint.
-- The cache holds a bounded number of pictures and forgets the oldest
-  first, so memory stays flat while scrolling.
-- **Off** means nothing is fetched automatically. The **View image** cell
-  menu entry still works and downloads only the one picture you open.
+## Browse records and pictures
 
-## The image viewer
+Click a thumbnail or press **Shift+F6** on any row. The viewer follows the current sort and filter and includes records without pictures.
 
-Right-click an image cell and choose **View image** (this works even with
-thumbnails off), or click a thumbnail.
-The viewer collects every image-bearing cell of the tab, in the order the
-current filter and sort show them, so the arrow keys walk the sheet's
-pictures.
+| Key | Action |
+| --- | --- |
+| Up / Down or Page Up / Page Down | Previous or next record |
+| Left / Right or Shift+Space / Space | Previous or next picture, then the neighbouring record |
+| Home / End | First or last record |
+| + / - | Zoom in or out |
+| 0 | Fit to window |
+| D | Toggle record details |
+| T | Choose a SQLite table with Up/Down and Enter |
+| Esc | Return to the last viewed record in the grid |
 
-| Key                     | Action                                                            |
-|-------------------------|-------------------------------------------------------------------|
-| Left / Up / PageUp      | Previous picture                                                  |
-| Right / Down / PageDown | Next picture                                                      |
-| + / -                   | Zoom in steps (up to 16x) / zoom out                              |
-| 0                       | Fit the picture to the window again                               |
-| Esc                     | Close                                                             |
-
-Scroll bars or a drag pan a zoomed picture. **Open URL** hands the image
-address to your browser. The keys do nothing while a text field (SQL panel,
-chat input) owns the keyboard.
-
-The details column shows the cell's row: column name, position, URL, image
-size and the neighbouring cells' values.
-
-Neighbouring pictures are fetched ahead of the arrow keys, so stepping
-through a sheet feels instant once the first one landed.
+Drag the window edge to resize, drag a zoomed picture to pan, or double-click it to switch between fit and its pixel size.

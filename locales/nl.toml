@@ -4607,6 +4607,7 @@ need_name = "Eindig het pad met een bestandsnaam, zoals sales.csv."
 no_writer = "Octa kan {name} niet schrijven. Gebruik een extensie zoals .csv of .parquet."
 
 [imgview]
+import = "Afbeelding importeren..."
 title = "Afbeelding"
 menu = "Afbeelding bekijken"
 menu_hint = "Open deze afbeelding in de bekijken"

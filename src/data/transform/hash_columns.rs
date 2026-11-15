@@ -49,7 +49,7 @@ impl HashColumnsAlgo {
         }
     }
 
-    fn hex(self, bytes: &[u8]) -> String {
+    pub fn hex(self, bytes: &[u8]) -> String {
         match self {
             Self::Md5 => hex(&Md5::digest(bytes)),
             Self::Sha256 => hex(&Sha256::digest(bytes)),

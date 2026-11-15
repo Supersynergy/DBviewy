@@ -84,15 +84,78 @@ pub fn cell_url(text: &str, column: &str) -> Option<String> {
 /// enabled formats plus SVG, which that function draws through its own path.
 const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "svg"];
 
-/// Return the URL when `text` is a single link to an image file; otherwise
-/// `None`. Same strictness as [`detect_url`], plus an extension check on the
-/// path part so query strings and fragments do not hide it.
+fn image_extension(name: &str) -> bool {
+    name.rsplit(['/', '\\'])
+        .next()
+        .and_then(|name| name.rsplit_once('.'))
+        .is_some_and(|(_, ext)| {
+            IMAGE_EXTENSIONS
+                .iter()
+                .any(|known| ext.eq_ignore_ascii_case(known))
+        })
+}
+
+/// Accept picture references, file names and local file URIs. Detection never
+/// opens a file. The image cache checks the user's file grant before access.
 pub fn detect_image_url(text: &str) -> Option<&str> {
-    let url = detect_url(text)?;
-    let path = url.split(['?', '#']).next().unwrap_or(url);
-    let file = path.rsplit('/').next().unwrap_or(path);
-    let ext = file.rsplit_once('.')?.1.to_ascii_lowercase();
-    IMAGE_EXTENSIONS.contains(&ext.as_str()).then_some(url)
+    let text = text.trim();
+    if text.is_empty() || text.len() > 8192 || text.chars().any(char::is_control) {
+        return None;
+    }
+    if crate::data::embedded_media::is_reference(text) {
+        return Some(text);
+    }
+    if let Some(url) = detect_url(text) {
+        let rest = url.split_once("://")?.1.split('#').next()?;
+        let (address, query) = rest.split_once('?').unwrap_or((rest, ""));
+        let path = address.split_once('/').map_or("", |(_, path)| path);
+        let query_image = query
+            .split('&')
+            .filter_map(|part| part.split_once('='))
+            .any(|(name, value)| {
+                if matches!(name, "format" | "fm") {
+                    return IMAGE_EXTENSIONS
+                        .iter()
+                        .any(|ext| value.eq_ignore_ascii_case(ext));
+                }
+                let value = percent_encoding::percent_decode_str(value).decode_utf8_lossy();
+                image_extension(&value)
+            });
+        return (image_extension(path) || query_image).then_some(text);
+    }
+    if text
+        .get(..7)
+        .is_some_and(|p| p.eq_ignore_ascii_case("file://"))
+    {
+        let path = local_file_uri(text)?;
+        return image_extension(&path).then_some(text);
+    }
+    if text.contains("://") || text.starts_with("//") || text.starts_with(r"\\") {
+        return None;
+    }
+    let looks_like_path = text.contains(['/', '\\']) || !text.chars().any(char::is_whitespace);
+    (looks_like_path && image_extension(text)).then_some(text)
+}
+
+/// File URIs with a remote authority are never local image sources.
+pub(crate) fn local_file_uri(text: &str) -> Option<std::borrow::Cow<'_, str>> {
+    let rest = text.get(7..)?;
+    let (host, _) = rest.split_once('/')?;
+    if !host.is_empty() && !host.eq_ignore_ascii_case("localhost") {
+        return None;
+    }
+    let local = rest.get(host.len()..)?.split(['?', '#']).next()?;
+    let decoded = percent_encoding::percent_decode_str(local)
+        .decode_utf8()
+        .ok()?;
+    if decoded.contains(['\0', '\\']) || decoded.starts_with("//") {
+        return None;
+    }
+    #[cfg(windows)]
+    if decoded.as_bytes().get(2) == Some(&b':') {
+        return Some(std::borrow::Cow::Owned(decoded[1..].to_owned()));
+    }
+    Some(decoded)
 }
 
 /// Every `(row, col)` cell whose text is an image URL, in `order` row order

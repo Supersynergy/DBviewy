@@ -4607,6 +4607,7 @@ need_name = "Termina la ruta con un nombre de archivo, como sales.csv."
 no_writer = "Octa no puede escribir {name}. Usa una extensión como .csv o .parquet."
 
 [imgview]
+import = "Importar imagen..."
 title = "Imagen"
 menu = "Ver imagen"
 menu_hint = "Abrir esta imagen en el visor"

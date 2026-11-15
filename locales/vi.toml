@@ -4608,6 +4608,7 @@ need_name = "Kết thúc đường dẫn bằng tên tệp, ví dụ sales.csv."
 no_writer = "Octa không ghi được {name}. Hãy dùng phần mở rộng như .csv hoặc .parquet."
 
 [imgview]
+import = "Nhập hình ảnh..."
 title = "Ảnh"
 menu = "Xem ảnh"
 menu_hint = "Mở ảnh này trong trình xem"

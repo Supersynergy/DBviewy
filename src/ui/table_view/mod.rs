@@ -24,6 +24,21 @@ pub fn can_hide_column(columns: usize, hidden: &HashSet<usize>) -> bool {
     columns.saturating_sub(hidden.iter().filter(|&&index| index < columns).count()) > 1
 }
 
+impl TableInteraction {
+    /// Apply a header fold without changing column order or saved widths.
+    pub fn apply_header_visibility(&self, column_count: usize, hidden: &mut HashSet<usize>) {
+        if let Some((col, visible)) = self.header_column_visibility
+            && col < column_count
+        {
+            if visible {
+                hidden.remove(&col);
+            } else if can_hide_column(column_count, hidden) {
+                hidden.insert(col);
+            }
+        }
+    }
+}
+
 /// State for the table view (selection, editing).
 #[derive(Default)]
 pub struct TableViewState {
@@ -352,6 +367,8 @@ pub(super) fn base_row_height(font_size: f32) -> f32 {
 /// handled correctly.
 pub(super) const MIN_ROW_HEIGHT: f32 = 12.0;
 
+/// Space a collapsed column keeps for its individual header control.
+const FOLDED_COL_WIDTH: f32 = 28.0;
 const SORT_ARROW_SIZE: f32 = 14.0;
 /// Side of the drawn facet funnel in the column header, sized to sit beside
 /// the sort arrows without crowding them.
@@ -470,7 +487,7 @@ pub struct TableCtx<'a> {
     /// keys means the two cannot fall out of step.
     pub column_filters: &'a HashMap<usize, HashSet<String>>,
     /// Column indices the user has hidden via right-click -> "Hide column".
-    /// Hidden columns render with width 0 and skip paint entirely. Data
+    /// Hidden columns keep a narrow header control and omit their cell contents. Data
     /// stays in the table (Save / Save As writes them).
     pub hidden_columns: &'a HashSet<usize>,
     /// Whether numeric cells render with thousand separators.
@@ -831,6 +848,8 @@ pub struct TableInteraction {
     /// Open the image viewer on this (row, col); the row indexes the table.
     /// Fired by the cell menu's **View image** and by clicking a thumbnail.
     pub ctx_view_image: Option<(usize, usize)>,
+    /// Import a file or URL into the active SQLite database.
+    pub ctx_import_image: Option<(usize, usize)>,
     /// **Use as header row** from a row menu: table rows `(first, last)`,
     /// 0-based, the clicked row or the selected block around it.
     pub ctx_use_header_rows: Option<(usize, usize)>,
@@ -848,6 +867,10 @@ pub struct TableInteraction {
     /// (Save / Save As writes hidden columns too); only the renderer omits
     /// them. Cleared via Edit -> Show hidden columns.
     pub ctx_hide_column: Option<usize>,
+    /// The header control sets the visibility of exactly one column, even
+    /// when a multicolumn selection is active. Context menus keep their
+    /// separate selection-aware hide action.
+    pub header_column_visibility: Option<(usize, bool)>,
     /// Restore every collapsed column from the pinned header corner.
     pub restore_hidden_columns: bool,
     /// Open the Value Frequency dialog for this column. Fired by the
@@ -898,6 +921,7 @@ impl TableInteraction {
             ctx_move_col_left: false,
             ctx_move_col_right: false,
             ctx_cut: false,
+            ctx_import_image: None,
             ctx_paste: false,
             paste_text: None,
             rename_column: None,
@@ -1102,7 +1126,7 @@ pub fn draw_table(
     }
 
     let total_col_width: f32 = state.row_number_width
-        + state.col_widths.iter().sum::<f32>()
+        + frozen_band_width(&state.col_widths, hidden_columns, table.col_count())
         + RESIZE_HANDLE_WIDTH
         + TRAILING_GAP;
     let row_count = filtered_rows.len();
@@ -1229,6 +1253,7 @@ pub fn draw_table(
             filtered_rows,
             shortcuts,
             input::NavGeometry {
+                hidden_columns,
                 row_height,
                 data_area_height,
                 max_scroll_y,

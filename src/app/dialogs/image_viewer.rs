@@ -1,85 +1,126 @@
-//! The image viewer: one picture at a time, walked with the arrow keys.
-//!
-//! It opens on a cell whose text is an image URL (cell menu **View image**,
-//! or a click on a table thumbnail) and collects every image-bearing cell
-//! of the tab into `items`, in the order the table showed them, so Left /
-//! Right / Up / Down step through the sheet's pictures the way the grid
-//! steps through its cells. The pictures themselves come from the shared
-//! [`octa::ui::images::ImageCache`]: the current one plus its neighbours are
-//! requested every frame, a finished fetch shows up on the next repaint,
-//! and nothing is downloaded twice between cells and viewer.
-//!
-//! `zoom` is `None` for fit-to-window and `Some(factor)` for an exact
-//! multiple of the pixel size; Ctrl+wheel zooms at the cursor, the scroll
-//! bars and a plain drag pan the zoomed picture, and a double click jumps
-//! between fit and 100%. The film strip under the picture clicks straight
-//! to any item; **D** folds the details column away for a bigger picture.
-
+//! Browse the filtered grid one record at a time, including records without
+//! images. Left/Right and Space walk pictures in order, Up/Down walk rows.
+//! The shared image cache services the picture and visible filmstrip cells.
 use eframe::egui;
 use egui::RichText;
 
-use octa::data::CellValue;
 use octa::data::links::{detect_image_url, detect_url};
+use octa::data::{CellValue, DataTable};
 use octa::i18n::t;
 use octa::ui::icons::{self, Icon};
 use octa::ui::settings::{
     DialogSize, dialog_header, draw_result_message, remember_dialog_rect, size_dialog_window,
 };
 
-use crate::app::state::{ImageViewerState, OctaApp};
+use crate::app::state::{ImageItem, ImageViewerState, OctaApp, TabState};
 
-/// Neighbouring pictures requested ahead of the arrow keys, so stepping
-/// through a sheet feels instant once the first fetch landed.
-const PREFETCH: usize = 2;
 /// Zoom step per key press or button click.
 const ZOOM_STEP: f32 = 1.25;
-/// Zoom factor per wheel notch while Ctrl/Cmd is held.
-const WHEEL_ZOOM: f32 = 0.0016;
 /// Details panel width; the picture keeps the rest.
 const DETAILS_W: f32 = 250.0;
 /// Film strip height (one thumbnail row); hidden for a single picture.
 const STRIP_H: f32 = 56.0;
 /// Row-detail values are cut here; the cell itself may hold a paragraph.
 const DETAIL_VALUE_MAX: usize = 80;
-/// Row details stop after this many non-empty cells.
-const DETAIL_MAX_ROWS: usize = 14;
+
+fn thumbnail_column(name: &str) -> bool {
+    let name = name.to_lowercase();
+    ["thumb", "vorschau", "miniatur", "preview"]
+        .iter()
+        .any(|token| name.contains(token))
+}
+
+fn row_sources(table: &DataTable, row: usize) -> impl Iterator<Item = (usize, bool, &str)> {
+    table
+        .columns
+        .iter()
+        .enumerate()
+        .filter_map(move |(col, column)| {
+            let CellValue::String(text) = table.get(row, col)? else {
+                return None;
+            };
+            let url = detect_image_url(text)?;
+            Some((col, thumbnail_column(&column.name), url))
+        })
+}
+
+fn row_images(table: &DataTable, row: usize) -> Vec<ImageItem> {
+    let mut images: Vec<_> = row_sources(table, row).collect();
+    // Distinct full images keep their order. A preview is a fallback when
+    // the record has no full image, not a second stop for the same picture.
+    if images.iter().any(|(_, preview, _)| !preview) {
+        images.retain(|(_, preview, _)| !preview);
+    }
+    let embedded: std::collections::HashSet<_> = images
+        .iter()
+        .filter_map(|(_, _, url)| url.strip_prefix("dbviewy-media:"))
+        .collect();
+    if !embedded.is_empty() {
+        use octa::data::transform::hash_columns::HashColumnsAlgo;
+        images.retain(|(_, _, url)| {
+            detect_url(url).is_none()
+                || !embedded.contains(HashColumnsAlgo::Sha256.hex(url.as_bytes()).as_str())
+        });
+    }
+    // In the import album, Quelle records provenance for Bild. It is not
+    // another photo even when the source is a URL or a local JPEG filename.
+    if table
+        .db_meta
+        .as_ref()
+        .is_some_and(|meta| meta.table_name == octa::data::embedded_media::ALBUM)
+        && images
+            .iter()
+            .any(|(_, _, url)| octa::data::embedded_media::is_reference(url))
+    {
+        images.retain(|(col, _, _)| table.columns[*col].name != "Quelle");
+    }
+    images.sort_by_key(|(_, _, url)| detect_url(url).is_some());
+    let mut result: Vec<ImageItem> = Vec::new();
+    for (col, _, url) in images {
+        if !result.iter().any(|seen| seen.url == url) {
+            result.push(ImageItem {
+                row,
+                col,
+                url: url.to_owned(),
+            });
+        }
+    }
+    result
+}
 
 impl OctaApp {
-    /// Open the viewer on the image cell (`row`, `col`) of the active tab.
-    /// `row` indexes the table, like every other cell reference the table
-    /// reports. Every other image-bearing cell joins the walk list, in the
-    /// order the current filter and sort show them.
     pub(crate) fn open_image_viewer(&mut self, row: usize, col: usize) {
         let tab = &self.tabs[self.active_tab];
-        let mut items = Vec::new();
-        for &actual in &tab.filtered_rows {
-            for c in 0..tab.table.col_count() {
-                // Only plain strings can hold a URL; skipping every other
-                // cell keeps the scan allocation-free on big sheets.
-                let Some(CellValue::String(s)) = tab.table.get(actual, c) else {
-                    continue;
-                };
-                if let Some(url) = detect_image_url(s) {
-                    items.push(crate::app::state::ImageItem {
-                        row: actual,
-                        col: c,
-                        url: url.to_string(),
-                    });
-                }
-            }
-        }
-        let pos = items
-            .iter()
-            .position(|it| it.row == row && it.col == col)
-            .unwrap_or(0);
-        if items.is_empty() {
-            self.status_message = Some((t("imgview.no_image_cell"), std::time::Instant::now()));
+        if tab.filtered_rows.is_empty() {
             return;
         }
+        let row_pos = tab
+            .filtered_rows
+            .iter()
+            .position(|&r| r == row)
+            .unwrap_or(0);
+        let row = tab.filtered_rows[row_pos];
+        let items = row_images(&tab.table, row);
+        let pos = items
+            .iter()
+            .position(|it| it.col == col)
+            .filter(|_| {
+                !tab.table
+                    .columns
+                    .get(col)
+                    .is_some_and(|c| thumbnail_column(&c.name))
+            })
+            .unwrap_or(0);
         self.image_viewer = Some(ImageViewerState {
             size: DialogSize::Normal,
+            tab_id: tab.id,
+            row,
+            row_pos,
+            grid_col: col,
             items,
             pos,
+            reveal_row: true,
+            fit_scale: 1.0,
             zoom: None,
             show_details: true,
             message: None,
@@ -87,76 +128,163 @@ impl OctaApp {
     }
 }
 
+impl ImageViewerState {
+    fn select_row(&mut self, tab: &TabState, index: usize) {
+        let Some(&row) = tab.filtered_rows.get(index) else {
+            return;
+        };
+        self.row_pos = index;
+        self.row = row;
+        self.items = row_images(&tab.table, row);
+        self.pos = 0;
+        self.message = None;
+        self.reveal_row = true;
+    }
+
+    fn next_picture(&mut self, tab: &TabState, forward: bool) {
+        if forward {
+            if self.pos + 1 < self.items.len() {
+                self.pos += 1;
+            } else {
+                self.select_row(tab, self.row_pos + 1);
+            }
+        } else if self.pos > 0 {
+            self.pos -= 1;
+        } else if self.row_pos > 0 {
+            self.select_row(tab, self.row_pos - 1);
+            self.pos = self.items.len().saturating_sub(1);
+        }
+    }
+
+    fn change_zoom(&mut self, factor: f32) {
+        self.zoom = Some((self.zoom.unwrap_or(self.fit_scale) * factor).clamp(0.02, 16.0));
+    }
+}
+
+fn take_key(input: &mut egui::InputState, key: egui::Key, shift: bool) -> bool {
+    let modifiers = if shift {
+        egui::Modifiers::SHIFT
+    } else {
+        egui::Modifiers::NONE
+    };
+    let mut found = false;
+    input.events.retain(|event| {
+        if matches!(event, egui::Event::Key { key: k, pressed: true, modifiers: m, .. }
+            if *k == key && *m == modifiers)
+        {
+            found = true;
+            false
+        } else {
+            true
+        }
+    });
+    found
+}
+
 pub(crate) fn render_image_viewer(app: &mut OctaApp, ctx: &egui::Context) {
+    if app.gallery_table_picker {
+        return;
+    }
     let Some(mut st) = app.image_viewer.take() else {
         return;
     };
-    let mut close = false;
-    let mut open_url = false;
-
-    // Arrow keys walk the pictures, whatever has focus - unless a text
-    // field owns the keyboard (the SQL panel, the chat input), where the
-    // keys belong to the caret. Esc closes; 0 fits; +/- zoom; Space and
-    // Home/End move like a gallery; D folds the details column; O opens.
-    if !ctx.egui_wants_keyboard_input() {
-        let key = |k: egui::Key| ctx.input(|i| i.key_pressed(k) && i.modifiers.is_none());
-        let shift = ctx.input(|i| i.modifiers.shift);
-        if key(egui::Key::Escape) {
-            close = true;
-        } else {
-            let prev = key(egui::Key::ArrowLeft)
-                || key(egui::Key::ArrowUp)
-                || key(egui::Key::PageUp)
-                || (key(egui::Key::Space) && shift);
-            let next = key(egui::Key::ArrowRight)
-                || key(egui::Key::ArrowDown)
-                || key(egui::Key::PageDown)
-                || (key(egui::Key::Space) && !shift);
-            if prev && st.pos > 0 {
-                st.pos -= 1;
+    let tab = &app.tabs[app.active_tab];
+    if tab.id != st.tab_id || tab.filtered_rows.is_empty() {
+        return;
+    }
+    if tab.filtered_rows.get(st.row_pos) != Some(&st.row) {
+        let index = tab
+            .filtered_rows
+            .iter()
+            .position(|&r| r == st.row)
+            .unwrap_or_else(|| st.row_pos.min(tab.filtered_rows.len() - 1));
+        st.select_row(tab, index);
+    }
+    if st.items.iter().any(|it| {
+        !matches!(tab.table.get(it.row, it.col),
+        Some(CellValue::String(text)) if detect_image_url(text) == Some(it.url.as_str()))
+    }) {
+        st.select_row(tab, st.row_pos);
+    }
+    app.image_cache.set_document(
+        tab.table.source_path.as_deref().map(std::path::Path::new),
+        tab.id.0,
+    );
+    let key = |key, shift| ctx.input_mut(|i| take_key(i, key, shift));
+    use egui::Key;
+    let mut close = key(Key::Escape, false);
+    if key(Key::T, false)
+        && tab.table.format_name.as_deref() == Some("SQLite")
+        && let Some(path) = tab
+            .table
+            .source_path
+            .as_deref()
+            .map(std::path::PathBuf::from)
+        && let Some(reader) = app.registry.reader_by_name("SQLite")
+    {
+        match reader.list_tables(&path) {
+            Ok(Some(tables)) if !tables.is_empty() => {
+                let selected = tab
+                    .table
+                    .db_meta
+                    .as_ref()
+                    .and_then(|meta| {
+                        tables
+                            .iter()
+                            .position(|table| table.name == meta.table_name)
+                    })
+                    .unwrap_or(0);
+                app.pending_table_picker = Some(octa::ui::table_picker::TablePickerState {
+                    path,
+                    format_name: "SQLite".into(),
+                    tables,
+                    selected,
+                    visible_rows: app.settings.table_picker_visible_rows,
+                });
+                app.gallery_table_picker = true;
+                app.image_viewer = Some(st);
+                return;
             }
-            if next && st.pos + 1 < st.items.len() {
-                st.pos += 1;
-            }
-            if key(egui::Key::Home) {
-                st.pos = 0;
-            }
-            if key(egui::Key::End) {
-                st.pos = st.items.len().saturating_sub(1);
-            }
-            if key(egui::Key::Num0) {
-                st.zoom = None;
-            } else if key(egui::Key::Plus) || key(egui::Key::Equals) {
-                st.zoom = Some((st.zoom.unwrap_or(1.0) * ZOOM_STEP).min(16.0));
-            } else if key(egui::Key::Minus) {
-                st.zoom = Some((st.zoom.unwrap_or(1.0) / ZOOM_STEP).max(0.02));
-            }
-            if key(egui::Key::D) {
-                st.show_details = !st.show_details;
-            }
-            if key(egui::Key::O) {
-                open_url = true;
-            }
+            Err(e) => st.message = Some((false, format!("{e:#}"))),
+            _ => {}
         }
     }
-    st.pos = st.pos.min(st.items.len().saturating_sub(1));
-    let item = st.items.get(st.pos).cloned();
-    if open_url && let Some(it) = &item {
+    if key(Key::ArrowLeft, false) || key(Key::Space, true) {
+        st.next_picture(tab, false);
+    } else if key(Key::ArrowRight, false) || key(Key::Space, false) {
+        st.next_picture(tab, true);
+    } else if key(Key::ArrowUp, false) || key(Key::PageUp, false) {
+        st.select_row(tab, st.row_pos.saturating_sub(1));
+    } else if key(Key::ArrowDown, false) || key(Key::PageDown, false) {
+        st.select_row(tab, st.row_pos + 1);
+    } else if key(Key::Home, false) {
+        st.select_row(tab, 0);
+    } else if key(Key::End, false) {
+        st.select_row(tab, tab.filtered_rows.len() - 1);
+        st.pos = st.items.len().saturating_sub(1);
+    }
+    if key(Key::Num0, false) {
+        st.zoom = None;
+    } else if key(Key::Plus, false)
+        || key(Key::Plus, true)
+        || key(Key::Equals, false)
+        || key(Key::Equals, true)
+    {
+        st.change_zoom(ZOOM_STEP);
+    } else if key(Key::Minus, false) {
+        st.change_zoom(1.0 / ZOOM_STEP);
+    }
+    if key(Key::D, false) {
+        st.show_details = !st.show_details;
+    }
+    if key(Key::O, false)
+        && let Some(it) = st.items.get(st.pos)
+        && detect_url(&it.url).is_some()
+    {
         ctx.open_url(egui::OpenUrl::new_tab(&it.url));
     }
-
-    // Warm the cache for the current picture and its neighbours; `request`
-    // deduplicates, so repeating this every frame costs a hash lookup.
-    if item.is_some() {
-        for d in -(PREFETCH as isize)..=(PREFETCH as isize) {
-            if let Some(i) = (st.pos as isize + d)
-                .try_into()
-                .ok()
-                .and_then(|i: usize| st.items.get(i))
-            {
-                app.image_cache.request(ctx, &i.url);
-            }
-        }
+    if let Some(it) = st.items.get(st.pos) {
+        app.image_cache.request_preview(ctx, &it.url);
     }
 
     let dialog_id = egui::Id::new("octa_image_viewer");
@@ -172,21 +300,22 @@ pub(crate) fn render_image_viewer(app: &mut OctaApp, ctx: &egui::Context) {
     });
     let mut size = st.size;
     let inner = window.show(ctx, |ui| {
+        ui.memory_mut(|m| m.set_modal_layer(ui.layer_id()));
         close |= dialog_header(
             ui,
             "imgview_header",
             RichText::new(format!(
                 "{} - {}/{}",
                 t("imgview.title"),
-                st.pos + 1,
-                st.items.len()
+                st.row_pos + 1,
+                tab.filtered_rows.len()
             )),
             &mut size,
         );
         if size == DialogSize::Minimized {
             return;
         }
-        draw_toolbar(ui, &mut st, &mut close);
+        draw_toolbar(ui, tab, &mut st, &mut close);
         egui::Panel::bottom("imgview_footer")
             .frame(egui::Frame::default().inner_margin(egui::Margin::symmetric(0, 6)))
             .show(ui, |ui| {
@@ -194,6 +323,7 @@ pub(crate) fn render_image_viewer(app: &mut OctaApp, ctx: &egui::Context) {
                     draw_result_message(ui, *ok, msg);
                 }
             });
+        let item = st.items.get(st.pos).cloned();
         draw_body(ui, app, &mut st, &item);
     });
     if let Some(inner) = inner.as_ref() {
@@ -201,7 +331,18 @@ pub(crate) fn render_image_viewer(app: &mut OctaApp, ctx: &egui::Context) {
     }
     st.size = size;
 
-    if !close {
+    if close {
+        let tab = &mut app.tabs[app.active_tab];
+        let col = st.items.get(st.pos).map_or(st.grid_col, |it| it.col);
+        tab.table_state.selected_cell =
+            Some((st.row, col.min(tab.table.col_count().saturating_sub(1))));
+        tab.table_state.scroll_to_row(st.row_pos);
+        ctx.memory_mut(|m| {
+            if let Some(id) = m.focused() {
+                m.surrender_focus(id);
+            }
+        });
+    } else {
         app.image_viewer = Some(st);
     }
 }
@@ -209,7 +350,7 @@ pub(crate) fn render_image_viewer(app: &mut OctaApp, ctx: &egui::Context) {
 /// Prev/next, zoom and the way out, in one control row. Icons are painted,
 /// not glyphs, so no font can lack them; the hover names the action and
 /// its keys, so the shortcuts stay discoverable.
-fn draw_toolbar(ui: &mut egui::Ui, st: &mut ImageViewerState, close: &mut bool) {
+fn draw_toolbar(ui: &mut egui::Ui, tab: &TabState, st: &mut ImageViewerState, close: &mut bool) {
     let mut first = false;
     let mut prev = false;
     let mut next = false;
@@ -220,24 +361,34 @@ fn draw_toolbar(ui: &mut egui::Ui, st: &mut ImageViewerState, close: &mut bool) 
     let mut pct = false;
     let mut open_url = false;
     octa::ui::control_row::control_line(ui, |ui| {
-        first = icons::icon_button(ui, st.pos > 0, Icon::First, t("imgview.first_hint"));
-        prev = icons::icon_button(ui, st.pos > 0, Icon::Prev, t("imgview.prev_hint"));
+        first = icons::icon_button(
+            ui,
+            st.row_pos > 0 || st.pos > 0,
+            Icon::First,
+            t("imgview.first_hint"),
+        );
+        prev = icons::icon_button(
+            ui,
+            st.row_pos > 0 || st.pos > 0,
+            Icon::Prev,
+            t("imgview.prev_hint"),
+        );
         next = icons::icon_button(
             ui,
-            st.pos + 1 < st.items.len(),
+            st.row_pos + 1 < tab.filtered_rows.len() || st.pos + 1 < st.items.len(),
             Icon::Next,
             t("imgview.next_hint"),
         );
         last = icons::icon_button(
             ui,
-            st.pos + 1 < st.items.len(),
+            st.row_pos + 1 < tab.filtered_rows.len() || st.pos + 1 < st.items.len(),
             Icon::Last,
             t("imgview.last_hint"),
         );
         ui.separator();
         zoom_out = icons::icon_button(
             ui,
-            st.zoom.is_some_and(|z| z > 0.021),
+            st.zoom.unwrap_or(st.fit_scale) > 0.02,
             Icon::ZoomOut,
             t("imgview.zoom_out_hint"),
         );
@@ -257,7 +408,14 @@ fn draw_toolbar(ui: &mut egui::Ui, st: &mut ImageViewerState, close: &mut bool) 
         );
         fit = icons::icon_button(ui, st.zoom.is_some(), Icon::Fit, t("imgview.fit_hint"));
         ui.separator();
-        open_url = icons::icon_button(ui, true, Icon::OpenUrl, t("imgview.open_url_hint"));
+        open_url = icons::icon_button(
+            ui,
+            st.items
+                .get(st.pos)
+                .is_some_and(|it| detect_url(&it.url).is_some()),
+            Icon::OpenUrl,
+            t("imgview.open_url_hint"),
+        );
         if icons::icon_button(ui, true, Icon::Details, t("imgview.details_hint")) {
             st.show_details = !st.show_details;
         }
@@ -268,22 +426,23 @@ fn draw_toolbar(ui: &mut egui::Ui, st: &mut ImageViewerState, close: &mut bool) 
         });
     });
     if first {
-        st.pos = 0;
+        st.select_row(tab, 0);
     }
-    if prev && st.pos > 0 {
-        st.pos -= 1;
+    if prev {
+        st.next_picture(tab, false);
     }
-    if next && st.pos + 1 < st.items.len() {
-        st.pos += 1;
+    if next {
+        st.next_picture(tab, true);
     }
     if last {
+        st.select_row(tab, tab.filtered_rows.len() - 1);
         st.pos = st.items.len().saturating_sub(1);
     }
     if zoom_in {
-        st.zoom = Some((st.zoom.unwrap_or(1.0) * ZOOM_STEP).min(16.0));
+        st.change_zoom(ZOOM_STEP);
     }
     if zoom_out {
-        st.zoom = Some((st.zoom.unwrap_or(1.0) / ZOOM_STEP).max(0.02));
+        st.change_zoom(1.0 / ZOOM_STEP);
     }
     if fit {
         st.zoom = None;
@@ -337,97 +496,99 @@ fn draw_picture(
     st: &mut ImageViewerState,
     item: &Option<crate::app::state::ImageItem>,
 ) {
-    let Some(it) = item else { return };
-    let scroll_id = ui.id().with("imgview_pan");
-    // Ctrl/Cmd + wheel zooms at the cursor instead of scrolling; the
-    // delta is consumed so the scroll area does not also pan.
-    let wheel = ui.input(|i| i.smooth_scroll_delta.y);
-    let wheel_area = ui
-        .max_rect()
-        .contains(ui.ctx().pointer_hover_pos().unwrap_or_default());
-    if wheel != 0.0 && wheel_area && ui.input(|i| i.modifiers.command) {
-        ui.ctx()
-            .input_mut(|i| i.smooth_scroll_delta = egui::Vec2::ZERO);
-        if let Some(tex) = app.image_cache.texture(&it.url) {
-            let avail = ui.available_size() - egui::vec2(0.0, STRIP_H + 20.0);
-            let old = st.zoom.unwrap_or_else(|| fit_zoom(avail, tex.size_vec2()));
-            let new = (old * (1.0 + wheel * WHEEL_ZOOM)).clamp(0.02, 16.0);
-            st.zoom = Some(new);
-            // Keep the pixel under the cursor fixed: scale the scroll
-            // offset by the same ratio the content just scaled by.
-            if let (Some(mut sstate), Some(hp)) = (
-                egui::scroll_area::State::load(ui.ctx(), scroll_id),
-                ui.ctx().pointer_hover_pos(),
-            ) {
-                let min = ui.max_rect().min;
-                let rel = sstate.offset + (hp - min);
-                sstate.offset = (rel * (new / old) - (hp - min)).max(egui::Vec2::ZERO);
-                sstate.store(ui.ctx(), scroll_id);
-            }
+    let tab = &app.tabs[app.active_tab];
+    let strip_h = if tab.filtered_rows.len() > 1 {
+        STRIP_H
+    } else {
+        0.0
+    };
+    let hint_h = ui.text_style_height(&egui::TextStyle::Small) + 8.0;
+    let viewport = egui::vec2(
+        ui.available_width(),
+        (ui.available_height() - strip_h - hint_h).max(40.0),
+    );
+    let texture = item
+        .as_ref()
+        .and_then(|it| app.image_cache.preview_texture(&it.url));
+    let failure = item
+        .as_ref()
+        .and_then(|it| app.image_cache.preview_failure(&it.url));
+    let origin = ui.cursor().min;
+    let salt = ("imgview_pan", st.row, st.pos);
+    let id = ui.make_persistent_id(salt);
+    if let Some(tex) = &texture {
+        let natural = tex.size_vec2();
+        st.fit_scale = fit_zoom(viewport, natural);
+        let zoom_delta = ui.input(|i| i.zoom_delta());
+        if zoom_delta != 1.0
+            && let Some(pointer) = ui.ctx().pointer_hover_pos()
+            && egui::Rect::from_min_size(origin, viewport).contains(pointer)
+        {
+            let old = st.zoom.unwrap_or(st.fit_scale);
+            st.change_zoom(zoom_delta);
+            let new = st.zoom.unwrap_or(old);
+            let mut state = egui::scroll_area::State::load(ui.ctx(), id).unwrap_or_default();
+            let at = pointer - origin;
+            let old_padding = (viewport - natural * old).max(egui::Vec2::ZERO) * 0.5;
+            let new_padding = (viewport - natural * new).max(egui::Vec2::ZERO) * 0.5;
+            state.offset = ((state.offset + at - old_padding) * (new / old) + new_padding - at)
+                .max(egui::Vec2::ZERO);
+            state.store(ui.ctx(), id);
         }
     }
-    let texture = app.image_cache.texture(&it.url);
-    let failure = app.image_cache.failure(&it.url);
-    // The scroll area expands to whatever is free, so the strip and the
-    // key hint reserve their share first - otherwise the picture would
-    // push them off the bottom of the window.
-    let strip_h = if st.items.len() > 1 { STRIP_H } else { 0.0 };
-    let hint_h = ui.text_style_height(&egui::TextStyle::Small) + 4.0;
-    let pic_h = (ui.available_height() - strip_h - hint_h).max(40.0);
     egui::ScrollArea::both()
-        .id_salt(scroll_id)
+        .id_salt(salt)
         .auto_shrink([false, false])
-        .max_height(pic_h)
-        .show(ui, |ui| {
-            ui.vertical_centered(|ui| {
-                match (texture, failure) {
-                    (Some(tex), _) => {
-                        let natural = tex.size_vec2();
-                        // Fit uses the viewport the scroll area just got;
-                        // a manual zoom is an exact multiple of the pixels.
-                        let scale = match st.zoom {
-                            Some(z) => z,
-                            None => fit_zoom(ui.available_size(), natural),
-                        };
-                        let size = natural * scale;
-                        // Vertically centred as well: a picture smaller
-                        // than the viewport should float, not hug the top.
-                        ui.add_space(((ui.available_height() - size.y) / 2.0).max(0.0));
-                        let resp = ui.add(
-                            egui::Image::from_texture(&tex)
-                                .fit_to_exact_size(size)
-                                .sense(egui::Sense::click()),
-                        );
-                        // Double click toggles fit <-> 100%, the gesture
-                        // every picture viewer teaches first.
-                        if resp.double_clicked() {
-                            st.zoom = if st.zoom.is_none() { Some(1.0) } else { None };
-                        }
-                    }
-                    (None, Some(err)) => {
-                        ui.label(
-                            RichText::new(t("imgview.failed")).color(ui.visuals().error_fg_color),
-                        );
-                        ui.label(RichText::new(err).weak().monospace());
-                    }
-                    (None, None) => {
-                        ui.horizontal(|ui| {
-                            ui.spinner();
-                            ui.label(t("imgview.loading"));
-                        });
-                    }
+        .scroll_source(egui::scroll_area::ScrollSource::ALL)
+        .max_width(viewport.x)
+        .max_height(viewport.y)
+        .show(ui, |ui| match (texture, failure) {
+            (Some(tex), _) => {
+                let size = tex.size_vec2() * st.zoom.unwrap_or(st.fit_scale);
+                let (rect, resp) = ui.allocate_exact_size(size.max(viewport), egui::Sense::click());
+                ui.painter().image(
+                    tex.id(),
+                    egui::Rect::from_center_size(rect.center(), size),
+                    egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                    egui::Color32::WHITE,
+                );
+                if resp.double_clicked() {
+                    st.zoom = if st.zoom.is_none() { Some(1.0) } else { None };
                 }
-            });
+            }
+            (None, Some(err)) => {
+                ui.label(RichText::new(t("imgview.failed")).color(ui.visuals().error_fg_color));
+                ui.label(RichText::new(err).weak().monospace());
+                if item.as_ref().is_some_and(|it| {
+                    detect_url(&it.url).is_none()
+                        && !octa::data::embedded_media::is_reference(&it.url)
+                }) && ui.button(t("dialog.dbx_choose")).clicked()
+                    && let Some(dir) = rfd::FileDialog::new().pick_folder()
+                    && let Err(e) = app.image_cache.allow_local_directory(&dir)
+                {
+                    st.message = Some((false, e.to_string()));
+                }
+            }
+            (None, None) if item.is_none() => {
+                ui.weak(t("imgview.no_image_cell"));
+            }
+            (None, None) => {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label(t("imgview.loading"));
+                });
+            }
         });
     draw_filmstrip(ui, app, st);
     ui.weak(t("imgview.keys"));
 }
 
-/// The thumbnail strip under the picture: every item as a tiny button so
-/// a click jumps straight there; the current one carries the accent ring.
-/// Only items actually scrolled into view request their texture.
+/// Only visible rows are inspected and painted. Use the preview image in
+/// the strip when the same record also provides a full-sized picture.
 fn draw_filmstrip(ui: &mut egui::Ui, app: &OctaApp, st: &mut ImageViewerState) {
-    if st.items.len() < 2 {
+    let tab = &app.tabs[app.active_tab];
+    let count = tab.filtered_rows.len();
+    if count < 2 {
         return;
     }
     let mut jump = None;
@@ -435,55 +596,78 @@ fn draw_filmstrip(ui: &mut egui::Ui, app: &OctaApp, st: &mut ImageViewerState) {
         .id_salt("imgview_strip")
         .auto_shrink([false, false])
         .max_height(STRIP_H)
-        .show(ui, |ui| {
-            ui.horizontal(|ui| {
-                for (i, it) in st.items.iter().enumerate() {
-                    let (rect, resp) = ui.allocate_exact_size(
-                        egui::vec2(STRIP_H - 10.0, STRIP_H - 10.0),
-                        egui::Sense::click(),
+        .show_viewport(ui, |ui, viewport| {
+            let side = STRIP_H - 10.0;
+            let stride = side + ui.spacing().item_spacing.x;
+            let (strip, _) = ui.allocate_exact_size(
+                egui::vec2(count as f32 * stride, side),
+                egui::Sense::hover(),
+            );
+            let tile = |i| {
+                egui::Rect::from_min_size(
+                    strip.min + egui::vec2(i as f32 * stride, 0.0),
+                    egui::Vec2::splat(side),
+                )
+            };
+            if st.reveal_row {
+                ui.scroll_to_rect(tile(st.row_pos), None);
+                st.reveal_row = false;
+            }
+            let first = (viewport.left() / stride).floor().max(0.0) as usize;
+            let last = ((viewport.right() / stride).ceil() as usize + 1).min(count);
+            for i in first..last {
+                let rect = tile(i);
+                let resp = ui.interact(rect, ui.id().with(i), egui::Sense::click());
+                let preview =
+                    row_sources(&tab.table, tab.filtered_rows[i]).min_by_key(|(_, thumb, url)| {
+                        (
+                            !octa::data::embedded_media::is_reference(url),
+                            !thumb,
+                            detect_url(url).is_some(),
+                        )
+                    });
+                let frame = rect.shrink(2.0);
+                let texture = preview.and_then(|(_, _, url)| {
+                    app.image_cache.request(ui.ctx(), url);
+                    app.image_cache.texture(url)
+                });
+                if let Some(tex) = texture {
+                    let draw = egui::Rect::from_center_size(
+                        frame.center(),
+                        tex.size_vec2() * fit_zoom(frame.size(), tex.size_vec2()),
                     );
-                    if !ui.is_rect_visible(rect) {
-                        continue;
-                    }
-                    app.image_cache.request(ui.ctx(), &it.url);
-                    let frame = rect.shrink(1.0);
-                    ui.painter().rect_stroke(
-                        frame,
-                        3.0,
-                        egui::Stroke::new(1.0, ui.visuals().widgets.noninteractive.bg_stroke.color),
-                        egui::StrokeKind::Inside,
+                    ui.painter().image(
+                        tex.id(),
+                        draw,
+                        egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                        egui::Color32::WHITE,
                     );
-                    if let Some(tex) = app.image_cache.texture(&it.url) {
-                        let size = tex.size_vec2();
-                        let scale = (frame.width() / size.x.max(size.y)).min(1.0);
-                        let draw = egui::Rect::from_center_size(frame.center(), size * scale);
-                        ui.painter().with_clip_rect(frame).image(
-                            tex.id(),
-                            draw,
-                            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
-                            egui::Color32::WHITE,
-                        );
-                    }
-                    if i == st.pos {
-                        ui.painter().rect_stroke(
-                            rect,
-                            3.0,
-                            egui::Stroke::new(2.0, ui.visuals().selection.stroke.color),
-                            egui::StrokeKind::Inside,
-                        );
-                    }
-                    if resp.hovered() {
-                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-                        resp.clone().on_hover_text(&it.url);
-                    }
-                    if resp.clicked() {
-                        jump = Some(i);
-                    }
+                } else {
+                    ui.painter().text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        (i + 1).to_string(),
+                        egui::FontId::proportional(11.0),
+                        ui.visuals().weak_text_color(),
+                    );
                 }
-            });
+                let stroke = if i == st.row_pos {
+                    ui.visuals().selection.stroke
+                } else {
+                    ui.visuals().widgets.noninteractive.bg_stroke
+                };
+                ui.painter()
+                    .rect_stroke(rect, 3.0, stroke, egui::StrokeKind::Inside);
+                if resp
+                    .on_hover_text(format!("{} {}", t("imgview.row"), tab.filtered_rows[i] + 1))
+                    .clicked()
+                {
+                    jump = Some(i);
+                }
+            }
         });
     if let Some(i) = jump {
-        st.pos = i;
+        st.select_row(tab, i);
     }
 }
 
@@ -506,94 +690,66 @@ fn draw_details(
     st: &mut ImageViewerState,
     item: &Option<crate::app::state::ImageItem>,
 ) {
-    let Some(it) = item else { return };
+    let tab = &app.tabs[app.active_tab];
     egui::ScrollArea::vertical()
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            let tab = &app.tabs[app.active_tab];
-            let col_name = tab
-                .table
-                .columns
-                .get(it.col)
-                .map(|c| c.name.clone())
-                .unwrap_or_default();
             ui.strong(t("imgview.details"));
             ui.separator();
-            ui.label(format!("{}: {}", t("imgview.column"), col_name));
-            ui.label(format!("{}: {}", t("imgview.row"), it.row + 1));
-            ui.label(format!(
-                "{}: {}/{}",
-                t("imgview.position"),
-                st.pos + 1,
-                st.items.len()
-            ));
-            if let Some(tex) = app.image_cache.texture(&it.url) {
-                let s = tex.size_vec2();
-                ui.label(format!(
-                    "{}: {} x {}",
-                    t("imgview.size"),
-                    s.x as u32,
-                    s.y as u32
-                ));
-            }
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                ui.label(RichText::new(t("imgview.url")).weak());
-                if icons::icon_button(ui, true, Icon::Copy, t("imgview.copy_hint")) {
-                    ui.ctx().copy_text(it.url.clone());
-                    st.message = Some((true, t("imgview.copied")));
+            ui.label(format!("{}: {}", t("imgview.row"), st.row + 1));
+            if let Some(it) = item {
+                if let Some(col) = tab.table.columns.get(it.col) {
+                    ui.label(format!("{}: {}", t("imgview.column"), col.name));
                 }
-            });
-            egui::ScrollArea::horizontal()
-                .id_salt("imgview_url")
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    // A real hyperlink: click opens the address, Ctrl/Cmd is
-                    // not needed. Monospace so it still reads like data.
-                    ui.add(egui::Hyperlink::from_label_and_url(
-                        RichText::new(&it.url).monospace().size(11.0),
-                        it.url.clone(),
-                    ));
+                ui.label(format!(
+                    "{}: {}/{}",
+                    t("imgview.position"),
+                    st.pos + 1,
+                    st.items.len()
+                ));
+                if let Some(tex) = app.image_cache.preview_texture(&it.url) {
+                    let [w, h] = tex.size();
+                    ui.label(format!("{}: {w} x {h}", t("imgview.size")));
+                }
+                ui.add_space(4.0);
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(t("imgview.url")).weak());
+                    if icons::icon_button(ui, true, Icon::Copy, t("imgview.copy_hint")) {
+                        ui.ctx().copy_text(it.url.clone());
+                        st.message = Some((true, t("imgview.copied")));
+                    }
                 });
-            ui.separator();
-            // The row's other link columns (the lot page, sources) sit
-            // above the plain details: a product page is one click away,
-            // not buried under the DETAIL_MAX_ROWS cap below.
-            draw_row_links(ui, app, it);
-            draw_row_details(ui, app, it);
+                egui::ScrollArea::horizontal()
+                    .id_salt("imgview_url")
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        let label = RichText::new(&it.url).monospace().size(11.0);
+                        if detect_url(&it.url).is_some() {
+                            ui.add(egui::Hyperlink::from_label_and_url(label, it.url.clone()));
+                        } else {
+                            ui.label(label);
+                        }
+                    });
+                ui.separator();
+            }
+            let selected = item.as_ref().map(|it| it.col);
+            draw_row_links(ui, app, st.row, selected);
+            draw_row_details(ui, app, st.row, selected);
         });
-}
-
-/// True while the row still holds the address the viewer was opened on -
-/// after a sort or a tab switch the index may point somewhere else
-/// entirely, and neither links nor details should follow it there.
-fn row_is_fresh(tab: &crate::app::state::TabState, it: &crate::app::state::ImageItem) -> bool {
-    matches!(
-        tab.table.get(it.row, it.col),
-        Some(CellValue::String(s)) if detect_image_url(s) == Some(it.url.as_str())
-    )
 }
 
 /// Every other link column of the row as a clickable address: the lot's
 /// product page is the usual one, but any URL cell joins in, capped by
 /// screen space rather than by which columns happen to sit early.
-fn draw_row_links(ui: &mut egui::Ui, app: &OctaApp, it: &crate::app::state::ImageItem) {
-    const MAX_LINKS: usize = 8;
+fn draw_row_links(ui: &mut egui::Ui, app: &OctaApp, row: usize, selected: Option<usize>) {
     const LINK_DISPLAY_MAX: usize = 55;
     let tab = &app.tabs[app.active_tab];
-    if !row_is_fresh(tab, it) {
-        return;
-    }
-    let mut shown = 0;
     let mut header_drawn = false;
     for c in 0..tab.table.col_count() {
-        if shown >= MAX_LINKS {
-            break;
-        }
-        if c == it.col {
+        if Some(c) == selected {
             continue;
         }
-        let Some(CellValue::String(s)) = tab.table.get(it.row, c) else {
+        let Some(CellValue::String(s)) = tab.table.get(row, c) else {
             continue;
         };
         let text = s.trim();
@@ -632,7 +788,6 @@ fn draw_row_links(ui: &mut egui::Ui, app: &OctaApp, it: &crate::app::state::Imag
             )
             .on_hover_text(url.to_string());
         });
-        shown += 1;
     }
     if header_drawn {
         ui.separator();
@@ -644,20 +799,13 @@ fn draw_row_links(ui: &mut egui::Ui, app: &OctaApp, it: &crate::app::state::Imag
 /// cell still resolves to the same address - after a sort or a tab switch
 /// the row index may point somewhere else entirely. Values that are URLs
 /// stay live links; everything else is plain text.
-fn draw_row_details(ui: &mut egui::Ui, app: &OctaApp, it: &crate::app::state::ImageItem) {
+fn draw_row_details(ui: &mut egui::Ui, app: &OctaApp, row: usize, selected: Option<usize>) {
     let tab = &app.tabs[app.active_tab];
-    if !row_is_fresh(tab, it) {
-        return;
-    }
-    let mut shown = 0;
     for c in 0..tab.table.col_count() {
-        if shown >= DETAIL_MAX_ROWS {
-            break;
-        }
-        if c == it.col {
+        if Some(c) == selected {
             continue;
         }
-        let Some(v) = tab.table.get(it.row, c) else {
+        let Some(v) = tab.table.get(row, c) else {
             continue;
         };
         let text = v.display_with_binary_mode(app.settings.binary_display_mode);
@@ -676,17 +824,21 @@ fn draw_row_details(ui: &mut egui::Ui, app: &OctaApp, it: &crate::app::state::Im
             .get(c)
             .map(|col| col.name.clone())
             .unwrap_or_else(|| c.to_string());
-        let mut value: String = text.chars().take(DETAIL_VALUE_MAX).collect();
-        if text.chars().count() > DETAIL_VALUE_MAX {
-            value.push_str("...");
+        if text.chars().nth(DETAIL_VALUE_MAX).is_some() {
+            let summary: String = text.chars().take(DETAIL_VALUE_MAX).collect();
+            egui::CollapsingHeader::new(format!("{name}: {summary}..."))
+                .id_salt((tab.id.0, row, c))
+                .show(ui, |ui| {
+                    ui.add(egui::Label::new(text).wrap().selectable(true));
+                });
+        } else {
+            ui.label(
+                RichText::new(format!("{name}: {text}"))
+                    .weak()
+                    .monospace()
+                    .size(11.0),
+            );
         }
-        ui.label(
-            RichText::new(format!("{name}: {value}"))
-                .weak()
-                .monospace()
-                .size(11.0),
-        );
-        shown += 1;
     }
 }
 

@@ -32,7 +32,11 @@ impl OctaApp {
         // never runs, so the cells cannot replace the marked text on the
         // clipboard. Clicking outside the text clears
         // the selection and hands the shortcut straight back to the table.
-        if octa::ui::text_selection::has_active_selection(ctx) {
+        if self.image_viewer.is_some()
+            || self.image_import.is_some()
+            || self.pending_table_picker.is_some()
+            || octa::ui::text_selection::has_active_selection(ctx)
+        {
             return;
         }
         if self.tabs[self.active_tab].view_mode != ViewMode::Table {
@@ -123,6 +127,7 @@ impl OctaApp {
             interaction
         };
         let tab = &mut self.tabs[self.active_tab];
+        interaction.apply_header_visibility(tab.table.col_count(), &mut tab.hidden_columns);
         if let Some(col_idx) = interaction.header_col_clicked {
             tab.insert_col_at = Some(col_idx + 1);
             if let Some((row, _)) = tab.table_state.selected_cell {
@@ -342,6 +347,9 @@ impl OctaApp {
         }
 
         // --- Image viewer (cell right-click "View image", thumbnail click) ---
+        if let Some((row, col)) = interaction.ctx_import_image {
+            self.open_image_import(row, col);
+        }
         if let Some((row, col)) = interaction.ctx_view_image {
             self.open_image_viewer(row, col);
         }

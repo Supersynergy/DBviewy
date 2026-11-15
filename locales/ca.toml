@@ -5267,6 +5267,7 @@ open_settings_hint = "Obre Paràmetres a Dades en línia."
 close_hint = "Tanca aquest missatge."
 
 [imgview]
+import = "Importa una imatge..."
 title = "Imatge"
 menu = "Mostra la imatge"
 menu_hint = "Obre aquesta imatge al visor"

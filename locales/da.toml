@@ -4607,6 +4607,7 @@ need_name = "Afslut stien med et filnavn, fx sales.csv."
 no_writer = "Octa kan ikke skrive {name}. Brug en endelse som .csv eller .parquet."
 
 [imgview]
+import = "Importér billede..."
 title = "Billede"
 menu = "Vis billede"
 menu_hint = "Åbn dette billede i fremviseren"

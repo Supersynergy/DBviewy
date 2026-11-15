@@ -4609,6 +4609,7 @@ need_name = "Încheie calea cu un nume de fișier, de exemplu sales.csv."
 no_writer = "Octa nu poate scrie {name}. Folosește o extensie ca .csv sau .parquet."
 
 [imgview]
+import = "Importă o imagine..."
 title = "Imagine"
 menu = "Vezi imaginea"
 menu_hint = "Deschide această imagine în vizualizator"

@@ -344,7 +344,9 @@ impl OctaApp {
             // In a tile, the keyboard is the focused tile's and the wheel the
             // one under the pointer; outside tiles both are this table's.
             // The split view narrows them further, per pane.
-            handles_input: self.image_viewer.is_none()
+            handles_input: self.pending_table_picker.is_none()
+                && self.image_import.is_none()
+                && self.image_viewer.is_none()
                 && self.tile_drawing.is_none_or(|t| t.focused),
             takes_wheel: self.tile_drawing.is_none_or(|t| t.hovered),
         };
