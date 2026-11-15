@@ -241,6 +241,29 @@ impl OctaApp {
         .is_some()
             || self.tabs[self.active_tab].large.is_some();
         let tab = &mut self.tabs[self.active_tab];
+        if !tab.hidden_columns.is_empty() {
+            egui::ScrollArea::horizontal()
+                .id_salt(("hidden-columns", self.active_tab))
+                .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.weak(octa::i18n::t("edit_menu.show_hidden_columns"));
+                        let mut hidden: Vec<_> = tab.hidden_columns.iter().copied().collect();
+                        hidden.sort_unstable();
+                        for index in hidden {
+                            if let Some(column) = tab.table.columns.get(index) {
+                                let label = format!("＋ {} · {}", index + 1, column.name);
+                                if ui
+                                    .push_id(index, |ui| ui.small_button(label))
+                                    .inner
+                                    .clicked()
+                                {
+                                    tab.hidden_columns.remove(&index);
+                                }
+                            }
+                        }
+                    });
+                });
+        }
         tab.table_state.facet_external = facet_external;
         tab.table_state.facet_from_file = tab.large.is_some();
         // Large-file mode: the vertical scrollbar addresses the file, not

@@ -74,7 +74,9 @@ fn frame(
     };
     let mut output = ctx.run_ui(input, |ui| {
         let ctx = ui.ctx().clone();
-        app.render_non_table_view(&ctx, ui);
+        if !app.render_non_table_view(&ctx, ui) {
+            app.render_table_view(&ctx, ui);
+        }
     });
     output.textures_delta.clear();
     let mut out = Vec::new();
@@ -123,4 +125,54 @@ fn seasonality_opens_the_numbers_and_a_chart_of_them() {
     assert_eq!(chart.available_view_modes(), [ViewMode::Chart]);
     assert_eq!(chart.chart_config.y_cols, [1, 2, 3, 4]);
     assert_eq!(app.active_tab, 2);
+}
+
+#[test]
+fn hidden_column_buttons_restore_only_the_clicked_column() {
+    let mut app = app();
+    let tab = &mut app.tabs[0];
+    tab.is_chart_tab = false;
+    tab.view_mode = ViewMode::Table;
+    tab.table.columns.push(ColumnInfo {
+        name: "region".into(),
+        data_type: "Utf8".into(),
+    });
+    for row in &mut tab.table.rows {
+        row.push(CellValue::String("Berlin".into()));
+    }
+    tab.hidden_columns.extend([0, 2]);
+    let ctx = egui::Context::default();
+    frame(&mut app, &ctx, vec![]);
+    for (index, name) in [(2, "region"), (0, "month")] {
+        let label = format!("＋ {} · {}", index + 1, name);
+        let texts = frame(&mut app, &ctx, vec![]);
+        let at = texts
+            .iter()
+            .find(|(text, _)| *text == label)
+            .expect("restore button")
+            .1
+            .center();
+        for pressed in [true, false] {
+            frame(
+                &mut app,
+                &ctx,
+                vec![
+                    egui::Event::PointerMoved(at),
+                    egui::Event::PointerButton {
+                        pos: at,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: Default::default(),
+                    },
+                ],
+            );
+        }
+        assert!(!app.tabs[0].hidden_columns.contains(&index));
+        assert_eq!(app.tabs[0].hidden_columns.contains(&0), index == 2);
+    }
+    assert!(
+        !frame(&mut app, &ctx, vec![])
+            .iter()
+            .any(|(text, _)| text.starts_with("＋ "))
+    );
 }
