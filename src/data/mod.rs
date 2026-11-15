@@ -194,6 +194,16 @@ pub struct DataTable {
     pub formulas: HashMap<(usize, usize), String>,
 }
 
+/// Whether two paths name one file, by any spelling. A file that does not exist yet
+/// is only the same as its own spelling.
+pub fn same_file(a: &std::path::Path, b: &std::path::Path) -> bool {
+    a == b
+        || matches!(
+            (a.canonicalize(), b.canonicalize()),
+            (Ok(a), Ok(b)) if a == b
+        )
+}
+
 impl DataTable {
     pub fn empty() -> Self {
         Self {
