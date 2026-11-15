@@ -101,7 +101,11 @@ pub fn detect_delimiter(path: &Path) -> Option<u8> {
 /// commas only start in the data below it. Then the larger `C`, then the
 /// order `,;|\t`.
 pub fn detect_delimiter_in(content: &str) -> Option<u8> {
-    let non_empty = content.lines().filter(|l| !l.trim().is_empty()).count();
+    let multiple_lines = content
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .nth(1)
+        .is_some();
     // (first record of the run, count per record, delimiter)
     let mut best: Option<(usize, usize, u8)> = None;
     for &delim in b",;|\t" {
@@ -124,7 +128,7 @@ pub fn detect_delimiter_in(content: &str) -> Option<u8> {
         let consistent = counts[..start].iter().all(|&n| n < c)
             && counts[start..].iter().all(|&n| n == c || n == 0);
         let agreeing = counts.iter().filter(|&&n| n == c).count();
-        if !consistent || (agreeing < 2 && non_empty > 1) {
+        if !consistent || (agreeing < 2 && multiple_lines) {
             continue;
         }
         let better = match best {
@@ -153,16 +157,21 @@ pub fn infer_cell_value(s: &str) -> CellValue {
     if s.is_empty() {
         return CellValue::Null;
     }
-    match s.to_lowercase().as_str() {
-        "true" => return CellValue::Bool(true),
-        "false" => return CellValue::Bool(false),
-        _ => {}
+    if s.eq_ignore_ascii_case("true") {
+        return CellValue::Bool(true);
+    }
+    if s.eq_ignore_ascii_case("false") {
+        return CellValue::Bool(false);
     }
     if let Ok(i) = s.parse::<i64>() {
         return CellValue::Int(i);
     }
     if let Ok(f) = s.parse::<f64>() {
         return CellValue::Float(f);
+    }
+    // Every supported date and timestamp format contains a literal hyphen.
+    if !s.as_bytes().contains(&b'-') {
+        return CellValue::String(s.to_string());
     }
     if chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").is_ok() {
         return CellValue::Date(s.to_string());

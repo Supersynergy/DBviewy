@@ -2,6 +2,7 @@
 name = "octa"
 version = "0.0.0-dev"
 edition = "2024"
+default-run = "octa"
 rust-version = "1.95"
 authors = ["Thorsten Foltz <thorsten.foltz@live.com>"]
 description = "A modular multi-format data viewer and editor"
@@ -20,6 +21,10 @@ path = "src/lib.rs"
 [[bin]]
 name = "octa"
 path = "src/main.rs"
+
+[[bin]]
+name = "octa-csv"
+path = "src/bin/octa-csv.rs"
 
 [profile.release]
 lto = true

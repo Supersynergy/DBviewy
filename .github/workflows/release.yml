@@ -368,6 +368,7 @@ jobs:
           rm -rf "$APP"
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
           cp target/aarch64-apple-darwin/release/octa "$APP/Contents/MacOS/octa"
+          cp target/aarch64-apple-darwin/release/octa-csv "$APP/Contents/MacOS/octa-csv"
           chmod +x "$APP/Contents/MacOS/octa"
           cp assets/octa.icns "$APP/Contents/Resources/octa.icns"
           # Inside the bundle, not just beside it: users drag Octa.app out of
@@ -392,6 +393,7 @@ jobs:
           codesign --force --sign - --timestamp=none \
             --identifier dev.octa.Octa \
             Octa.app/Contents/MacOS/octa
+          codesign --force --sign - --timestamp=none Octa.app/Contents/MacOS/octa-csv
           codesign --force --sign - --timestamp=none Octa.app
           codesign --verify --verbose Octa.app
 
@@ -399,6 +401,7 @@ jobs:
       # missing dylib shows up here instead of on a user's Mac.
       - name: Smoke-test the signed bundle
         run: |
+          Octa.app/Contents/MacOS/octa-csv slice samples/features/customers.csv 0 3
           Octa.app/Contents/MacOS/octa --version
           Octa.app/Contents/MacOS/octa --head samples/features/customers.csv -n 3
 
