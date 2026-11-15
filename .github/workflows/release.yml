@@ -364,7 +364,7 @@ jobs:
 
       - name: Build .app bundle
         run: |
-          APP="Octa.app"
+          APP="DBviewy.app"
           rm -rf "$APP"
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
           cp target/aarch64-apple-darwin/release/octa "$APP/Contents/MacOS/octa"
@@ -372,7 +372,7 @@ jobs:
           cp target/aarch64-apple-darwin/release/octa-xlsx "$APP/Contents/MacOS/octa-xlsx"
           chmod +x "$APP/Contents/MacOS/octa"
           cp assets/octa.icns "$APP/Contents/Resources/octa.icns"
-          # Inside the bundle, not just beside it: users drag Octa.app out of
+          # Inside the bundle, not just beside it: users drag DBviewy.app out of
           # the archive and discard the rest, so this is the only copy that
           # keeps travelling with the binary. Must happen before the ad-hoc
           # codesign below, which seals the bundle.
@@ -386,32 +386,32 @@ jobs:
         run: |
           # Sign the inner binary first, then seal the bundle. Ad-hoc (`-`) is
           # not Developer ID: Gatekeeper still warns, but it converts the
-          # "Octa.app is damaged" dead-end into the standard "cannot be
+          # "DBviewy.app is damaged" dead-end into the standard "cannot be
           # verified" dialog, which System Settings > Privacy & Security >
           # Open Anyway gets past (right-click > Open no longer does since
           # macOS 15). get-octa.sh avoids the warning: curl sets no
           # quarantine attribute.
           codesign --force --sign - --timestamp=none \
             --identifier dev.octa.Octa \
-            Octa.app/Contents/MacOS/octa
-          codesign --force --sign - --timestamp=none Octa.app/Contents/MacOS/octa-xlsx
-          codesign --force --sign - --timestamp=none Octa.app/Contents/MacOS/octa-csv
-          codesign --force --sign - --timestamp=none Octa.app
-          codesign --verify --verbose Octa.app
+            DBviewy.app/Contents/MacOS/octa
+          codesign --force --sign - --timestamp=none DBviewy.app/Contents/MacOS/octa-xlsx
+          codesign --force --sign - --timestamp=none DBviewy.app/Contents/MacOS/octa-csv
+          codesign --force --sign - --timestamp=none DBviewy.app
+          codesign --verify --verbose DBviewy.app
 
       # The signed bundle has to run, not just compile: a broken seal or a
       # missing dylib shows up here instead of on a user's Mac.
       - name: Smoke-test the signed bundle
         run: |
-          Octa.app/Contents/MacOS/octa-csv slice samples/features/customers.csv 0 3
-          Octa.app/Contents/MacOS/octa --version
-          Octa.app/Contents/MacOS/octa --head samples/features/customers.csv -n 3
+          DBviewy.app/Contents/MacOS/octa-csv slice samples/features/customers.csv 0 3
+          DBviewy.app/Contents/MacOS/octa --version
+          DBviewy.app/Contents/MacOS/octa --head samples/features/customers.csv -n 3
 
       - name: Package macOS release
         run: |
           DIR="octa-${VERSION}-macos-aarch64"
           mkdir -p "$DIR"
-          cp -R Octa.app "$DIR/"
+          cp -R DBviewy.app "$DIR/"
           cp pkg/README-macos.md "$DIR/README.md"
           # See the Linux step: the attribution bundle must always ship.
           cp LICENSE NOTICE THIRD_PARTY_LICENSES.md "$DIR/"

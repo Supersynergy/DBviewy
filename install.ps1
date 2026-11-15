@@ -34,7 +34,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$Repo = "thorstenfoltz/octa"
+$Repo = "Supersynergy/DBviewy"
 $Headers = @{ "User-Agent" = "octa-installer" }
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 

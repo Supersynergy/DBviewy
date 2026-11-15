@@ -14,7 +14,7 @@
     ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>Octa Data Viewer</DisplayName>
+    <DisplayName>DBviewy</DisplayName>
     <PublisherDisplayName>Thorsten Foltz</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
@@ -73,7 +73,7 @@
   <Applications>
     <Application Id="Octa" Executable="octa.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="Octa Data Viewer"
+        DisplayName="DBviewy"
         Description="Fast desktop viewer and editor for tabular data files."
         BackgroundColor="transparent"
         Square150x150Logo="Images\Square150x150Logo.png"

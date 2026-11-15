@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=Octa
+Name=DBviewy
 Comment=Multi-format data viewer and editor
 Exec=octa %F
 Icon=octa

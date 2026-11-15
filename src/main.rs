@@ -139,13 +139,13 @@ fn main() -> ExitCode {
 
     let title = match initial_files.first() {
         Some(p) if initial_files.len() == 1 => format!(
-            "Octa - {}",
+            "DBviewy - {}",
             p.file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default()
         ),
-        Some(_) => format!("Octa - {} files", initial_files.len()),
-        None => "Octa".to_string(),
+        Some(_) => format!("DBviewy - {} files", initial_files.len()),
+        None => "DBviewy".to_string(),
     };
 
     let mut settings = AppSettings::load();

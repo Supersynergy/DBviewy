@@ -187,7 +187,7 @@ pub fn draw_toolbar_with_command(
                         }
                     }
                     ui.label(
-                        RichText::new("Octa")
+                        RichText::new("DBviewy")
                             .strong()
                             .size(15.0)
                             .color(colors.accent),

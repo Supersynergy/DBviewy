@@ -1019,7 +1019,7 @@ pub fn draw_table(
                 interaction.welcome_logo_rect = Some(resp.rect);
             }
             ui.add_space(16.0);
-            ui.label(RichText::new("Octa").size(28.0).color(colors.text_muted));
+            ui.label(RichText::new("DBviewy").size(28.0).color(colors.text_muted));
         });
         return interaction;
     }

@@ -57,7 +57,7 @@ fn parse_sha256sums(text: &str) -> std::collections::BTreeMap<String, String> {
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 fn fetch_sha256sums(new_version: &str) -> Option<String> {
     let url =
-        format!("https://github.com/thorstenfoltz/octa/releases/download/{new_version}/SHA256SUMS");
+        format!("https://github.com/Supersynergy/DBviewy/releases/download/{new_version}/SHA256SUMS");
     ureq::get(&url)
         .header("User-Agent", &format!("octa/{}", VERSION))
         .call()
@@ -132,7 +132,7 @@ fn fetch_latest_version() -> Result<String, String> {
         .build()
         .into();
     let resp = agent
-        .get("https://github.com/thorstenfoltz/octa/releases/latest")
+        .get("https://github.com/Supersynergy/DBviewy/releases/latest")
         .header("User-Agent", &format!("octa/{}", VERSION))
         .call()
         .map_err(|e| format!("Request failed: {}", e))?;
@@ -262,7 +262,7 @@ impl OctaApp {
         {
             let archive_name = format!("octa-{new_version}-linux-x86_64.tar.gz");
             let url = format!(
-                "https://github.com/thorstenfoltz/octa/releases/download/{new_version}/{archive_name}"
+                "https://github.com/Supersynergy/DBviewy/releases/download/{new_version}/{archive_name}"
             );
 
             let bytes = ureq::get(&url)
@@ -341,7 +341,7 @@ impl OctaApp {
         {
             let archive_name = format!("octa-{new_version}-windows-x86_64.zip");
             let url = format!(
-                "https://github.com/thorstenfoltz/octa/releases/download/{new_version}/{archive_name}"
+                "https://github.com/Supersynergy/DBviewy/releases/download/{new_version}/{archive_name}"
             );
 
             let bytes = ureq::get(&url)

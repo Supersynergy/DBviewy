@@ -101,7 +101,7 @@ pub(crate) fn render_about_dialog(app: &mut OctaApp, ctx: &egui::Context) {
                         let mut clicks: u8 = ui.data(|d| d.get_temp::<u8>(title_id).unwrap_or(0));
                         let title = ui
                             .add(
-                                egui::Label::new(RichText::new("Octa").strong().size(20.0))
+                                egui::Label::new(RichText::new("DBviewy").strong().size(20.0))
                                     .sense(egui::Sense::click()),
                             )
                             .on_hover_cursor(egui::CursorIcon::PointingHand);

@@ -11,7 +11,7 @@ set -euo pipefail
 #   curl -fsSL .../get-octa.sh | sudo bash            # system-wide (/usr/local)
 #   curl -fsSL .../get-octa.sh | bash -s -- ~/.local  # user-local (no sudo)
 #
-# macOS (Apple Silicon): puts Octa.app into ~/Applications, or the folder
+# macOS (Apple Silicon): puts DBviewy.app into ~/Applications, or the folder
 # given as the first argument, and links the command line tool into
 # ~/.local/bin. No sudo. A file curl downloads carries no quarantine
 # attribute, so Gatekeeper does not stop the first launch:
@@ -21,7 +21,7 @@ set -euo pipefail
 #
 # Both verify the download against the release's SHA256SUMS.
 
-REPO="thorstenfoltz/octa"
+REPO="Supersynergy/DBviewy"
 
 fetch() { # fetch URL [OUTFILE]
 	if command -v curl &>/dev/null; then
@@ -107,14 +107,14 @@ fi
 
 APPS="${1:-$HOME/Applications}"
 mkdir -p "$APPS"
-rm -rf "$APPS/Octa.app"
+rm -rf "$APPS/DBviewy.app"
 # ditto keeps the bundle's signature and attributes intact.
-ditto "$EXTRACT_DIR/Octa.app" "$APPS/Octa.app"
-echo "Installed $APPS/Octa.app"
+ditto "$EXTRACT_DIR/DBviewy.app" "$APPS/DBviewy.app"
+echo "Installed $APPS/DBviewy.app"
 
 BIN="$HOME/.local/bin"
 mkdir -p "$BIN"
-ln -sf "$APPS/Octa.app/Contents/MacOS/octa" "$BIN/octa"
+ln -sf "$APPS/DBviewy.app/Contents/MacOS/octa" "$BIN/octa"
 echo "Linked the command line tool to $BIN/octa"
 case ":$PATH:" in
 *":$BIN:"*) ;;
