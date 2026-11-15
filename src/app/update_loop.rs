@@ -114,7 +114,10 @@ impl eframe::App for OctaApp {
         // (MSIX) copy runs it too: the Store installs updates on its own
         // schedule, days late at times, so the user wants to hear of a
         // release and go fetch it (user's call 2026-10-30).
-        if !self.startup_update_started && self.settings.check_updates_on_start {
+        if !self.startup_update_started
+            && self.settings.check_updates_on_start
+            && env!("CARGO_PKG_VERSION") != "0.0.0-dev"
+        {
             self.startup_update_started = true;
             self.check_for_updates(&ctx);
         }

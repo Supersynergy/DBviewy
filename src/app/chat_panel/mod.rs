@@ -228,7 +228,7 @@ impl OctaApp {
         // numbers on a normal window.
         let side = matches!(position, PanelPosition::Left | PanelPosition::Right);
         let (available, want_default, want_min) = if side {
-            (parent_ui.available_width(), 720.0, 380.0)
+            (parent_ui.available_width(), 480.0, 340.0)
         } else {
             (parent_ui.available_height(), 320.0, 160.0)
         };
@@ -270,48 +270,56 @@ impl OctaApp {
                 if ui.button("x").on_hover_text(t("chat.close")).clicked() {
                     self.close_chat_panel();
                 }
-                if ui
-                    .button(t("ai_report.button"))
-                    .on_hover_text(t("ai_report.button_hint"))
-                    .clicked()
-                {
-                    self.show_ai_report_dialog = true;
-                }
-                if ui
-                    .button(t("chat.settings"))
-                    .on_hover_text(t("chat.settings_hint"))
-                    .clicked()
-                {
-                    // Chat settings now live in the main Settings dialog; open
-                    // it with the Chat section expanded. The one way in: the
-                    // profile row used to carry a second button that opened the
-                    // very same section under a narrower name.
-                    self.settings_dialog.open(&self.settings);
-                    self.settings_dialog.focus_chat_section = true;
-                }
-                if ui.button(t("chat.new_session")).clicked() {
-                    self.new_chat_session();
-                }
-                if ui.button(t("chat.history")).clicked() {
-                    self.chat.session_list_open = !self.chat.session_list_open;
-                }
-                if ui
-                    .button(t("chat.copy_all"))
-                    .on_hover_text(t("chat.copy_all_hint"))
-                    .clicked()
-                {
-                    let text = self.conversation_text();
-                    if !text.is_empty() {
-                        ui.ctx().copy_text(text);
+                ui.menu_button("•••", |ui| {
+                    if ui
+                        .button(t("ai_report.button"))
+                        .on_hover_text(t("ai_report.button_hint"))
+                        .clicked()
+                    {
+                        ui.close();
+                        self.show_ai_report_dialog = true;
                     }
-                }
-                if ui
-                    .button(t("chat.export"))
-                    .on_hover_text(t("chat.export_hint"))
-                    .clicked()
-                {
-                    self.export_chat_session();
-                }
+                    if ui
+                        .button(t("chat.settings"))
+                        .on_hover_text(t("chat.settings_hint"))
+                        .clicked()
+                    {
+                        // Chat settings now live in the main Settings dialog; open
+                        // it with the Chat section expanded. The one way in: the
+                        // profile row used to carry a second button that opened the
+                        // very same section under a narrower name.
+                        ui.close();
+                        self.settings_dialog.open(&self.settings);
+                        self.settings_dialog.focus_chat_section = true;
+                    }
+                    if ui.button(t("chat.new_session")).clicked() {
+                        ui.close();
+                        self.new_chat_session();
+                    }
+                    if ui.button(t("chat.history")).clicked() {
+                        ui.close();
+                        self.chat.session_list_open = !self.chat.session_list_open;
+                    }
+                    if ui
+                        .button(t("chat.copy_all"))
+                        .on_hover_text(t("chat.copy_all_hint"))
+                        .clicked()
+                    {
+                        ui.close();
+                        let text = self.conversation_text();
+                        if !text.is_empty() {
+                            ui.ctx().copy_text(text);
+                        }
+                    }
+                    if ui
+                        .button(t("chat.export"))
+                        .on_hover_text(t("chat.export_hint"))
+                        .clicked()
+                    {
+                        ui.close();
+                        self.export_chat_session();
+                    }
+                });
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     ui.heading(t("chat.title"));
                     // Tokens are counted by the provider, not estimated;
@@ -460,7 +468,11 @@ impl OctaApp {
         }
 
         // Profile readiness hint.
-        if !self.provider_ready() {
+        if (self.chat.mode != ChatTurnMode::Data
+            || (!self.chat.input.trim().is_empty()
+                && self.lead_filter_target(&self.chat.input).is_none()))
+            && !self.provider_ready()
+        {
             ui.colored_label(
                 egui::Color32::from_rgb(0xc0, 0x60, 0x10),
                 t("chat.no_key_hint"),

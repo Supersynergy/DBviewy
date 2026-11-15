@@ -40,7 +40,12 @@ impl OctaApp {
             }
             n += 1;
             let handle = format!("#{n}");
-            let name = tab_display_name(tab, i);
+            let name = tab
+                .sheet_name
+                .as_ref()
+                .filter(|_| tab.user_tab_name.is_none() && tab.custom_tab_label.is_none())
+                .cloned()
+                .unwrap_or_else(|| tab_display_name(tab, i));
             chips.push((handle, name, i == self.active_tab));
         }
         if chips.is_empty() {

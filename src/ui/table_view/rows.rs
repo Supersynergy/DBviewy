@@ -371,6 +371,33 @@ pub(super) fn draw_data_row_direct(
                     } else {
                         value.display_with_binary_mode(binary_display_mode)
                     };
+                    // Imported shop titles may contain HTML copied from the source website.
+                    // Decode only their preview; editing and copying retain the workbook value.
+                    let display_text = if !show_invisibles
+                        && display_text.contains('&')
+                        && table
+                            .columns
+                            .get(col_idx)
+                            .is_some_and(|col| col.name == "Shop / Anbieter laut Quelle")
+                    {
+                        match quick_xml::escape::unescape_with(&display_text, |entity| match entity
+                        {
+                            "auml" => Some("ä"),
+                            "ouml" => Some("ö"),
+                            "uuml" => Some("ü"),
+                            "Auml" => Some("Ä"),
+                            "Ouml" => Some("Ö"),
+                            "Uuml" => Some("Ü"),
+                            "szlig" => Some("ß"),
+                            "nbsp" => Some(" "),
+                            other => quick_xml::escape::resolve_xml_entity(other),
+                        }) {
+                            Ok(text) => text.into_owned(),
+                            Err(_) => display_text,
+                        }
+                    } else {
+                        display_text
+                    };
                     let is_negative = match value {
                         crate::data::CellValue::Int(n) => *n < 0,
                         crate::data::CellValue::Float(f) => *f < 0.0,
@@ -490,7 +517,7 @@ pub(super) fn draw_data_row_direct(
                     } else {
                         egui::FontId::monospace(font_size)
                     };
-                    let galley = if invisibles {
+                    let mut job = if invisibles {
                         // Show invisible characters: every space, tab and
                         // zero-width character drawn as an ASCII marker, the
                         // suspicious ones on the warning colour.
@@ -505,7 +532,7 @@ pub(super) fn draw_data_row_direct(
                             job.wrap.max_width = text_rect.width();
                             job.wrap.break_anywhere = true;
                         }
-                        painter.layout_job(job)
+                        job
                     } else if cell_link.is_some() {
                         // Underline link cells so the hyperlink affordance is
                         // visible. Built as a LayoutJob because the plain
@@ -528,7 +555,7 @@ pub(super) fn draw_data_row_direct(
                             },
                         );
                         mark_matches(&mut job);
-                        painter.layout_job(job)
+                        job
                     } else if cell_line_breaks {
                         // `break_anywhere`, not egui's default: it breaks only
                         // at whitespace, and a minified JSON blob (a `Nested`
@@ -544,19 +571,22 @@ pub(super) fn draw_data_row_direct(
                         );
                         job.wrap.break_anywhere = true;
                         mark_matches(&mut job);
-                        painter.layout_job(job)
-                    } else if !match_ranges.is_empty() {
+                        job
+                    } else {
                         let mut job = egui::text::LayoutJob::simple(
                             display_text,
                             cell_font,
                             text_color,
-                            f32::INFINITY,
+                            text_rect.width(),
                         );
                         mark_matches(&mut job);
-                        painter.layout_job(job)
-                    } else {
-                        painter.layout_no_wrap(display_text, cell_font, text_color)
+                        job
                     };
+                    if !cell_line_breaks {
+                        job.wrap =
+                            egui::text::TextWrapping::truncate_at_width(text_rect.width().max(1.0));
+                    }
+                    let galley = painter.layout_job(job);
                     let col_is_numeric = table
                         .columns
                         .get(col_idx)

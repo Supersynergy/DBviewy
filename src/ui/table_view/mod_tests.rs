@@ -1469,3 +1469,41 @@ fn edit_from_cell_menu_commits_the_supplied_text_on_enter() {
         Some(&crate::data::CellValue::String("Geprüft".into()))
     );
 }
+
+#[test]
+fn lead_preview_keeps_multiline_cities_on_one_row_and_decodes_shop_titles() {
+    use crate::data::CellValue;
+    let title = "Zubeh&ouml;r &amp; Reifen";
+    let city = "Quickborn\nKiel";
+    let mut table = DataTable::empty();
+    table.columns = ["Shop / Anbieter laut Quelle", "Ort"]
+        .map(|name| crate::data::ColumnInfo {
+            name: name.into(),
+            data_type: "Utf8".into(),
+        })
+        .into();
+    table.rows = vec![vec![
+        CellValue::String(title.into()),
+        CellValue::String(city.into()),
+    ]];
+    let mut state = TableViewState {
+        col_widths: vec![220.0, 120.0],
+        ..Default::default()
+    };
+    let out = run_frame(&egui::Context::default(), &mut table, &mut state, vec![]);
+    for expected in ["Zubehör & Reifen", city] {
+        let painted = out
+            .shapes
+            .iter()
+            .find_map(|shape| match &shape.shape {
+                egui::Shape::Text(text) if text.galley.text() == expected => Some(text),
+                _ => None,
+            })
+            .expect("visible cell preview");
+        assert_eq!(painted.galley.rows.len(), 1);
+        if expected == city {
+            assert!(painted.galley.elided);
+        }
+    }
+    assert_eq!(table.rows[0][0], CellValue::String(title.into()));
+}

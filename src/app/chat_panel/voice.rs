@@ -267,11 +267,13 @@ impl VoiceInput {
             }
         }
         if let Some(stop) = &self.stop {
-            if ui
-                .button(t("chat.voice_finish"))
-                .on_hover_text(t("chat.voice_hint"))
-                .clicked()
-            {
+            let finish = t("chat.voice_finish");
+            let button = if label == "🎙" {
+                egui::Button::new(egui::RichText::new("■").color(ui.visuals().error_fg_color))
+            } else {
+                egui::Button::new(&finish)
+            };
+            if ui.add(button).on_hover_text(&finish).clicked() {
                 let _ = stop.send(());
                 self.stop = None;
             }
@@ -320,7 +322,63 @@ impl VoiceInput {
             .on_hover_text(t("chat.voice_hint"));
         }
         if let Some(error) = &self.error {
-            ui.colored_label(ui.visuals().error_fg_color, error);
+            if label == "🎙" {
+                ui.colored_label(ui.visuals().error_fg_color, "!")
+                    .on_hover_text(error);
+            } else {
+                ui.colored_label(ui.visuals().error_fg_color, error);
+            }
         }
     }
+}
+
+#[cfg(test)]
+#[test]
+fn recording_stop_stays_inside_command_slot_and_completes_on_click() {
+    let (stop, rx) = mpsc::channel();
+    let mut voice = VoiceInput {
+        stop: Some(stop),
+        ..Default::default()
+    };
+    let ctx = egui::Context::default();
+    let mut frame = |events| {
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                events,
+                ..Default::default()
+            },
+            |ui| {
+                ui.horizontal(|ui| {
+                    voice.show_with_label(ui, &mut String::new(), &mut false, None, "🎙")
+                });
+            },
+        );
+        output.textures_delta.clear();
+        output
+    };
+    let out = frame(vec![]);
+    let pos = out
+        .shapes
+        .iter()
+        .find_map(|shape| {
+            if let egui::Shape::Text(text) = &shape.shape
+                && text.galley.text() == "■"
+            {
+                assert!(text.galley.size().x < 24.0);
+                Some(text.pos + text.galley.size() * 0.5)
+            } else {
+                None
+            }
+        })
+        .expect("visible compact stop button");
+    frame(vec![egui::Event::PointerMoved(pos)]);
+    for pressed in [true, false] {
+        frame(vec![egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Default::default(),
+        }]);
+    }
+    rx.try_recv().expect("recording receives stop action");
 }
