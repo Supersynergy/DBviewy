@@ -200,6 +200,7 @@ store_updates = "Microsoft Store에서 업데이트..."
 store_updates_hint = "Microsoft Store의 Octa 페이지를 열어. 새 버전이 나왔으면 거기에 업데이트 버튼이 있어. 스토어도 Octa를 알아서 업데이트하지만, 시점은 스토어가 정해."
 
 [edit_menu]
+move_row_drag_hint = "행 번호를 다른 행 위나 아래로 끌어 놓으세요. 오른쪽 클릭으로도 위아래로 옮길 수 있습니다."
 filter_to_marked = "표시한 항목만 보기"
 filter_to_marked_clear = "표시 항목 필터 해제"
 filter_to_marked_hint = "표시한 행과 열만 남깁니다. 검색 및 열 필터와 함께 사용할 수 있습니다."

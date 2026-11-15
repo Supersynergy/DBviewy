@@ -200,6 +200,7 @@ store_updates = "Updates in de Microsoft Store..."
 store_updates_hint = "Opent de pagina van Octa in de Microsoft Store. Is er een nieuwere versie, dan staat daar een knop Bijwerken. De Store werkt Octa ook zelf bij, maar op zijn eigen moment."
 
 [edit_menu]
+move_row_drag_hint = "Sleep het rijnummer boven of onder een andere rij. Met een rechtsklik kun je de rij ook omhoog of omlaag verplaatsen."
 filter_to_marked = "Filteren op gemarkeerde"
 filter_to_marked_clear = "Filter op gemarkeerde wissen"
 filter_to_marked_hint = "Alleen gemarkeerde rijen en kolommen behouden. Werkt samen met zoeken en kolomfilters."

@@ -1008,8 +1008,12 @@ impl OctaApp {
         if server {
             tab.sort_on_server(keys);
         } else {
-            tab.table
-                .sort_rows_by_columns(keys, octa::data::TextOrder::from_natural(natural));
+            if keys.is_empty() {
+                tab.table.clear_local_sort();
+            } else {
+                tab.table
+                    .sort_rows_by_columns(keys, octa::data::TextOrder::from_natural(natural));
+            }
             // A local sort replaces a server one left from before the setting
             // was switched off, which would otherwise return with it.
             tab.server_sort.clear();

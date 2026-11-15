@@ -200,6 +200,7 @@ store_updates = "Aktualizacje w Microsoft Store..."
 store_updates_hint = "Otwiera stronę Octa w Microsoft Store. Gdy wyjdzie nowsza wersja, znajdziesz tam przycisk Aktualizuj. Store aktualizuje Octa także sam, ale według własnego harmonogramu."
 
 [edit_menu]
+move_row_drag_hint = "Przeciągnij numer wiersza nad inny wiersz lub pod niego. Kliknij prawym przyciskiem, aby przesunąć wiersz w górę lub w dół."
 filter_to_marked = "Filtruj do oznaczonych"
 filter_to_marked_clear = "Wyczyść filtr do oznaczonych"
 filter_to_marked_hint = "Zachowaj tylko oznaczone wiersze i kolumny. Łączy się z wyszukiwaniem i filtrami kolumn."

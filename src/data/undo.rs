@@ -56,6 +56,7 @@ pub enum UndoAction {
     /// Same forward-mapping convention as [`Self::ReorderColumns`].
     ReorderRows {
         order: Vec<usize>,
+        primary_sort: Option<(usize, bool)>,
     },
     SetMark {
         key: MarkKey,
@@ -80,6 +81,25 @@ pub enum UndoAction {
     /// undo/redo reverts/replays all of them (e.g. anonymising a column writes
     /// one cell edit per row but should undo in one step).
     Batch(Vec<UndoAction>),
+}
+
+impl UndoAction {
+    /// Edits that keep row indices and column indices stable.
+    pub(super) fn preserves_indices(&self) -> bool {
+        match self {
+            Self::CellEdit { .. } | Self::SetMark { .. } | Self::RenameColumn { .. } => true,
+            Self::Batch(actions) => actions.iter().all(Self::preserves_indices),
+            _ => false,
+        }
+    }
+
+    pub(super) fn edits_column(&self, column: usize) -> bool {
+        match self {
+            Self::CellEdit { col, .. } => *col == column,
+            Self::Batch(actions) => actions.iter().any(|a| a.edits_column(column)),
+            _ => false,
+        }
+    }
 }
 
 impl DataTable {
@@ -209,7 +229,7 @@ impl DataTable {
                     self.apply_order(&inv);
                     self.structural_changes = true;
                 }
-                UndoAction::ReorderRows { ref order } => {
+                UndoAction::ReorderRows { ref order, .. } => {
                     let inv = Self::invert_order(order);
                     self.apply_row_order(&inv);
                     self.structural_changes = true;
@@ -380,7 +400,7 @@ impl DataTable {
                     self.apply_order(order);
                     self.structural_changes = true;
                 }
-                UndoAction::ReorderRows { ref order } => {
+                UndoAction::ReorderRows { ref order, .. } => {
                     self.apply_row_order(order);
                     self.structural_changes = true;
                 }

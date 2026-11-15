@@ -39,6 +39,7 @@ pub mod sqlite_reader;
 pub mod stata_reader;
 pub mod text_reader;
 pub mod toml_reader;
+mod vortex_reader;
 pub mod write_options;
 pub mod xlsx_style;
 pub mod xml_reader;
@@ -281,7 +282,14 @@ impl TableInfo {
     /// the first `.` to recover the pair.
     pub fn qualified_name(&self) -> String {
         match &self.schema {
-            Some(s) if s != "main" => format!("{}.{}", s, self.name),
+            Some(s) if s.contains(['.', '"']) || self.name.contains('"') => {
+                format!(
+                    "{}.{}",
+                    crate::sql::quote_ident(s),
+                    crate::sql::quote_ident(&self.name)
+                )
+            }
+            Some(s) if s != "main" || self.name.contains('.') => format!("{}.{}", s, self.name),
             _ => self.name.clone(),
         }
     }
@@ -434,6 +442,7 @@ impl FormatRegistry {
         };
         // Register built-in formats
         registry.register(Box::new(parquet_reader::ParquetReader));
+        registry.register(Box::new(vortex_reader::VortexReader));
         registry.register(Box::new(csv_reader::CsvReader));
         registry.register(Box::new(csv_reader::TsvReader));
         registry.register(Box::new(json_reader::JsonReader));

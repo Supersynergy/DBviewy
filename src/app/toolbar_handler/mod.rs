@@ -282,6 +282,7 @@ impl OctaApp {
                     source_has_more,
                     hash_on_server,
                     selected_cell: tab.table_state.selected_cell,
+                    visible_rows: &tab.filtered_rows,
                     selected_rows: &tab.table_state.selected_rows,
                     selected_cols: &tab.table_state.selected_cols,
                     selected_cells: &tab.table_state.selected_cells,

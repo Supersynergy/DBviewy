@@ -207,6 +207,7 @@ store_updates = "Posodobitve v Microsoft Storeu..."
 store_updates_hint = "Odpre stran Octe v Microsoft Storeu. Ko izide novejša različica, je tam gumb Posodobi. Store Octo posodablja tudi sam, a po svojem urniku."
 
 [edit_menu]
+move_row_drag_hint = "Povleci številko vrstice nad ali pod drugo vrstico. Z desnim klikom jo lahko premakneš navzgor ali navzdol."
 filter_to_marked = "Filtriraj na označeno"
 filter_to_marked_clear = "Počisti filter na označeno"
 filter_to_marked_hint = "Obdrži samo označene vrstice in stolpce. Združuje se z iskanjem in filtri stolpcev."

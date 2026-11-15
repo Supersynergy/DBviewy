@@ -48,6 +48,7 @@ pub(super) fn draw_header_direct(
         egui::pos2(panel_rect.right(), top_y + HEADER_HEIGHT),
     );
 
+    let can_hide = super::can_hide_column(table.col_count(), hidden_columns);
     let data_left = left_x + state.row_number_width;
     let frozen_right = data_left + frozen_width;
     let col_clip = egui::Rect::from_min_max(
@@ -274,45 +275,100 @@ pub(super) fn draw_header_direct(
             Color32::TRANSPARENT,
         );
 
-        // --- Sort arrows: up triangle (asc) and down triangle (desc) ---
-        let asc_rect = egui::Rect::from_center_size(
-            egui::pos2(arrows_x + SORT_ARROW_SIZE / 2.0, content_center_y),
-            Vec2::new(SORT_ARROW_SIZE, SORT_ARROW_SIZE),
-        );
-        let desc_rect = egui::Rect::from_center_size(
-            egui::pos2(
-                arrows_x + SORT_ARROW_SIZE + 2.0 + SORT_ARROW_SIZE / 2.0,
-                content_center_y,
-            ),
-            Vec2::new(SORT_ARROW_SIZE, SORT_ARROW_SIZE),
-        );
-
-        // Up arrow (sort ascending)
-        if asc_rect.intersects(region_clip) {
-            let asc_response = ui.interact(
-                asc_rect.intersect(region_clip),
-                ui.id().with(("sort_asc", col_idx)),
-                Sense::click(),
+        // One full-height target cycles the column's applied direction.
+        let sort_hit = egui::Rect::from_min_max(
+            egui::pos2(arrows_x, content_top),
+            egui::pos2(arrows_x + arrows_total_w, rect.bottom()),
+        )
+        .intersect(rect)
+        .intersect(region_clip);
+        let active = cx
+            .primary_sort
+            .filter(|(idx, _)| *idx == col_idx)
+            .map(|(_, asc)| asc);
+        if sort_hit.is_positive() {
+            let hint = crate::i18n::t(match active {
+                None => "edit_menu.sort_asc_hint",
+                Some(true) => "edit_menu.sort_desc_hint",
+                Some(false) => "dbview.clear_sort",
+            });
+            let response = ui
+                .interact(
+                    sort_hit,
+                    ui.id().with(("sort_direction", col_idx)),
+                    Sense::click(),
+                )
+                .on_hover_text(&hint);
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(
+                    egui::WidgetType::Button,
+                    true,
+                    format!("{}: {hint}", col.name),
+                )
+            });
+            let highlight = response.hovered() || response.has_focus();
+            if highlight {
+                region_painter.rect_filled(sort_hit.shrink(1.0), 3.0, colors.bg_selected);
+            }
+            let stroke = egui::Stroke::new(
+                1.5,
+                if active.is_some() || highlight {
+                    colors.accent
+                } else {
+                    colors.text_muted
+                },
             );
-            let arrow_color = if asc_response.hovered() {
+            let center = egui::pos2(arrows_x + arrows_total_w / 2.0, content_center_y);
+            match active {
+                Some(asc) => draw_sort_arrow(&region_painter, center, asc, stroke),
+                None => {
+                    draw_sort_arrow(&region_painter, center - egui::vec2(3.5, 0.0), true, stroke);
+                    draw_sort_arrow(
+                        &region_painter,
+                        center + egui::vec2(3.5, 0.0),
+                        false,
+                        stroke,
+                    );
+                }
+            }
+            if response.clicked() {
+                match active {
+                    None => interaction.sort_rows_asc_by = Some(col_idx),
+                    Some(true) => interaction.sort_rows_desc_by = Some(col_idx),
+                    Some(false) => interaction.clear_row_sort = true,
+                }
+            }
+        }
+        let fold_hit = egui::Rect::from_min_max(
+            egui::pos2(arrows_x, rect.top()),
+            egui::pos2(arrows_x + arrows_total_w, content_top),
+        )
+        .intersect(rect)
+        .intersect(region_clip);
+        if can_hide && fold_hit.is_positive() {
+            let hint = crate::i18n::t("header.hide_column");
+            let response = ui
+                .interact(
+                    fold_hit,
+                    ui.id().with(("collapse_column", col_idx)),
+                    Sense::click(),
+                )
+                .on_hover_text(crate::i18n::t("navigator.visible_hint"));
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(
+                    egui::WidgetType::Button,
+                    true,
+                    format!("{}: {hint}", col.name),
+                )
+            });
+            let color = if response.hovered() || response.has_focus() {
                 colors.accent
             } else {
                 colors.text_muted
             };
-            let cx = asc_rect.center().x;
-            let cy = asc_rect.center().y;
-            let s = 4.0;
-            region_painter.add(egui::Shape::convex_polygon(
-                vec![
-                    egui::pos2(cx, cy - s),
-                    egui::pos2(cx + s, cy + s),
-                    egui::pos2(cx - s, cy + s),
-                ],
-                arrow_color,
-                egui::Stroke::NONE,
-            ));
-            if asc_response.clicked() {
-                interaction.sort_rows_asc_by = Some(col_idx);
+            draw_fold(&region_painter, fold_hit.center(), false, color);
+            if response.clicked() {
+                interaction.ctx_hide_column = Some(col_idx);
             }
         }
 
@@ -360,35 +416,6 @@ pub(super) fn draw_header_direct(
             }
             if state.facet_col == Some(col_idx) {
                 draw_facet_popup(ui, &facet_response, table, col_idx, state, interaction, cx);
-            }
-        }
-
-        // Down arrow (sort descending)
-        if desc_rect.intersects(region_clip) {
-            let desc_response = ui.interact(
-                desc_rect.intersect(region_clip),
-                ui.id().with(("sort_desc", col_idx)),
-                Sense::click(),
-            );
-            let arrow_color = if desc_response.hovered() {
-                colors.accent
-            } else {
-                colors.text_muted
-            };
-            let cx = desc_rect.center().x;
-            let cy = desc_rect.center().y;
-            let s = 4.0;
-            region_painter.add(egui::Shape::convex_polygon(
-                vec![
-                    egui::pos2(cx, cy + s),
-                    egui::pos2(cx + s, cy - s),
-                    egui::pos2(cx - s, cy - s),
-                ],
-                arrow_color,
-                egui::Stroke::NONE,
-            ));
-            if desc_response.clicked() {
-                interaction.sort_rows_desc_by = Some(col_idx);
             }
         }
 
@@ -597,7 +624,7 @@ pub(super) fn draw_header_direct(
                     interaction.ctx_column_format = Some(col_idx);
                     ui.close();
                 }
-                if ui.button(crate::i18n::t("header.hide_column")).clicked() {
+                if can_hide && ui.button(crate::i18n::t("header.hide_column")).clicked() {
                     interaction.ctx_hide_column = Some(col_idx);
                     ui.close();
                 }
@@ -841,13 +868,36 @@ pub(super) fn draw_header_direct(
     painter
         .with_clip_rect(header_clip)
         .rect_filled(rn_rect, 0.0, colors.bg_header);
-    painter.with_clip_rect(header_clip).text(
-        rn_rect.center(),
-        Align2::CENTER_CENTER,
-        "#",
-        egui::FontId::new(font_size, egui::FontFamily::Monospace),
-        colors.text_muted,
-    );
+    if hidden_columns.is_empty() {
+        painter.with_clip_rect(header_clip).text(
+            rn_rect.center(),
+            Align2::CENTER_CENTER,
+            "#",
+            egui::FontId::new(font_size, egui::FontFamily::Monospace),
+            colors.text_muted,
+        );
+    } else {
+        let hit = rn_rect
+            .shrink2(Vec2::new(0.0, ROW_RESIZE_HANDLE_HEIGHT))
+            .intersect(header_clip);
+        let hint = crate::i18n::t("edit_menu.show_hidden_columns");
+        let response = ui
+            .interact(hit, ui.id().with("restore_hidden_columns"), Sense::click())
+            .on_hover_text(crate::i18n::t("navigator.show_all_hint"));
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &hint));
+        if response.hovered() || response.has_focus() {
+            painter
+                .with_clip_rect(header_clip)
+                .rect_filled(hit, 3.0, colors.bg_selected);
+        }
+        draw_fold(
+            &painter.with_clip_rect(header_clip),
+            hit.center(),
+            true,
+            colors.accent,
+        );
+        interaction.restore_hidden_columns = response.clicked();
+    }
 
     // The same gesture as the per-row seam in the gutter below, one level up:
     // drag the corner's bottom edge to set the height of every row at once,
@@ -882,26 +932,49 @@ pub(super) fn draw_header_direct(
     }
 }
 
-/// Paint a filter funnel: a cone over a stem. Two convex shapes rather than
-/// one polygon, because a funnel outline is concave and `convex_polygon`
-/// would fill across the neck.
-fn draw_funnel(painter: &egui::Painter, rect: egui::Rect, color: Color32) {
-    let (l, r, t) = (rect.left(), rect.right(), rect.top());
-    let cx = rect.center().x;
-    let neck_y = t + rect.height() * 0.55;
-    painter.add(egui::Shape::convex_polygon(
-        vec![egui::pos2(l, t), egui::pos2(r, t), egui::pos2(cx, neck_y)],
-        color,
-        egui::Stroke::NONE,
+fn draw_sort_arrow(p: &egui::Painter, c: egui::Pos2, ascending: bool, stroke: egui::Stroke) {
+    let y = if ascending { -1.0 } else { 1.0 };
+    let tip = c + egui::vec2(0.0, y * 5.0);
+    p.line_segment([c - egui::vec2(0.0, y * 5.0), tip], stroke);
+    p.add(egui::Shape::line(
+        vec![
+            tip + egui::vec2(-3.0, -3.0 * y),
+            tip,
+            tip + egui::vec2(3.0, -3.0 * y),
+        ],
+        stroke,
     ));
-    painter.rect_filled(
-        egui::Rect::from_min_max(
-            egui::pos2(cx - 1.0, neck_y),
-            egui::pos2(cx + 1.0, rect.bottom()),
-        ),
-        0.0,
-        color,
-    );
+}
+
+fn draw_fold(p: &egui::Painter, c: egui::Pos2, expand: bool, color: Color32) {
+    let stroke = egui::Stroke::new(1.5, color);
+    for side in [-1.0, 1.0] {
+        let (tail, tip) = if expand { (2.0, 5.0) } else { (5.0, 2.0) };
+        p.add(egui::Shape::line(
+            vec![
+                c + egui::vec2(side * tail, -3.0),
+                c + egui::vec2(side * tip, 0.0),
+                c + egui::vec2(side * tail, 3.0),
+            ],
+            stroke,
+        ));
+    }
+}
+
+fn draw_funnel(p: &egui::Painter, rect: egui::Rect, color: Color32) {
+    let c = rect.center();
+    let s = rect.width() / 2.0;
+    p.add(egui::Shape::closed_line(
+        vec![
+            c + egui::vec2(-s, -s),
+            c + egui::vec2(s, -s),
+            c + egui::vec2(1.5, 0.0),
+            c + egui::vec2(1.5, s),
+            c + egui::vec2(-1.5, s - 1.5),
+            c + egui::vec2(-1.5, 0.0),
+        ],
+        egui::Stroke::new(1.3, color),
+    ));
 }
 
 /// The facet popup: the column's most common values with their counts, each

@@ -3,13 +3,16 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{Context, Result, anyhow, bail};
-use rusqlite::{Connection, OpenFlags, types::ValueRef};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, types::ValueRef};
 
 use crate::data::{CellValue, ColumnInfo, DataTable, DbRowMeta};
 
 use super::{FormatReader, TableInfo};
 
 pub struct SqliteReader;
+
+const USER_TABLE_NAMES: &str =
+    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
 
 impl FormatReader for SqliteReader {
     fn name(&self) -> &str {
@@ -21,11 +24,15 @@ impl FormatReader for SqliteReader {
     }
 
     fn read_file(&self, path: &Path) -> Result<DataTable> {
-        let tables = list_user_tables(path)?;
-        let first = tables
-            .first()
+        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .with_context(|| format!("opening SQLite at {}", path.display()))?;
+        let first: String = conn
+            .query_row(&format!("{USER_TABLE_NAMES} LIMIT 1"), [], |r| r.get(0))
+            .optional()?
             .ok_or_else(|| anyhow!("No tables found in SQLite database"))?;
-        self.read_table(path, &first.name)
+        let mut table = read_table_conn(&conn, &first)?;
+        table.source_path = Some(path.to_string_lossy().into_owned());
+        Ok(table)
     }
 
     fn supports_write(&self) -> bool {
@@ -239,10 +246,7 @@ fn list_user_tables(path: &Path) -> Result<Vec<TableInfo>> {
 /// The user tables of an already-open connection. Same split, same reason, as
 /// [`read_table_conn`].
 pub(crate) fn list_user_tables_conn(conn: &Connection) -> Result<Vec<TableInfo>> {
-    let mut stmt = conn.prepare(
-        "SELECT name FROM sqlite_master \
-         WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
-    )?;
+    let mut stmt = conn.prepare(USER_TABLE_NAMES)?;
     let names: Vec<String> = stmt
         .query_map([], |r| r.get::<_, String>(0))?
         .collect::<Result<_, _>>()?;

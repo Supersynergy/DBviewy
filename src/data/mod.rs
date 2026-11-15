@@ -681,6 +681,16 @@ impl DataTable {
             self.edits = new_edits;
         }
 
+        if !self.formulas.is_empty() {
+            self.formulas = self
+                .formulas
+                .drain()
+                .filter_map(|((row, col), formula)| {
+                    old_to_new.get(row).map(|&new| ((new, col), formula))
+                })
+                .collect();
+        }
+
         if !self.marks.is_empty() {
             let mut new_marks = HashMap::new();
             for (key, color) in std::mem::take(&mut self.marks) {
@@ -737,8 +747,56 @@ impl DataTable {
             }
             std::cmp::Ordering::Equal
         });
-        self.record_row_order(&order);
+        self.record_row_order(&order, Some(valid[0]));
         self.apply_row_order(&order);
+    }
+
+    /// The applied primary key survives edits outside that column. Structural
+    /// edits and edits to the key invalidate the indicator until another sort.
+    pub fn active_row_sort(&self, source: Option<(usize, bool)>) -> Option<(usize, bool)> {
+        let boundary = self.undo_stack.iter().rposition(|a| !a.preserves_indices());
+        let (sort, following) = match boundary {
+            Some(i) => match &self.undo_stack[i] {
+                UndoAction::ReorderRows { primary_sort, .. } => {
+                    (*primary_sort, &self.undo_stack[i + 1..])
+                }
+                _ => return None,
+            },
+            None => (source, self.undo_stack.as_slice()),
+        };
+        sort.filter(|(column, _)| !following.iter().any(|a| a.edits_column(*column)))
+    }
+
+    /// Compose the sort permutations, then record their inverse as one new
+    /// operation. Earlier cell edits stay on their rows and on the undo stack.
+    pub fn clear_local_sort(&mut self) {
+        let mut current_to_original: Option<Vec<usize>> = None;
+        for action in self.undo_stack.iter().rev() {
+            match action {
+                UndoAction::ReorderRows {
+                    order,
+                    primary_sort: Some(_),
+                } => {
+                    if order.len() != self.rows.len() {
+                        return;
+                    }
+                    if let Some(mapping) = &mut current_to_original {
+                        for position in mapping {
+                            *position = order[*position];
+                        }
+                    } else {
+                        current_to_original = Some(order.clone());
+                    }
+                }
+                action if action.preserves_indices() => {}
+                _ => break,
+            }
+        }
+        if let Some(mapping) = current_to_original {
+            let order = Self::invert_order(&mapping);
+            self.record_row_order(&order, None);
+            self.apply_row_order(&order);
+        }
     }
 
     /// Push the undo entry for a row permutation.
@@ -749,11 +807,12 @@ impl DataTable {
     /// sort was simply not reversible: it permuted rows, tags, edits and marks
     /// correctly and recorded nothing, so an assistant batch containing one
     /// could not be undone even though every other op in it could.
-    fn record_row_order(&mut self, order: &[usize]) {
+    fn record_row_order(&mut self, order: &[usize], primary_sort: Option<(usize, bool)>) {
         if order.len() != self.rows.len() {
             return;
         }
         self.undo_stack.push(UndoAction::ReorderRows {
+            primary_sort,
             order: order.to_vec(),
         });
         self.redo_stack.clear();

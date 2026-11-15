@@ -211,6 +211,7 @@ store_updates = "Frissítések a Microsoft Store-ban..."
 store_updates_hint = "Megnyitja az Octa oldalát a Microsoft Store-ban. Ha van újabb verzió, ott találsz egy Frissítés gombot. A Store magától is frissíti az Octát, de a saját ütemezése szerint."
 
 [edit_menu]
+move_row_drag_hint = "Húzd a sorszámot egy másik sor fölé vagy alá. Jobb kattintással is feljebb vagy lejjebb viheted."
 filter_to_marked = "Szűrés a megjelöltekre"
 filter_to_marked_clear = "A megjelöltekre szűrés törlése"
 filter_to_marked_hint = "Csak a megjelölt sorok és oszlopok megtartása. Kombinálható a kereséssel és az oszlopszűrőkkel."

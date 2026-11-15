@@ -369,3 +369,18 @@ dialog links there:
 A second button always sits below it for reporting **Octa itself**: a reply
 rendered wrong, a tool doing something unexpected, the panel misbehaving. That
 is a bug in Octa, and it opens a new issue on the GitHub tracker.
+
+### Local agents and the visible grid
+
+With Octa running, an authenticated local client can preview the active grid
+using `octa --rpc '{"method":"view_page","params":{"limit":10,"columns":8}}'`.
+The response follows the filtered row order and omits hidden columns. Use
+`next_offset` and `next_column_offset` to page through the loaded grid.
+A page has up to 32 rows and 16 columns. Text previews stop after 128 characters.
+Binary cells report their byte length. Large-file tabs report the loaded
+page's file offset. If a filter is updating, retry on the next frame.
+
+To collapse or restore a column use `set_column_visible` with `tab`, `name`,
+`column` (zero-based), the returned `column_key` or full `column_name`, and a boolean `visible`.
+Use the active tab handle and name from `tabs`. Repeating the same request
+returns `changed:false`. The last visible column stays available.

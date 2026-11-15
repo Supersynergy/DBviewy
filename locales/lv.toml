@@ -207,6 +207,7 @@ store_updates = "Atjauninājumi Microsoft Store..."
 store_updates_hint = "Atver Octa lapu Microsoft Store. Kad iznākusi jaunāka versija, tur ir poga Atjaunināt. Store Octa atjaunina arī pats, bet pēc sava grafika."
 
 [edit_menu]
+move_row_drag_hint = "Velc rindas numuru virs citas rindas vai zem tās. Ar labo klikšķi rindu var pārvietot uz augšu vai leju."
 filter_to_marked = "Filtrēt līdz iezīmētajiem"
 filter_to_marked_clear = "Notīrīt filtru līdz iezīmētajiem"
 filter_to_marked_hint = "Paturēt tikai iezīmētās rindas un kolonnas. Apvienojas ar meklēšanu un kolonnu filtriem."

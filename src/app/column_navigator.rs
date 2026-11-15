@@ -156,9 +156,12 @@ impl OctaApp {
             self.tabs[self.active_tab].hidden_columns = (1..n).collect::<HashSet<usize>>();
         }
         if let Some(idx) = action.toggle_hidden {
-            let hidden = &mut self.tabs[self.active_tab].hidden_columns;
-            if !hidden.insert(idx) {
-                hidden.remove(&idx);
+            let tab = &mut self.tabs[self.active_tab];
+            if !tab.hidden_columns.remove(&idx)
+                && idx < tab.table.col_count()
+                && octa::ui::table_view::can_hide_column(tab.table.col_count(), &tab.hidden_columns)
+            {
+                tab.hidden_columns.insert(idx);
             }
         }
         if let Some(new_frozen) = action.set_frozen {

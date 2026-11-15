@@ -211,6 +211,7 @@ store_updates = "Aktualizace v Microsoft Store..."
 store_updates_hint = "Otevře stránku Octa v Microsoft Store. Když vyjde novější verze, najdeš tam tlačítko Aktualizovat. Store Octa aktualizuje i sám, ale podle vlastního plánu."
 
 [edit_menu]
+move_row_drag_hint = "Přetáhni číslo řádku nad nebo pod jiný řádek. Pravým tlačítkem ho můžeš posunout nahoru nebo dolů."
 filter_to_marked = "Filtrovat na označené"
 filter_to_marked_clear = "Zrušit filtr na označené"
 filter_to_marked_hint = "Ponechat jen označené řádky a sloupce. Kombinuje se s hledáním a filtry sloupců."

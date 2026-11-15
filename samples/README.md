@@ -27,6 +27,7 @@ types and nulls.
 | `products.arrow` | Arrow IPC | Feather v2 |
 | `products.avro` | Avro | Schema travels with the data |
 | `products.orc` | ORC | Dates land as text: ORC's Rust writer has no date encoder |
+| `products.vortex` | Vortex | DuckDB 1.5.6 signed core extension, `COPY` of `products.csv` with `FORMAT vortex` |
 | `products.xlsx` | Excel | One sheet; the multi-sheet path needs a real workbook |
 | `takings.xlsx` | Excel, with formulas | A different table on purpose: the `revenue` column and the total row are computed. Hover a cell, or open the Record view (F4), to see the formula behind the value |
 | `products.ods` | OpenDocument | Written by Octa's own hand-rolled writer |

@@ -200,6 +200,7 @@ store_updates = "Oppdateringer i Microsoft Store..."
 store_updates_hint = "Åpner Octas side i Microsoft Store. Når en nyere versjon er ute, finner du en Oppdater-knapp der. Store oppdaterer også Octa selv, men etter sin egen plan."
 
 [edit_menu]
+move_row_drag_hint = "Dra radnummeret over eller under en annen rad. Høyreklikk for å flytte raden opp eller ned."
 filter_to_marked = "Filtrer til merkede"
 filter_to_marked_clear = "Fjern filter til merkede"
 filter_to_marked_hint = "Behold bare merkede rader og kolonner. Kombineres med søk og kolonnefiltre."

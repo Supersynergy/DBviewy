@@ -200,6 +200,7 @@ store_updates = "在 Microsoft Store 中更新..."
 store_updates_hint = "打开 Octa 在 Microsoft Store 中的页面。有新版本时，那里会有更新按钮。商店也会自动更新 Octa，但时间由商店决定。"
 
 [edit_menu]
+move_row_drag_hint = "将行号拖到另一行的上方或下方，也可右键单击来上移或下移。"
 filter_to_marked = "筛选到已标记项"
 filter_to_marked_clear = "清除标记筛选"
 filter_to_marked_hint = "只保留已标记的行和列。可与搜索和列筛选组合使用。"

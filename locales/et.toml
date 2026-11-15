@@ -207,6 +207,7 @@ store_updates = "Uuendused Microsoft Store'is..."
 store_updates_hint = "Avab Octa lehe Microsoft Store'is. Kui uuem versioon on väljas, on seal nupp Uuenda. Store uuendab Octat ka ise, aga omas tempos."
 
 [edit_menu]
+move_row_drag_hint = "Lohista rea number teise rea kohale või alla. Paremklõpsuga saad rida üles või alla nihutada."
 filter_to_marked = "Filtreeri märgitutele"
 filter_to_marked_clear = "Eemalda märgitute filter"
 filter_to_marked_hint = "Säilita ainult märgitud read ja veerud. Kombineerub otsingu ja veerufiltritega."

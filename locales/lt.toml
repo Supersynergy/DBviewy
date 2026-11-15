@@ -207,6 +207,7 @@ store_updates = "Atnaujinimai Microsoft Store..."
 store_updates_hint = "Atveria Octa puslapį Microsoft Store. Kai išeina naujesnė versija, ten yra mygtukas Atnaujinti. Store Octa atnaujina ir pati, bet savo tvarkaraščiu."
 
 [edit_menu]
+move_row_drag_hint = "Nuvilk eilutės numerį virš kitos eilutės arba po ja. Dešiniuoju pelės mygtuku gali perkelti eilutę aukštyn arba žemyn."
 filter_to_marked = "Filtruoti iki pažymėtų"
 filter_to_marked_clear = "Išvalyti filtrą iki pažymėtų"
 filter_to_marked_hint = "Palikti tik pažymėtas eilutes ir stulpelius. Derinama su paieška ir stulpelių filtrais."

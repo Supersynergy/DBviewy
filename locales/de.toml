@@ -200,6 +200,7 @@ store_updates = "Updates im Microsoft Store..."
 store_updates_hint = "Öffnet die Seite von Octa im Microsoft Store. Gibt es eine neuere Version, findest du dort einen Aktualisieren-Knopf. Der Store aktualisiert Octa auch von selbst, aber nach seinem eigenen Zeitplan."
 
 [edit_menu]
+move_row_drag_hint = "Ziehe die Zeilennummer über oder unter eine andere Zeile. Per Rechtsklick kannst du sie auch nach oben oder unten verschieben."
 filter_to_marked = "Auf Markierte filtern"
 filter_to_marked_clear = "Filter auf Markierte aufheben"
 filter_to_marked_hint = "Nur markierte Zeilen und Spalten behalten. Lässt sich mit Suche und Spaltenfiltern kombinieren."

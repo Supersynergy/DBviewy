@@ -211,6 +211,7 @@ store_updates = "Pembaruan di Microsoft Store..."
 store_updates_hint = "Buka halaman Octa di Microsoft Store. Kalau ada versi yang lebih baru, di sana ada tombol Perbarui. Store juga memperbarui Octa sendiri, tapi menurut jadwalnya sendiri."
 
 [edit_menu]
+move_row_drag_hint = "Seret nomor baris ke atas atau bawah baris lain. Klik kanan untuk memindahkan baris ke atas atau bawah."
 filter_to_marked = "Saring ke yang ditandai"
 filter_to_marked_clear = "Bersihkan saringan ke yang ditandai"
 filter_to_marked_hint = "Pertahankan hanya baris dan kolom yang ditandai. Bisa dipadukan dengan pencarian dan saringan kolom."

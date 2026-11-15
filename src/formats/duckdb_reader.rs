@@ -11,6 +11,11 @@ use super::{FormatReader, TableInfo};
 
 pub struct DuckDbReader;
 
+const USER_TABLE_NAMES: &str = "SELECT table_schema, table_name FROM information_schema.tables \
+         WHERE table_type = 'BASE TABLE' \
+           AND table_schema NOT IN ('information_schema', 'pg_catalog', 'temp') \
+         ORDER BY (table_schema = 'main') DESC, table_schema, table_name";
+
 const ROW_ID_COL: &str = "__octa_row_id";
 
 impl FormatReader for DuckDbReader {
@@ -23,11 +28,17 @@ impl FormatReader for DuckDbReader {
     }
 
     fn read_file(&self, path: &Path) -> Result<DataTable> {
-        let tables = list_user_tables(path)?;
-        let first = tables
-            .first()
+        let conn = Connection::open(path)
+            .with_context(|| format!("opening DuckDB at {}", path.display()))?;
+        let mut stmt = conn.prepare(&format!("{USER_TABLE_NAMES} LIMIT 1"))?;
+        let mut rows = stmt.query([])?;
+        let first = rows
+            .next()?
             .ok_or_else(|| anyhow!("No tables found in DuckDB database"))?;
-        self.read_table(path, &first.qualified_name())
+        let schema: String = first.get(0)?;
+        let name: String = first.get(1)?;
+        let schema = (schema != "main").then_some(schema);
+        read_named_table(&conn, path, schema, name)
     }
 
     fn supports_write(&self) -> bool {
@@ -203,102 +214,117 @@ impl FormatReader for DuckDbReader {
     }
 
     fn read_table(&self, path: &Path, table: &str) -> Result<DataTable> {
-        // Accept either a bare table name (defaults to `main`) or a
-        // schema-qualified `schema.table` produced by `TableInfo::qualified_name`.
-        // Split only on the first `.`; that keeps DuckDB's "tables with a dot
-        // in the name" edge case workable as long as the caller passes the
-        // bare name directly. The picker never produces such names (its source
-        // is `information_schema`, which already gives us schema + name
-        // separately).
-        let (schema_owned, table_name): (Option<String>, String) = match table.split_once('.') {
-            Some((s, t)) => (Some(s.to_string()), t.to_string()),
-            None => (None, table.to_string()),
+        // Catalogue labels quote unusual identifiers (e.g. "sales.eu"."orders").
+        let quoted = table
+            .starts_with('"')
+            .then(|| super::sql_dump_reader::split_qualified(table));
+        let unquote = |s: &str| {
+            s.strip_prefix('"')
+                .and_then(|v| v.strip_suffix('"'))
+                .map(|v| v.replace("\"\"", "\""))
         };
-        let schema_str = schema_owned.as_deref().unwrap_or("main");
-
+        let (schema_owned, table_name) = match quoted.as_deref() {
+            Some([schema, name]) if unquote(schema).is_some() && unquote(name).is_some() => {
+                (unquote(schema), unquote(name).unwrap())
+            }
+            _ => match table.split_once('.') {
+                Some((s, t)) => (Some(s.to_owned()), t.to_owned()),
+                None => (None, table.to_owned()),
+            },
+        };
         let conn = Connection::open(path)
             .with_context(|| format!("opening DuckDB at {}", path.display()))?;
-        // Reading must NEVER mutate the file: the synthetic id column is only
-        // materialised on save (`ensure_row_id_column` in the write path).
-        // Until then DuckDB's implicit `rowid` provides the row tags; the
-        // save-time backfill assigns `__octa_row_id = rowid`, so tags
-        // collected here still address the same rows (under the same
-        // file-unchanged-between-load-and-save assumption diff-saves already
-        // make). Files that were saved before keep using their id column.
-        let has_row_id = has_row_id_column(&conn, schema_str, &table_name)?;
-
-        let columns = read_table_columns(&conn, schema_str, &table_name)?
-            .into_iter()
-            .filter(|c| c.name != ROW_ID_COL)
-            .collect::<Vec<_>>();
-        if columns.is_empty() {
-            bail!("Table '{table}' has no columns");
-        }
-
-        let time_ns = time_ns_columns(&conn, schema_str, &table_name)?;
-        let select_cols = columns
-            .iter()
-            .map(|c| match time_ns.contains(&c.name) {
-                true => format!("CAST({0} AS VARCHAR) AS {0}", quote_ident(&c.name)),
-                false => quote_ident(&c.name),
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-        let tag_col = if has_row_id { ROW_ID_COL } else { "rowid" };
-        let sql = format!(
-            "SELECT {tag_col}, {select_cols} FROM {} ORDER BY {tag_col}",
-            qualified_quote(schema_str, &table_name)
-        );
-        let mut stmt = conn.prepare(&sql)?;
-        let col_count = columns.len();
-
-        let mut rows: Vec<Vec<CellValue>> = Vec::new();
-        let mut row_tags: Vec<Option<i64>> = Vec::new();
-        let mut original: HashMap<i64, Vec<CellValue>> = HashMap::new();
-
-        let zones = column_zones(&columns);
-        let mut q = stmt.query([])?;
-        while let Some(r) = q.next()? {
-            let tag: i64 = r.get(0)?;
-            let mut row: Vec<CellValue> = Vec::with_capacity(col_count);
-            for (i, tz) in zones.iter().enumerate() {
-                let v = duckdb_value_to_cell_tz(r.get_ref(i + 1)?, tz.as_deref());
-                row.push(v);
-            }
-            rows.push(row);
-            row_tags.push(Some(tag));
-        }
-
-        // A month interval is text, so its column turns to text as a whole;
-        // `original` is taken afterwards so the diff save sees the same cells.
-        let mut settled = DataTable {
-            columns,
-            rows,
-            ..DataTable::empty()
-        };
-        crate::data::times::settle_interval_columns(&mut settled);
-        let DataTable { columns, rows, .. } = settled;
-        for (tag, row) in row_tags.iter().flatten().zip(&rows) {
-            original.insert(*tag, row.clone());
-        }
-
-        let original_columns: Vec<String> = columns.iter().map(|c| c.name.clone()).collect();
-
-        Ok(DataTable {
-            columns,
-            rows,
-            source_path: Some(path.to_string_lossy().to_string()),
-            format_name: Some("DuckDB".to_string()),
-            db_meta: Some(DbRowMeta {
-                table_name: table_name.clone(),
-                schema: schema_owned,
-                row_tags,
-                original,
-                original_columns,
-            }),
-            ..DataTable::empty()
-        })
+        read_named_table(&conn, path, schema_owned, table_name)
     }
+}
+
+fn read_named_table(
+    conn: &Connection,
+    path: &Path,
+    schema_owned: Option<String>,
+    table_name: String,
+) -> Result<DataTable> {
+    let schema_str = schema_owned.as_deref().unwrap_or("main");
+    // Reading must NEVER mutate the file: the synthetic id column is only
+    // materialised on save (`ensure_row_id_column` in the write path).
+    // Until then DuckDB's implicit `rowid` provides the row tags; the
+    // save-time backfill assigns `__octa_row_id = rowid`, so tags
+    // collected here still address the same rows (under the same
+    // file-unchanged-between-load-and-save assumption diff-saves already
+    // make). Files that were saved before keep using their id column.
+    let has_row_id = has_row_id_column(conn, schema_str, &table_name)?;
+
+    let columns = read_table_columns(conn, schema_str, &table_name)?
+        .into_iter()
+        .filter(|c| c.name != ROW_ID_COL)
+        .collect::<Vec<_>>();
+    if columns.is_empty() {
+        bail!("Table '{table_name}' has no columns");
+    }
+
+    let time_ns = time_ns_columns(conn, schema_str, &table_name)?;
+    let select_cols = columns
+        .iter()
+        .map(|c| match time_ns.contains(&c.name) {
+            true => format!("CAST({0} AS VARCHAR) AS {0}", quote_ident(&c.name)),
+            false => quote_ident(&c.name),
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    let tag_col = if has_row_id { ROW_ID_COL } else { "rowid" };
+    let sql = format!(
+        "SELECT {tag_col}, {select_cols} FROM {} ORDER BY {tag_col}",
+        qualified_quote(schema_str, &table_name)
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let col_count = columns.len();
+
+    let mut rows: Vec<Vec<CellValue>> = Vec::new();
+    let mut row_tags: Vec<Option<i64>> = Vec::new();
+    let mut original: HashMap<i64, Vec<CellValue>> = HashMap::new();
+
+    let zones = column_zones(&columns);
+    let mut q = stmt.query([])?;
+    while let Some(r) = q.next()? {
+        let tag: i64 = r.get(0)?;
+        let mut row: Vec<CellValue> = Vec::with_capacity(col_count);
+        for (i, tz) in zones.iter().enumerate() {
+            let v = duckdb_value_to_cell_tz(r.get_ref(i + 1)?, tz.as_deref());
+            row.push(v);
+        }
+        rows.push(row);
+        row_tags.push(Some(tag));
+    }
+
+    // A month interval is text, so its column turns to text as a whole;
+    // `original` is taken afterwards so the diff save sees the same cells.
+    let mut settled = DataTable {
+        columns,
+        rows,
+        ..DataTable::empty()
+    };
+    crate::data::times::settle_interval_columns(&mut settled);
+    let DataTable { columns, rows, .. } = settled;
+    for (tag, row) in row_tags.iter().flatten().zip(&rows) {
+        original.insert(*tag, row.clone());
+    }
+
+    let original_columns: Vec<String> = columns.iter().map(|c| c.name.clone()).collect();
+
+    Ok(DataTable {
+        columns,
+        rows,
+        source_path: Some(path.to_string_lossy().to_string()),
+        format_name: Some("DuckDB".to_string()),
+        db_meta: Some(DbRowMeta {
+            table_name: table_name.clone(),
+            schema: schema_owned,
+            row_tags,
+            original,
+            original_columns,
+        }),
+        ..DataTable::empty()
+    })
 }
 
 fn list_user_tables(path: &Path) -> Result<Vec<TableInfo>> {
@@ -308,12 +334,7 @@ fn list_user_tables(path: &Path) -> Result<Vec<TableInfo>> {
     // (`information_schema`, `pg_catalog`) are excluded explicitly; the
     // bundled DuckDB build also ships a `temp` schema for the connection's
     // session-scoped tables which we hide for the same reason.
-    let mut stmt = conn.prepare(
-        "SELECT table_schema, table_name FROM information_schema.tables \
-         WHERE table_type = 'BASE TABLE' \
-           AND table_schema NOT IN ('information_schema', 'pg_catalog', 'temp') \
-         ORDER BY (table_schema = 'main') DESC, table_schema, table_name",
-    )?;
+    let mut stmt = conn.prepare(USER_TABLE_NAMES)?;
     let rows: Vec<(String, String)> = stmt
         .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?
         .collect::<Result<_, _>>()?;

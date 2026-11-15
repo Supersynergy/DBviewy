@@ -197,6 +197,9 @@ impl OctaApp {
                 std::time::Instant::now(),
             ));
         }
+        if interaction.clear_row_sort && tab.large.is_none() {
+            self.sort_tab_rows(self.active_tab, &[]);
+        }
         if large_sort.is_none() {
             let sorts = [
                 interaction.sort_rows_asc_by.map(|c| (c, true)),
@@ -234,21 +237,10 @@ impl OctaApp {
             }
             tab.filter_dirty = true;
         }
-        if interaction.ctx_move_row_up
-            && let Some((row, col)) = tab.table_state.selected_cell
-            && row > 0
-        {
-            tab.table.move_row(row, row - 1);
-            tab.table_state.selected_cell = Some((row - 1, col));
-            tab.filter_dirty = true;
-        }
-        if interaction.ctx_move_row_down
-            && let Some((row, col)) = tab.table_state.selected_cell
-            && row + 1 < tab.table.row_count()
-        {
-            tab.table.move_row(row, row + 1);
-            tab.table_state.selected_cell = Some((row + 1, col));
-            tab.filter_dirty = true;
+        if let Some((from, to)) = interaction.row_drag_move {
+            tab.move_grid_row(from, to);
+        } else if interaction.ctx_move_row_up || interaction.ctx_move_row_down {
+            tab.move_row_to_neighbour(interaction.ctx_move_row_down);
         }
 
         // --- Context menu: column operations ---
@@ -390,7 +382,14 @@ impl OctaApp {
 
         // --- Hide column (right-click) ---
         if let Some(col_idx) = interaction.ctx_hide_column {
-            self.tabs[self.active_tab].hidden_columns.insert(col_idx);
+            let tab = &mut self.tabs[self.active_tab];
+            if octa::ui::table_view::can_hide_column(tab.table.col_count(), &tab.hidden_columns) {
+                tab.hidden_columns.insert(col_idx);
+            }
+        }
+
+        if interaction.restore_hidden_columns {
+            self.tabs[self.active_tab].hidden_columns.clear();
         }
 
         // --- Enrich a column from the web (right-click) ---
@@ -444,7 +443,11 @@ impl OctaApp {
                 None
             };
             // The search box is a WHERE clause here, not a row-vector filter.
-            let order = large_sort.or_else(|| tab.large_page_key.as_ref().and_then(|k| k.order));
+            let order = if interaction.clear_row_sort {
+                None
+            } else {
+                large_sort.or_else(|| tab.large_page_key.as_ref().and_then(|k| k.order))
+            };
             // The search box and the column filters become one WHERE clause,
             // but only once the typing stops: a `count(*)` per keystroke over
             // a file this size would lock the window.
@@ -691,3 +694,79 @@ impl OctaApp {
         }
     }
 }
+
+impl crate::app::state::TabState {
+    pub(crate) fn move_row_to_neighbour(&mut self, down: bool) {
+        let Some((row, _)) = self.table_state.selected_cell else {
+            return;
+        };
+        let Some(pos) = self
+            .filtered_rows
+            .iter()
+            .position(|&visible| visible == row)
+        else {
+            return;
+        };
+        let neighbour = if down {
+            pos.checked_add(1)
+        } else {
+            pos.checked_sub(1)
+        };
+        if let Some(&to) = neighbour.and_then(|index| self.filtered_rows.get(index)) {
+            self.move_grid_row(row, to);
+        }
+    }
+
+    fn move_grid_row(&mut self, from: usize, to: usize) {
+        if from == to || from >= self.table.row_count() || to >= self.table.row_count() {
+            return;
+        }
+        self.table.move_row(from, to);
+        self.remap_grid_row_state(from, to);
+        let state = &mut self.table_state;
+        let col = state.selected_cell.map(|(_, c)| c).unwrap_or(0);
+        state.selected_cell = Some((to, col));
+        state.selected_rows.clear();
+        state.selected_rows.insert(to);
+        state.selected_cells.clear();
+        state.selected_cols.clear();
+        state.selection_anchor_display = None;
+        state.editing_cell = None;
+        self.filter_dirty = true;
+    }
+
+    pub(crate) fn remap_grid_row_state(&mut self, from: usize, to: usize) {
+        let state = &mut self.table_state;
+        let index = |r: usize| {
+            if r == from {
+                to
+            } else if from < r && r <= to {
+                r - 1
+            } else if to <= r && r < from {
+                r + 1
+            } else {
+                r
+            }
+        };
+        state.selected_cell = state.selected_cell.map(|(r, c)| (index(r), c));
+        state.selected_rows = state.selected_rows.drain().map(index).collect();
+        state.selected_cells = state
+            .selected_cells
+            .drain()
+            .map(|(r, c)| (index(r), c))
+            .collect();
+        state.selection_anchor_display = None;
+        state.editing_cell = None;
+        state.row_heights = state
+            .row_heights
+            .drain()
+            .map(|(r, h)| (index(r), h))
+            .collect();
+        state.invalidate_row_heights();
+        self.filter_dirty = true;
+    }
+}
+
+#[cfg(test)]
+#[path = "row_move_tests.rs"]
+mod row_move_tests;

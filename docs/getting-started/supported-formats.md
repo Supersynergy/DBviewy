@@ -17,6 +17,7 @@ always open *something*.
 | **Arrow IPC / Feather**       | `.arrow`, `.feather`                               |  ✅   |   ✅   |
 | **Avro**                      | `.avro`                                            |  ✅   |   ✅   |
 | **ORC**                       | `.orc`                                             |  ✅   |   ✅   |
+| **Vortex**                    | `.vortex`                                          |  ✅   |   ❌   |
 | **HDF5**                      | `.h5`, `.hdf5`, `.hdf`                             |  ✅   |   ❌   |
 | **NetCDF v3**                 | `.nc`                                              |  ✅   |   ❌   |
 | **NumPy**                     | `.npy`, `.npz`                                     |  ✅   |   ❌   |
@@ -48,6 +49,12 @@ always open *something*.
 | **Log files**                 | `.log`, `syslog`, `access.log.1`                   |  ✅   |   ❌   |
 | **Source code / config**      | `.py`, `.rs`, `.go`, `.ts`, `.js`, ... (see below) |  ✅   |   ✅   |
 | **Plain text**                | anything else                                      |  ✅   |   ✅   |
+
+**Vortex** opens a local columnar file through the signed `vortex` core extension
+for Octa's bundled DuckDB 1.5.6. On a supported platform, run `INSTALL vortex;`
+in DuckDB 1.5.6 under the same user account before opening a file. Octa loads
+the installed extension offline and honours the initial row limit.
+[DuckDB Vortex extension](https://duckdb.org/docs/current/core_extensions/vortex)
 
 \* **Excel write** always produces `.xlsx` structure, because the
 writer uses `rust_xlsxwriter` which doesn't emit legacy `.xls` /

@@ -26,7 +26,7 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
         selected_rows,
         selected_cols,
         selected_cells,
-        row_count,
+        visible_rows,
         first_row_is_header,
         first_row_header_blocked,
         can_undo,
@@ -150,8 +150,10 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 ui.close();
             }
 
-            let can_move_up = selected_cell.is_some_and(|(r, _)| r > 0);
-            let can_move_down = selected_cell.is_some_and(|(r, _)| r + 1 < row_count);
+            let selected_position =
+                selected_cell.and_then(|(row, _)| visible_rows.iter().position(|&r| r == row));
+            let can_move_up = selected_position.is_some_and(|pos| pos > 0);
+            let can_move_down = selected_position.is_some_and(|pos| pos + 1 < visible_rows.len());
 
             let up_btn = ui
                 .add_enabled(

@@ -211,6 +211,7 @@ store_updates = "Cập nhật trong Microsoft Store..."
 store_updates_hint = "Mở trang của Octa trong Microsoft Store. Khi có phiên bản mới hơn, ở đó có nút Cập nhật. Store cũng tự cập nhật Octa, nhưng theo lịch riêng của nó."
 
 [edit_menu]
+move_row_drag_hint = "Kéo số hàng lên trên hoặc xuống dưới hàng khác. Bạn cũng có thể nhấp chuột phải để chuyển hàng lên hoặc xuống."
 filter_to_marked = "Lọc theo mục đã đánh dấu"
 filter_to_marked_clear = "Xóa lọc theo mục đã đánh dấu"
 filter_to_marked_hint = "Chỉ giữ các hàng và cột đã đánh dấu. Kết hợp với tìm kiếm và bộ lọc cột."

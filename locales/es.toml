@@ -200,6 +200,7 @@ store_updates = "Actualizaciones en Microsoft Store..."
 store_updates_hint = "Abre la página de Octa en Microsoft Store. Cuando hay una versión más nueva, ahí tienes un botón Actualizar. Store también actualiza Octa por su cuenta, pero a su propio ritmo."
 
 [edit_menu]
+move_row_drag_hint = "Arrastra el número de fila por encima o por debajo de otra fila. También puedes subirla o bajarla con el botón derecho."
 filter_to_marked = "Filtrar a lo marcado"
 filter_to_marked_clear = "Quitar el filtro a lo marcado"
 filter_to_marked_hint = "Conserva solo las filas y columnas marcadas. Se combina con la búsqueda y los filtros de columna."

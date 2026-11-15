@@ -150,6 +150,10 @@ impl OctaApp {
     pub(crate) fn do_undo(&mut self) {
         let tab = &mut self.tabs[self.active_tab];
         if tab.table.undo() {
+            if let Some(octa::data::UndoAction::MoveRow { from, to }) = tab.table.redo_stack.last()
+            {
+                tab.remap_grid_row_state(*to, *from);
+            }
             tab.recipe_after_undo();
             tab.filter_dirty = true;
             tab.table_state.widths_initialized = false;
@@ -160,6 +164,10 @@ impl OctaApp {
     pub(crate) fn do_redo(&mut self) {
         let tab = &mut self.tabs[self.active_tab];
         if tab.table.redo() {
+            if let Some(octa::data::UndoAction::MoveRow { from, to }) = tab.table.undo_stack.last()
+            {
+                tab.remap_grid_row_state(*from, *to);
+            }
             tab.recipe_after_redo();
             tab.filter_dirty = true;
             tab.table_state.widths_initialized = false;

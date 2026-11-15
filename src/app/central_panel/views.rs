@@ -219,7 +219,6 @@ impl OctaApp {
             _ => None,
         };
         tab.table_state.set_virtual_rows(virtual_rows);
-        let filtered = tab.filtered_rows.clone();
         let search_matches: std::collections::HashSet<(usize, usize)> =
             tab.search_cell_matches.iter().copied().collect();
         let current_match = tab.search_cell_matches.get(tab.search_nav.current).copied();
@@ -234,15 +233,24 @@ impl OctaApp {
             || tab.duplicate_filter.is_some()
             || tab.mark_filter_active;
         let show_sequential = self.settings.show_sequential_row_numbers && filter_active;
-        let hidden_cols = tab.hidden_columns.clone();
-        let col_number_formats = tab.column_number_formats.clone();
-        let cond_format_rules = tab.conditional_format_rules.clone();
-        let validation_violations = tab.validation_violations.clone();
-        let outlier_cells = tab.outlier_cells.clone();
         let folder_labels = tab.folder_compare.as_ref().map(|o| o.labels.clone());
+        let source_sort = tab
+            .large_page_key
+            .as_ref()
+            .and_then(|page| page.order)
+            .or_else(|| {
+                let key = tab.server_view.as_ref()?.order.first()?;
+                let column = tab
+                    .table
+                    .columns
+                    .iter()
+                    .position(|col| col.name == key.column)?;
+                Some((column, key.ascending))
+            });
         let table_cx = ui::table_view::TableCtx {
+            source_sort,
             theme_mode: self.theme_mode,
-            filtered_rows: &filtered,
+            filtered_rows: &tab.filtered_rows,
             show_row_numbers: self.settings.show_row_numbers,
             show_sequential_numbers: show_sequential,
             alternating_row_colors: self.settings.alternating_row_colors,
@@ -267,16 +275,16 @@ impl OctaApp {
             folder_compare_labels: folder_labels.as_deref(),
             header_row_unavailable: header_row_unavailable.as_deref(),
             column_filters: &tab.column_filters,
-            hidden_columns: &hidden_cols,
+            hidden_columns: &tab.hidden_columns,
             thousands_separators: self.settings.thousands_separators_in_cells,
             separator_style: self.settings.number_separator_style,
-            column_number_formats: &col_number_formats,
+            column_number_formats: &tab.column_number_formats,
             search_matches: &search_matches,
             current_match,
             search_matcher: search_matcher.as_ref(),
-            conditional_format_rules: &cond_format_rules,
-            validation_violations: &validation_violations,
-            outlier_cells: &outlier_cells,
+            conditional_format_rules: &tab.conditional_format_rules,
+            validation_violations: &tab.validation_violations,
+            outlier_cells: &tab.outlier_cells,
             // While the image viewer is open the arrow keys belong to it;
             // the table stands down so the two do not fight over them.
             handles_input: self.image_viewer.is_none(),

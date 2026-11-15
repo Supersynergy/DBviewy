@@ -53,6 +53,7 @@ pub struct ToolbarCtx<'a> {
     /// asks the database for its column, so a partial tab may have one.
     pub hash_on_server: bool,
     pub selected_cell: Option<(usize, usize)>,
+    pub visible_rows: &'a [usize],
     pub selected_rows: &'a HashSet<usize>,
     pub selected_cols: &'a HashSet<usize>,
     pub selected_cells: &'a HashSet<(usize, usize)>,

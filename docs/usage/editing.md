@@ -103,7 +103,7 @@ For databases, see the schema-change note above.
 
 ## Moving rows and columns
 
-- **Edit → Move row up / Down** moves the selected row.
+- Drag a row number onto the upper or lower half of another row. The coloured line marks where the row will land. With a filter active, **Edit → Move row up / Down** and the row-number context menu move the selected row past the previous or next visible row. **Undo** restores the original order.
 - **Columns → Move column left / Right** moves the selected column.
 - Or drag the row number / column header directly with the mouse.
 

@@ -104,7 +104,7 @@ pub(super) fn draw_data_row_direct(
 
     let mut x_frozen = data_area_left;
     let mut x_scrolled = data_area_left + frozen_width - state.scroll_x;
-    let row_count = table.row_count();
+    let row_count = cx.filtered_rows.len();
     let col_count = table.col_count();
 
     for col_idx in 0..col_count {
@@ -832,7 +832,7 @@ pub(super) fn draw_data_row_direct(
                         interaction.ctx_delete_row = true;
                         ui.close();
                     }
-                    if actual_row > 0
+                    if display_idx > 0
                         && ui
                             .add_enabled(
                                 !readonly,
@@ -843,7 +843,7 @@ pub(super) fn draw_data_row_direct(
                         interaction.ctx_move_row_up = true;
                         ui.close();
                     }
-                    if actual_row + 1 < row_count
+                    if display_idx + 1 < row_count
                         && ui
                             .add_enabled(
                                 !readonly,
@@ -1037,6 +1037,17 @@ pub(super) fn draw_data_row_direct(
         colors.row_number_bg
     };
     painter.rect_filled(rn_rect, 0.0, rn_bg);
+    if !readonly {
+        for dy in [-3.5, 0.0, 3.5] {
+            for dx in [6.0, 10.0] {
+                painter.circle_filled(
+                    egui::pos2(rn_rect.left() + dx, rn_rect.center().y + dy),
+                    1.2,
+                    colors.text_muted,
+                );
+            }
+        }
+    }
     let rn_font = egui::FontId::new((font_size * 0.85).round(), egui::FontFamily::Monospace);
     let seq_w = state.seq_number_width;
     if seq_w > 0.0 {
@@ -1090,10 +1101,58 @@ pub(super) fn draw_data_row_direct(
         let rn_response = ui.interact(
             rn_interact_rect,
             ui.id().with(("row_num", actual_row)),
-            Sense::click(),
+            if readonly {
+                Sense::click()
+            } else {
+                Sense::click_and_drag()
+            },
         );
-
-        if rn_response.hovered() {
+        if !readonly {
+            if rn_response.hovered() {
+                rn_response
+                    .clone()
+                    .on_hover_text(crate::i18n::t("edit_menu.move_row_drag_hint"));
+                ui.ctx().set_cursor_icon(CursorIcon::Grab);
+            }
+            if rn_response.drag_started_by(egui::PointerButton::Primary) {
+                state.dragging_row = Some(actual_row);
+            }
+            if let Some(from) = state.dragging_row {
+                let body_top = panel_rect.top() + HEADER_HEIGHT;
+                let drop_rect = egui::Rect::from_min_max(
+                    egui::pos2(panel_rect.left(), rn_rect.top().max(body_top)),
+                    egui::pos2(
+                        panel_rect.right(),
+                        rn_rect.bottom().min(panel_rect.bottom()),
+                    ),
+                );
+                if ui.rect_contains_pointer(drop_rect)
+                    && let Some(pointer) = ui.input(|i| i.pointer.interact_pos())
+                {
+                    ui.ctx().set_cursor_icon(CursorIcon::Grabbing);
+                    let after = pointer.y > rn_rect.center().y;
+                    let to = row_drop_index(from, actual_row, after);
+                    if from != to {
+                        let y = if after {
+                            rn_rect.bottom()
+                        } else {
+                            rn_rect.top()
+                        };
+                        painter.line_segment(
+                            [
+                                egui::pos2(panel_rect.left(), y),
+                                egui::pos2(panel_rect.right(), y),
+                            ],
+                            egui::Stroke::new(3.0, colors.accent),
+                        );
+                        if ui.input(|i| i.pointer.button_released(egui::PointerButton::Primary)) {
+                            interaction.row_drag_move = Some((from, to));
+                            state.dragging_row = None;
+                        }
+                    }
+                }
+            }
+        } else if rn_response.hovered() {
             ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
         }
 
@@ -1222,7 +1281,7 @@ pub(super) fn draw_data_row_direct(
                 interaction.ctx_delete_row = true;
                 ui.close();
             }
-            if actual_row > 0
+            if display_idx > 0
                 && ui
                     .add_enabled(
                         !readonly,
@@ -1233,7 +1292,7 @@ pub(super) fn draw_data_row_direct(
                 interaction.ctx_move_row_up = true;
                 ui.close();
             }
-            if actual_row + 1 < row_count
+            if display_idx + 1 < row_count
                 && ui
                     .add_enabled(
                         !readonly,
@@ -1345,5 +1404,17 @@ pub(super) fn cell_tooltip(
     match table.get(row, col)? {
         CellValue::String(s) => legend.get(s.as_str()).cloned(),
         _ => None,
+    }
+}
+
+/// Convert the insertion edge to the index after removing the source row.
+pub(super) fn row_drop_index(from: usize, target: usize, after: bool) -> usize {
+    if from == target {
+        return from;
+    }
+    match (from < target, after) {
+        (true, false) => target - 1,
+        (false, true) => target + 1,
+        _ => target,
     }
 }

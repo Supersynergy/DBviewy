@@ -16,6 +16,30 @@ use std::path::Path;
 
 pub struct ExcelReader;
 
+/// An open workbook whose worksheets share the parsed workbook metadata,
+/// styles and shared-string table. Each sheet uses the normal Excel decoder.
+pub struct OpenExcelWorkbook {
+    book: Sheets<std::io::BufReader<std::fs::File>>,
+    path: std::path::PathBuf,
+}
+
+impl OpenExcelWorkbook {
+    pub fn open(path: &Path) -> Result<Self> {
+        Ok(Self {
+            book: open_workbook_auto(path)?,
+            path: path.to_owned(),
+        })
+    }
+
+    pub fn sheet_names(&self) -> Vec<String> {
+        self.book.sheet_names()
+    }
+
+    pub fn read_sheet(&mut self, name: &str) -> Result<DataTable> {
+        read_sheet(&mut self.book, name, &self.path)
+    }
+}
+
 impl FormatReader for ExcelReader {
     fn name(&self) -> &str {
         "Excel"
@@ -26,13 +50,12 @@ impl FormatReader for ExcelReader {
     }
 
     fn read_file(&self, path: &Path) -> Result<DataTable> {
-        let mut workbook = open_workbook_auto(path)?;
-        let sheet_names = workbook.sheet_names().to_vec();
+        let mut workbook = OpenExcelWorkbook::open(path)?;
+        let sheet_names = workbook.sheet_names();
         let Some(first) = sheet_names.first() else {
             return Ok(DataTable::empty());
         };
-        let first = first.clone();
-        read_sheet(&mut workbook, &first, path)
+        workbook.read_sheet(first)
     }
 
     /// Each worksheet is exposed as a "table" so the app can open multiple
@@ -78,8 +101,7 @@ impl FormatReader for ExcelReader {
     }
 
     fn read_table(&self, path: &Path, table: &str) -> Result<DataTable> {
-        let mut workbook = open_workbook_auto(path)?;
-        read_sheet(&mut workbook, table, path)
+        OpenExcelWorkbook::open(path)?.read_sheet(table)
     }
 
     fn opens_all_tables(&self) -> bool {

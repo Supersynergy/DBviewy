@@ -851,7 +851,7 @@ fn bare_name(raw: &str) -> String {
 }
 
 /// Split on dots that are not inside quotes, so `"a.b".c` is two parts.
-fn split_qualified(raw: &str) -> Vec<String> {
+pub(super) fn split_qualified(raw: &str) -> Vec<String> {
     let b = raw.as_bytes();
     let mut out = Vec::new();
     let mut start = 0usize;

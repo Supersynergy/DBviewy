@@ -556,33 +556,44 @@ impl OctaApp {
             }
         };
 
-        // The sheet picker uses names only. list_tables also reads every
-        // worksheet to report its columns and row count to schema callers.
-        let opening_workbook = reader.name() == "Excel";
-        let tables = if opening_workbook {
-            use calamine::Reader;
-            calamine::open_workbook_auto(&path)
-                .map(|book| {
-                    Some(
-                        book.sheet_names()
-                            .into_iter()
-                            .map(|name| formats::TableInfo {
-                                name,
-                                schema: None,
-                                columns: vec![],
-                                row_count: None,
-                            })
-                            .collect(),
-                    )
-                })
-                .map_err(anyhow::Error::from)
+        // An Excel sheet list needs names only. Keep the workbook open for
+        // the subsequent reads so its shared strings and styles are parsed once.
+        let tables = if reader.name() == "Excel" {
+            let opened_stamp = file_stamp(&path);
+            let mut workbook = match formats::excel_reader::OpenExcelWorkbook::open(&path) {
+                Ok(book) => book,
+                Err(e) => {
+                    self.status_message = Some((
+                        format!("Error inspecting file: {e:#}"),
+                        std::time::Instant::now(),
+                    ));
+                    return;
+                }
+            };
+            let names = workbook.sheet_names();
+            let cap = self.settings.excel_max_auto_sheets.max(1);
+            if !names.is_empty() {
+                if names.len() <= cap {
+                    self.load_excel_sheets(&path, names, &mut workbook, true);
+                } else {
+                    let selected = (0..names.len()).map(|i| i < cap).collect();
+                    self.pending_sheet_picker = Some(super::state::SheetPickerState {
+                        file_stamp: opened_stamp,
+                        path,
+                        sheet_names: names,
+                        selected,
+                        workbook: Some(Box::new(workbook)),
+                    });
+                }
+                return;
+            }
+            Ok(None)
         } else {
             reader.list_tables(&path)
         };
         match tables {
-            // Multi-table sources that open *all* tables at once (Excel
-            // sheets). Open up to `excel_max_auto_sheets` directly; above
-            // that, prompt with a multi-select picker.
+            // Other sources that open all tables (such as HTML) use the
+            // same auto-open limit and multi-select picker.
             Ok(Some(tables)) if reader.opens_all_tables() && !tables.is_empty() => {
                 let names: Vec<String> = tables.iter().map(|t| t.name.clone()).collect();
                 let cap = self.settings.excel_max_auto_sheets.max(1);
@@ -593,13 +604,11 @@ impl OctaApp {
                         .iter()
                         .map(|n| (n.clone(), reader.read_table(&path, n)))
                         .collect();
-                    let mut first_sheet = None;
                     for (name, res) in loaded {
                         match res {
                             Ok(table) => {
                                 self.apply_loaded_table(path.clone(), table);
                                 self.label_active_tab_sheet(name);
-                                first_sheet.get_or_insert(self.active_tab);
                             }
                             Err(e) => {
                                 self.status_message = Some((
@@ -609,15 +618,14 @@ impl OctaApp {
                             }
                         }
                     }
-                    if opening_workbook && let Some(index) = first_sheet {
-                        self.active_tab = index;
-                    }
                 } else {
                     let selected = (0..names.len()).map(|i| i < cap).collect();
                     self.pending_sheet_picker = Some(super::state::SheetPickerState {
                         path,
                         sheet_names: names,
                         selected,
+                        workbook: None,
+                        file_stamp: None,
                     });
                 }
                 return;
@@ -633,7 +641,7 @@ impl OctaApp {
                 return;
             }
             Ok(Some(tables)) if tables.len() == 1 => {
-                let name = tables[0].name.clone();
+                let name = tables[0].qualified_name();
                 match reader.read_table(&path, &name) {
                     Ok(table) => self.apply_loaded_table(path, table),
                     Err(e) => {
@@ -771,6 +779,70 @@ impl OctaApp {
     fn label_active_tab_sheet(&mut self, name: String) {
         if let Some(tab) = self.tabs.get_mut(self.active_tab) {
             tab.sheet_name = Some(name);
+        }
+    }
+
+    fn load_excel_sheets(
+        &mut self,
+        path: &std::path::Path,
+        names: Vec<String>,
+        workbook: &mut formats::excel_reader::OpenExcelWorkbook,
+        automatic: bool,
+    ) {
+        let mut first = None;
+        for name in names {
+            match workbook.read_sheet(&name) {
+                Ok(table) => {
+                    self.apply_loaded_table(path.to_owned(), table);
+                    self.label_active_tab_sheet(name);
+                    first.get_or_insert(self.active_tab);
+                }
+                Err(e) => {
+                    let kind = if automatic { "sheet" } else { "table" };
+                    self.status_message = Some((
+                        format!("Error reading {kind} '{name}': {e:#}"),
+                        std::time::Instant::now(),
+                    ));
+                }
+            }
+        }
+        if automatic && let Some(index) = first {
+            self.active_tab = index;
+        }
+    }
+
+    pub(crate) fn open_picked_sheets(&mut self) {
+        let Some(picker) = self.pending_sheet_picker.take() else {
+            return;
+        };
+        let names: Vec<_> = picker
+            .sheet_names
+            .into_iter()
+            .zip(picker.selected)
+            .filter_map(|(name, selected)| selected.then_some(name))
+            .collect();
+        let Some(last_name) = names.last() else {
+            return;
+        };
+        let path = picker.path;
+        if let Some(mut workbook) = picker.workbook {
+            if picker.file_stamp.is_none() || file_stamp(&path) != picker.file_stamp {
+                match formats::excel_reader::OpenExcelWorkbook::open(&path) {
+                    Ok(current) => *workbook = current,
+                    Err(e) => {
+                        self.status_message = Some((
+                            format!("Error reading table '{last_name}': {e:#}"),
+                            std::time::Instant::now(),
+                        ));
+                        return;
+                    }
+                }
+            }
+            self.load_excel_sheets(&path, names, &mut workbook, false);
+        } else {
+            for name in names {
+                self.load_table(path.clone(), name, None);
+            }
         }
     }
 

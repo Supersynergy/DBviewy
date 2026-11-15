@@ -128,19 +128,7 @@ pub(crate) fn render_sheet_picker_dialog(app: &mut OctaApp, ctx: &egui::Context)
     });
 
     if confirm {
-        if let Some(picker) = app.pending_sheet_picker.take() {
-            let path = picker.path.clone();
-            let chosen: Vec<String> = picker
-                .sheet_names
-                .iter()
-                .zip(picker.selected.iter())
-                .filter(|&(_, &sel)| sel)
-                .map(|(name, _)| name.clone())
-                .collect();
-            for name in chosen {
-                app.load_table(path.clone(), name, None);
-            }
-        }
+        app.open_picked_sheets();
     } else if close {
         app.pending_sheet_picker = None;
     }

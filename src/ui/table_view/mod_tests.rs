@@ -345,6 +345,19 @@ fn run_frame_searching(
     events: Vec<egui::Event>,
     search: Option<Search<'_>>,
 ) -> egui::FullOutput {
+    frame_with(ctx, table, state, events, search, |ui, table, state, cx| {
+        super::split::draw_table_split(ui, table, state, cx);
+    })
+}
+
+fn frame_with(
+    ctx: &egui::Context,
+    table: &mut DataTable,
+    state: &mut TableViewState,
+    events: Vec<egui::Event>,
+    search: Option<Search<'_>>,
+    mut render: impl FnMut(&mut egui::Ui, &mut DataTable, &mut TableViewState, TableCtx<'_>),
+) -> egui::FullOutput {
     let filtered: Vec<usize> = (0..table.rows.len()).collect();
     let shortcuts = crate::ui::shortcuts::Shortcuts::default();
     let empty_cols: HashSet<usize> = HashSet::new();
@@ -362,6 +375,7 @@ fn run_frame_searching(
     };
     let mut out = ctx.run_ui(input, |ui| {
         let cx = TableCtx {
+            source_sort: None,
             theme_mode: ThemeMode::Dark,
             filtered_rows: &filtered,
             show_row_numbers: true,
@@ -396,7 +410,7 @@ fn run_frame_searching(
             handles_input: true,
             scroll_all: false,
         };
-        super::split::draw_table_split(ui, table, state, cx);
+        render(ui, table, state, cx);
     });
     out.textures_delta.clear();
     out
@@ -1133,4 +1147,182 @@ fn a_search_marks_the_matched_text_not_the_whole_cell() {
         .iter()
         .any(|c| matches!(&c.shape, egui::Shape::Rect(r) if r.fill == tint));
     assert!(!whole_cell, "the whole cell is still tinted");
+}
+
+#[test]
+fn dropping_a_row_resolves_both_edges_after_source_removal() {
+    for (source, target, after, expected) in [
+        (1, 4, false, 3),
+        (1, 4, true, 4),
+        (4, 1, false, 1),
+        (4, 1, true, 2),
+        (3, 3, false, 3),
+        (3, 3, true, 3),
+        (1, 2, false, 1),
+        (2, 1, true, 2),
+    ] {
+        assert_eq!(super::rows::row_drop_index(source, target, after), expected);
+    }
+}
+
+#[test]
+fn header_controls_use_the_applied_direction_and_follow_undo_redo() {
+    let mut table = scrollable_table();
+    assert_eq!(table.active_row_sort(None), None);
+    assert_eq!(table.active_row_sort(Some((1, false))), Some((1, false)));
+    table.sort_rows_by_columns(&[(0, true), (1, false)], crate::data::TextOrder::Letters);
+    assert_eq!(table.active_row_sort(None), Some((0, true)));
+    table.sort_rows_by_columns(&[(0, false)], crate::data::TextOrder::Letters);
+    assert_eq!(table.active_row_sort(None), Some((0, false)));
+    assert!(table.undo());
+    assert_eq!(table.active_row_sort(None), Some((0, true)));
+    assert!(table.redo());
+    assert_eq!(table.active_row_sort(None), Some((0, false)));
+    table.clear_local_sort();
+    assert_eq!(table.active_row_sort(None), None);
+    assert_eq!(table.rows, scrollable_table().rows);
+}
+
+#[test]
+fn header_controls_clear_keeps_independent_edits_on_their_rows() {
+    use crate::data::{CellValue, TextOrder};
+    let mut table = scrollable_table();
+    table.rows = ["B", "A", "C"]
+        .map(|key| vec![CellValue::String(key.into()), CellValue::Null])
+        .to_vec();
+    table.columns.truncate(2);
+    table.sort_rows_by_columns(&[(0, true)], TextOrder::Letters);
+    let note = CellValue::String("keep on A".into());
+    table.set(0, 1, note.clone());
+    assert_eq!(table.active_row_sort(None), Some((0, true)));
+    table.sort_rows_by_columns(&[(0, false)], TextOrder::Letters);
+    assert_eq!(table.active_row_sort(None), Some((0, false)));
+    table.clear_local_sort();
+    assert_eq!(table.active_row_sort(None), None);
+    assert_eq!(table.get(0, 0), Some(&CellValue::String("B".into())));
+    assert_eq!(table.get(1, 0), Some(&CellValue::String("A".into())));
+    assert_eq!(table.get(1, 1), Some(&note));
+    assert!(table.undo());
+    assert_eq!(table.active_row_sort(None), Some((0, false)));
+    assert_eq!(table.get(2, 1), Some(&note));
+    table.set(2, 0, CellValue::String("Z".into()));
+    assert_eq!(table.active_row_sort(None), None);
+}
+
+#[test]
+fn header_controls_sort_fold_and_restore_with_the_keyboard() {
+    let ctx = egui::Context::default();
+    let mut table = scrollable_table();
+    let mut state = TableViewState::default();
+    table.columns.truncate(2);
+    for row in &mut table.rows {
+        row.truncate(2);
+    }
+    let mut hidden = HashSet::new();
+    for (control, key) in [
+        ("sort_direction", egui::Key::Enter),
+        ("sort_direction", egui::Key::Space),
+        ("sort_direction", egui::Key::Enter),
+        ("collapse_column", egui::Key::Enter),
+        ("collapse_column", egui::Key::Space),
+        ("restore_hidden_columns", egui::Key::Space),
+    ] {
+        let mut interaction = TableInteraction::default();
+        for pressed in [false, true] {
+            let event = egui::Event::Key {
+                key,
+                physical_key: None,
+                pressed,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            };
+            frame_with(
+                &ctx,
+                &mut table,
+                &mut state,
+                vec![event],
+                None,
+                |ui, table, state, cx| {
+                    let cx = TableCtx {
+                        hidden_columns: &hidden,
+                        show_row_numbers: false,
+                        ..cx
+                    };
+                    let id = if control == "restore_hidden_columns" {
+                        ui.id().with(control)
+                    } else {
+                        ui.id().with((
+                            control,
+                            usize::from(control == "collapse_column" && !hidden.is_empty()),
+                        ))
+                    };
+                    ui.memory_mut(|m| m.request_focus(id));
+                    interaction = draw_table(ui, table, state, cx);
+                },
+            );
+        }
+        match control {
+            "sort_direction" if table.active_row_sort(None).is_none() => {
+                assert_eq!(interaction.sort_rows_asc_by, Some(0));
+                table.sort_rows_by_columns(&[(0, true)], crate::data::TextOrder::Letters);
+                table.set(0, 1, crate::data::CellValue::String("edited note".into()));
+            }
+            "sort_direction" if key == egui::Key::Space => {
+                assert_eq!(interaction.sort_rows_desc_by, Some(0));
+                table.sort_rows_by_columns(&[(0, false)], crate::data::TextOrder::Letters);
+            }
+            "sort_direction" => assert!(interaction.clear_row_sort),
+            "collapse_column" if key == egui::Key::Space => {
+                assert_eq!(interaction.ctx_hide_column, None);
+                assert!(!can_hide_column(table.col_count(), &hidden));
+            }
+            "collapse_column" => {
+                assert_eq!(interaction.ctx_hide_column, Some(0));
+                hidden.insert(0);
+            }
+            _ => assert!(interaction.restore_hidden_columns),
+        }
+    }
+}
+
+#[test]
+fn row_grip_drops_on_the_lower_half_of_a_filtered_data_row() {
+    let ctx = egui::Context::default();
+    let mut table = scrollable_table();
+    let mut state = TableViewState::default();
+    let height = base_row_height(13.0);
+    let start = egui::pos2(12.0, HEADER_HEIGHT + 1.0 + height * 0.5);
+    let target = egui::pos2(115.0, HEADER_HEIGHT + 1.0 + height * 2.75);
+    let press = |pos, pressed| egui::Event::PointerButton {
+        pos,
+        pressed,
+        button: egui::PointerButton::Primary,
+        modifiers: Default::default(),
+    };
+    let mut moved = None;
+    for events in [
+        vec![],
+        vec![egui::Event::PointerMoved(start)],
+        vec![press(start, true)],
+        vec![egui::Event::PointerMoved(target)],
+        vec![],
+        vec![press(target, false)],
+    ] {
+        frame_with(
+            &ctx,
+            &mut table,
+            &mut state,
+            events,
+            None,
+            |ui, table, state, mut cx| {
+                cx.filtered_rows = &[1, 5, 8];
+                let action = draw_table(ui, table, state, cx);
+                if action.row_drag_move.is_some() {
+                    moved = action.row_drag_move;
+                }
+            },
+        );
+    }
+    assert_eq!(moved, Some((1, 8)));
+    assert!(state.row_heights.is_empty());
 }

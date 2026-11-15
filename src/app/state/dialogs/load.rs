@@ -174,6 +174,10 @@ pub(crate) struct SheetPickerState {
     pub(crate) path: std::path::PathBuf,
     pub(crate) sheet_names: Vec<String>,
     pub(crate) selected: Vec<bool>,
+    /// Keep the decoder while the picker is open. An external file change
+    /// invalidates it before the selected worksheets are read.
+    pub(crate) workbook: Option<Box<octa::formats::excel_reader::OpenExcelWorkbook>>,
+    pub(crate) file_stamp: Option<(std::time::SystemTime, u64)>,
 }
 
 /// Files being read for the Union dialog on a background thread, so picking 40

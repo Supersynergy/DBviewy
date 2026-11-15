@@ -207,6 +207,7 @@ store_updates = "Updates in the Microsoft Store..."
 store_updates_hint = "Open Octa's page in the Microsoft Store. When a newer version is out, an Update button is there. The Store also updates Octa by itself, but on its own schedule."
 
 [edit_menu]
+move_row_drag_hint = "Drag the row number. Drop above or below another row, or right-click to move up or down."
 filter_to_marked = "Filter to marked"
 filter_to_marked_clear = "Clear filter to marked"
 filter_to_marked_hint = "Keep only marked rows and columns. Combines with search and column filters."

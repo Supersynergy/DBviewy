@@ -52,23 +52,8 @@ impl OctaApp {
             }
             self.tabs[self.active_tab].filter_dirty = true;
         }
-        if action.move_row_up
-            && !ro
-            && let Some((row, col)) = self.tabs[self.active_tab].table_state.selected_cell
-            && row > 0
-        {
-            self.tabs[self.active_tab].table.move_row(row, row - 1);
-            self.tabs[self.active_tab].table_state.selected_cell = Some((row - 1, col));
-            self.tabs[self.active_tab].filter_dirty = true;
-        }
-        if action.move_row_down
-            && !ro
-            && let Some((row, col)) = self.tabs[self.active_tab].table_state.selected_cell
-            && row + 1 < self.tabs[self.active_tab].table.row_count()
-        {
-            self.tabs[self.active_tab].table.move_row(row, row + 1);
-            self.tabs[self.active_tab].table_state.selected_cell = Some((row + 1, col));
-            self.tabs[self.active_tab].filter_dirty = true;
+        if !ro && (action.move_row_up || action.move_row_down) {
+            self.tabs[self.active_tab].move_row_to_neighbour(action.move_row_down);
         }
         if let Some(col_idx) = action.sort_rows_asc_by {
             self.sort_tab_rows(self.active_tab, &[(col_idx, true)]);

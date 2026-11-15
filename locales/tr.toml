@@ -200,6 +200,7 @@ store_updates = "Microsoft Store'da güncellemeler..."
 store_updates_hint = "Octa'nın Microsoft Store sayfasını açar. Daha yeni bir sürüm çıktıysa orada Güncelle düğmesi vardır. Store Octa'yı kendisi de günceller, ama kendi zamanlamasıyla."
 
 [edit_menu]
+move_row_drag_hint = "Satır numarasını başka bir satırın üstüne veya altına sürükle. Sağ tıklayarak satırı yukarı veya aşağı taşıyabilirsin."
 filter_to_marked = "İşaretlenenlere filtrele"
 filter_to_marked_clear = "İşaretlenen filtresini temizle"
 filter_to_marked_hint = "Yalnızca işaretli satır ve sütunları tut. Arama ve sütun filtreleriyle birlikte çalışır."

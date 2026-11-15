@@ -207,6 +207,7 @@ store_updates = "Ažuriranja u Microsoft Storeu..."
 store_updates_hint = "Otvara stranicu Octe u Microsoft Storeu. Kad izađe novija verzija, tamo je gumb Ažuriraj. Store i sam ažurira Octu, ali po svom rasporedu."
 
 [edit_menu]
+move_row_drag_hint = "Povuci broj retka iznad ili ispod drugog retka. Desnim klikom možeš ga pomaknuti gore ili dolje."
 filter_to_marked = "Filtriraj na označeno"
 filter_to_marked_clear = "Ukloni filtar na označeno"
 filter_to_marked_hint = "Zadrži samo označene retke i stupce. Kombinira se s pretragom i filtrima stupaca."

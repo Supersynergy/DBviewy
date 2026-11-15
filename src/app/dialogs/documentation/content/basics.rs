@@ -42,7 +42,10 @@ to open files.
 
 ## Read + write formats
 
-- Tabular columnar / data-science: Parquet, Avro, Arrow IPC, ORC
+- Tabular columnar / data-science: Parquet, Avro, Arrow IPC, ORC and local
+  Vortex files (`.vortex`, read-only). Vortex needs the signed DuckDB 1.5.6
+  core extension. Run `INSTALL vortex;` in a matching DuckDB first, then open
+  the file in Octa.
 - Plain text / interchange: CSV, TSV, JSON, JSONL, XML, TOML, YAML
 - Office: Excel (`.xlsx`), OpenDocument Spreadsheet (`.ods`)
 - Databases (diff-on-save row edits, no schema changes): SQLite (`.sqlite`,
@@ -218,6 +221,7 @@ the size it starts from is **Font size** under **Settings > Appearance**.
 - **Drag the right edge** of a column header to resize the column;
   **double-click that seam** to fit the column to its widest visible value,
   and **Ctrl+Shift+W** fits every column at once.
+- Move a row by dragging its number above or below another row. A coloured line marks the insertion point. The row's context menu also offers Move row up and Move row down. These commands follow the visible rows when a filter is active.
 - **Drag a row's bottom edge** in the row-number gutter to give that row its
   own height; **double-click that seam** to fit the row to its content, and
   **Edit > Auto-fit all rows** fits every row at once (unbound by default;
@@ -507,9 +511,12 @@ Division by zero leaves the cell empty.
 
 pub const SORTING: &str = r#"# Sorting
 
-Click a column header to sort by that column ascending; click again for
-descending, and a third time to clear the sort. Sorting applies to the
-filtered view, so search first and then sort.
+Click the arrow button in a column header to sort ascending, descending
+and back to the previous row order. Paired arrows indicate an unsorted
+column. A single arrow shows the primary sort direction. Tab focuses the
+button and Enter or Space activates it. Edits in another column stay with
+their rows when you clear the sort. Editing the sort key or changing the
+row or column structure resets the indicator.
 
 ## Sort text: letter by letter or natural
 

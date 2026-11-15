@@ -200,6 +200,7 @@ store_updates = "Microsoft Store で更新..."
 store_updates_hint = "Microsoft Store の Octa のページを開きます。新しいバージョンが出ていれば、そこに更新ボタンがあります。ストアも Octa を自動で更新しますが、タイミングはストア次第です。"
 
 [edit_menu]
+move_row_drag_hint = "行番号を別の行の上か下にドラッグします。右クリックでも上下に移動できます。"
 filter_to_marked = "マークした部分に絞り込む"
 filter_to_marked_clear = "マークによる絞り込みを解除"
 filter_to_marked_hint = "マークした行と列だけを残します。検索や列フィルターと組み合わせられます。"

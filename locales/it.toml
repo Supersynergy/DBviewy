@@ -200,6 +200,7 @@ store_updates = "Aggiornamenti nel Microsoft Store..."
 store_updates_hint = "Apre la pagina di Octa nel Microsoft Store. Quando esce una versione più recente, lì trovi il pulsante Aggiorna. Lo Store aggiorna Octa anche da sé, ma con i suoi tempi."
 
 [edit_menu]
+move_row_drag_hint = "Trascina il numero di riga sopra o sotto un'altra riga. Con il tasto destro puoi spostarla in alto o in basso."
 filter_to_marked = "Filtra sugli elementi contrassegnati"
 filter_to_marked_clear = "Rimuovi il filtro sugli elementi contrassegnati"
 filter_to_marked_hint = "Mantiene solo le righe e le colonne contrassegnate. Si combina con la ricerca e i filtri di colonna."

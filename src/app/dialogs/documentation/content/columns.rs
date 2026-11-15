@@ -12,8 +12,10 @@ pub const COLUMN_TOOLS: &str = r#"# Column Tools
 
 ## Hide and show columns
 
-Right-click any column header and pick **Hide column** to remove it
-from the view. Hidden columns are still part of the table on disk:
+Click the inward chevrons at the top right of a column header or pick
+**Hide column** from its context menu. The outward chevrons in the top-left
+corner restore all hidden columns. The last visible column stays on screen. Use Tab and Enter or Space for either
+button. Hidden columns are still part of the table on disk:
 Save and Save as both write them out. Use **Columns > Show hidden
 columns** to bring everything back at once. This is a per-tab,
 session-only setting; closing the tab or reopening the file clears

@@ -18,6 +18,12 @@ use crate::data::{BinaryDisplayMode, DataTable, MarkColor, MarkKey};
 use layout::*;
 pub use split::draw_table_split;
 
+/// Count only live column indices, since a structural edit can leave stale
+/// visibility entries. Both the header and its action handler use this guard.
+pub fn can_hide_column(columns: usize, hidden: &HashSet<usize>) -> bool {
+    columns.saturating_sub(hidden.iter().filter(|&&index| index < columns).count()) > 1
+}
+
 /// State for the table view (selection, editing).
 #[derive(Default)]
 pub struct TableViewState {
@@ -90,6 +96,7 @@ pub struct TableViewState {
     pub row_heights: std::collections::HashMap<usize, f32>,
     /// The row whose bottom seam is being dragged right now, by actual index.
     pub resizing_row: Option<usize>,
+    dragging_row: Option<usize>,
     /// Height for every row that has no entry in `row_heights`, set by dragging
     /// the seam under the "#" corner. `None` is the font-derived default. One
     /// value rather than an entry per row, so setting the height of an 11 M-row
@@ -387,6 +394,8 @@ pub struct ImageThumbs<'a> {
 
 #[derive(Clone, Copy)]
 pub struct TableCtx<'a> {
+    /// Primary sort applied by the database or the large-file pager.
+    pub source_sort: Option<(usize, bool)>,
     pub theme_mode: ThemeMode,
     pub filtered_rows: &'a [usize],
     pub show_row_numbers: bool,
@@ -467,6 +476,7 @@ pub struct TableCtx<'a> {
 /// positional parameters sharing 21 of them.
 #[derive(Clone, Copy)]
 pub(super) struct PaintCtx<'a> {
+    pub primary_sort: Option<(usize, bool)>,
     pub colors: ThemeColors,
     pub left_x: f32,
     pub top_y: f32,
@@ -699,6 +709,8 @@ pub struct TableInteraction {
     pub sort_rows_asc_by: Option<usize>,
     /// Sort rows descending by this column index.
     pub sort_rows_desc_by: Option<usize>,
+    /// Clear the active sort while leaving earlier edits intact.
+    pub clear_row_sort: bool,
     /// Right-click context menu actions
     pub ctx_insert_row: bool,
     pub ctx_delete_row: bool,
@@ -706,6 +718,8 @@ pub struct TableInteraction {
     /// The columns to drop at once (no dialog; one Ctrl+Z restores them):
     /// the right-clicked one, or every selected column when it is one of them.
     pub ctx_delete_columns: Vec<usize>,
+    /// Physical source and final index, resolved from the visible drop target.
+    pub row_drag_move: Option<(usize, usize)>,
     pub ctx_move_row_up: bool,
     pub ctx_move_row_down: bool,
     pub ctx_move_col_left: bool,
@@ -776,6 +790,8 @@ pub struct TableInteraction {
     /// (Save / Save As writes hidden columns too); only the renderer omits
     /// them. Cleared via Edit -> Show hidden columns.
     pub ctx_hide_column: Option<usize>,
+    /// Restore every collapsed column from the pinned header corner.
+    pub restore_hidden_columns: bool,
     /// Open the Value Frequency dialog for this column. Fired by the
     /// column-header right-click menu's "Value frequency..." entry; the
     /// `ColumnValueFrequency` keyboard shortcut goes through
@@ -817,6 +833,7 @@ impl TableInteraction {
             ctx_delete_row: false,
             ctx_insert_column: false,
             ctx_delete_columns: Vec::new(),
+            row_drag_move: None,
             ctx_move_row_up: false,
             ctx_move_row_down: false,
             ctx_move_col_left: false,
@@ -876,6 +893,7 @@ pub fn draw_table(
     // Destructured into locals with the original names so the body below is
     // untouched by the signature change.
     let TableCtx {
+        source_sort,
         theme_mode,
         filtered_rows,
         show_row_numbers,
@@ -944,7 +962,7 @@ pub fn draw_table(
     if show_row_numbers {
         let max_row_num = table.row_offset + filtered_rows.len();
         let orig_len = format_number(max_row_num).len() as f32;
-        let orig_width = (orig_len * 8.0 + 16.0).max(MIN_ROW_NUMBER_WIDTH);
+        let orig_width = (orig_len * 8.0 + 30.0).max(MIN_ROW_NUMBER_WIDTH + 12.0);
         if show_sequential_numbers {
             let seq_len = format_number(filtered_rows.len()).len() as f32;
             let seq_width = (seq_len * 8.0 + 12.0).max(MIN_ROW_NUMBER_WIDTH);
@@ -956,7 +974,7 @@ pub fn draw_table(
         }
     } else {
         state.seq_number_width = 0.0;
-        state.row_number_width = 0.0;
+        state.row_number_width = if hidden_columns.is_empty() { 0.0 } else { 28.0 };
     }
 
     let mut interaction = TableInteraction::default();
@@ -1170,6 +1188,7 @@ pub fn draw_table(
     // One context for the header and every data row: the things that do not
     // change between them. Built here so both painters read identical values.
     let paint_cx = PaintCtx {
+        primary_sort: table.active_row_sort(source_sort),
         colors,
         left_x: panel_rect.left(),
         top_y: header_y,
@@ -1332,6 +1351,16 @@ pub fn draw_table(
         }
 
         current_y += actual_row_height;
+    }
+
+    if readonly
+        || ui.input(|i| {
+            i.key_pressed(egui::Key::Escape)
+                || (!i.pointer.primary_down()
+                    && !i.pointer.button_released(egui::PointerButton::Primary))
+        })
+    {
+        state.dragging_row = None;
     }
 
     // Separator at the frozen-band boundary so the pinned columns read as a

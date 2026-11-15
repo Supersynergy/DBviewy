@@ -200,6 +200,7 @@ store_updates = "Päivitykset Microsoft Storessa..."
 store_updates_hint = "Avaa Octan sivun Microsoft Storessa. Kun uudempi versio on julkaistu, siellä on Päivitä-painike. Store päivittää Octan myös itse, mutta omassa aikataulussaan."
 
 [edit_menu]
+move_row_drag_hint = "Vedä rivinumero toisen rivin ylä- tai alapuolelle. Voit myös siirtää riviä hiiren kakkospainikkeella."
 filter_to_marked = "Suodata merkittyihin"
 filter_to_marked_clear = "Poista merkittyihin suodatus"
 filter_to_marked_hint = "Säilytä vain merkityt rivit ja sarakkeet. Yhdistyy hakuun ja sarakesuodattimiin."

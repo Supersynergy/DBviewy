@@ -93,12 +93,13 @@ The switch is remembered between sessions and changes nothing in the data.
 
 ## Sorting
 
-Click a column header to sort by that column **ascending**. Click
-again for **descending**. Click a third time to clear the sort.
-
-The sort indicator (▲ / ▼) appears next to the column name. Sorting
-is applied to the **filtered** view, so searching first and then
-sorting works as you'd expect.
+Use the arrow button in a column header to cycle through ascending,
+descending and the previous row order. Paired arrows indicate an unsorted
+column. A single arrow shows the direction of the primary sort. You can
+focus the button with Tab and activate it with Enter or Space. Editing another
+column keeps the indicator. Clearing the sort moves edited cells back with
+their rows. Editing the sort key or changing the row or column structure
+resets the indicator.
 
 On a database tab that holds only part of its table, the database sorts
 the whole table, and the rows are fetched again in that order; see
@@ -351,11 +352,11 @@ the table view only.
 
 ## Hide and show columns
 
-Right-click any column header and pick **Hide column** to drop it
-from the view. Hidden columns are still part of the underlying
-table on disk: both **Save** and **Save as** write them out
-unchanged. Pull them back via **Columns → Show hidden columns** (the
-menu entry is greyed when nothing is hidden).
+Click the inward chevrons at the top right of a column header to hide it.
+The outward chevrons in the top-left corner restore all hidden columns.
+The last visible column stays on screen. Both controls accept Tab and Enter or Space. You can also use **Hide column**
+in the header context menu and **Columns → Show hidden columns**. Save and
+Save As include hidden columns.
 
 Hidden state is **per tab and session-only**, so closing the tab or
 reopening the file clears the hidden set. Use it as a

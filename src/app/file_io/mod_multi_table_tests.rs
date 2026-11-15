@@ -94,3 +94,104 @@ fn smart_workbook_edits_the_filtered_row_and_preserves_the_other_sheet() {
     let summary = reader.read_table(&path, "Summary").unwrap();
     assert_eq!(summary.formula(0, 0), Some("=SUM(Sales!A2:A3)"));
 }
+
+fn multi_sheet_fixture(path: &std::path::Path, label: &str) {
+    use rust_xlsxwriter::{Formula, Workbook};
+    let mut book = Workbook::new();
+    let first = book.add_worksheet().set_name("Cities").unwrap();
+    first.write_string(0, 0, "City").unwrap();
+    first.write_string(1, 0, label).unwrap();
+    let skipped = book.add_worksheet().set_name("Other").unwrap();
+    skipped.write_string(0, 0, "flag").unwrap();
+    skipped.write_boolean(1, 0, true).unwrap();
+    let last = book.add_worksheet().set_name("Costs").unwrap();
+    last.write_string(3, 1, "Amount").unwrap();
+    last.write_string(3, 2, "Double").unwrap();
+    last.write_number(4, 1, 12).unwrap();
+    last.write_formula(4, 2, Formula::new("=B5*2").set_result("24"))
+        .unwrap();
+    book.save(path).unwrap();
+}
+
+#[test]
+fn shared_workbook_auto_and_picked_sheets_keep_data_order_and_active_tab() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("multi.xlsx");
+    multi_sheet_fixture(&path, "Zürich");
+    for automatic in [true, false] {
+        let settings = ui::settings::AppSettings {
+            excel_max_auto_sheets: if automatic { 3 } else { 1 },
+            ..Default::default()
+        };
+        let mut app = OctaApp::new(vec![], settings, ui::settings::IconVariant::Rose);
+        app.load_file(path.clone());
+        let expected = if automatic {
+            vec!["Cities", "Other", "Costs"]
+        } else {
+            let picker = app.pending_sheet_picker.as_mut().unwrap();
+            assert!(picker.workbook.is_some());
+            picker.selected = vec![true, false, true];
+            app.open_picked_sheets();
+            vec!["Cities", "Costs"]
+        };
+        let names: Vec<_> = app
+            .tabs
+            .iter()
+            .map(|tab| tab.sheet_name.as_deref().unwrap())
+            .collect();
+        assert_eq!(names, expected);
+        assert_eq!(
+            app.tabs[app.active_tab].sheet_name.as_deref(),
+            Some(if automatic { "Cities" } else { "Costs" })
+        );
+        for tab in &app.tabs {
+            let sheet = tab.sheet_name.as_deref().unwrap();
+            let independent = formats::excel_reader::ExcelReader
+                .read_table(&path, sheet)
+                .unwrap();
+            assert_eq!(tab.table.columns, independent.columns);
+            assert_eq!(tab.table.rows, independent.rows);
+            assert_eq!(tab.table.formulas, independent.formulas);
+            assert_eq!(tab.table.source_path, independent.source_path);
+        }
+        let costs = &app.tabs.last().unwrap().table;
+        assert_eq!(costs.formula(0, 1), Some("=B5*2"));
+        assert_eq!(costs.rows[0][1], data::CellValue::Float(24.0));
+    }
+}
+
+#[test]
+fn shared_workbook_picker_reopens_changed_source_and_keeps_successful_sheets() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("selected.xlsx");
+    multi_sheet_fixture(&path, "before");
+    let mut app = OctaApp::new(
+        vec![],
+        ui::settings::AppSettings {
+            excel_max_auto_sheets: 1,
+            ..Default::default()
+        },
+        ui::settings::IconVariant::Rose,
+    );
+    app.load_file(path.clone());
+    let picker = app.pending_sheet_picker.as_mut().unwrap();
+    picker.selected = vec![true, false, true];
+    picker.sheet_names[2] = "Missing".to_owned();
+    let updated = dir.path().join("updated.xlsx");
+    multi_sheet_fixture(&updated, "A different city after the picker opened");
+    std::fs::rename(updated, &path).unwrap();
+    app.open_picked_sheets();
+    assert_eq!(app.tabs.len(), 1);
+    assert_eq!(app.tabs[0].sheet_name.as_deref(), Some("Cities"));
+    assert_eq!(
+        app.tabs[0].table.rows[0][0],
+        data::CellValue::String("A different city after the picker opened".into())
+    );
+    assert!(
+        app.status_message
+            .as_ref()
+            .unwrap()
+            .0
+            .contains("Error reading table 'Missing'")
+    );
+}
