@@ -18,6 +18,7 @@ the action flags to perform that action and exit:
 octa --schema FILE                 # print column schema
 octa-csv slice FILE START LENGTH   # raw CSV records, zero-based start
 octa-csv count FILE                # count CSV records after the header
+octa-xlsx FILE ROWS [SHEET]        # quick CSV preview of XLSX or XLSM
 octa --head FILE [-n N]            # print first N rows (default 20)
 octa --convert IN OUT              # convert formats (extension-driven)
 octa --sql FILE -q '<query>'       # run a SQL query against FILE

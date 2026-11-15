@@ -93,7 +93,7 @@ jobs:
         run: |
           DIR="octa-${VERSION}-linux-x86_64"
           mkdir -p "$DIR/assets"
-          cp target/release/octa "$DIR/"
+          cp target/release/octa target/release/octa-xlsx "$DIR/"
           cp install.sh "$DIR/"
           cp uninstall.sh "$DIR/"
           cp pkg/linux/octa.desktop "$DIR/"
@@ -309,7 +309,7 @@ jobs:
         run: |
           $dir = "octa-$env:VERSION-windows-x86_64"
           New-Item -ItemType Directory -Path "$dir\assets" -Force
-          Copy-Item "target\release\octa.exe" "$dir\"
+          Copy-Item "target\release\octa.exe","target\release\octa-xlsx.exe" "$dir\"
           Copy-Item "install.bat" "$dir\"
           Copy-Item "assets\octa.svg" "$dir\assets\"
           Copy-Item "assets\octa.png" "$dir\assets\"
@@ -369,6 +369,7 @@ jobs:
           mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
           cp target/aarch64-apple-darwin/release/octa "$APP/Contents/MacOS/octa"
           cp target/aarch64-apple-darwin/release/octa-csv "$APP/Contents/MacOS/octa-csv"
+          cp target/aarch64-apple-darwin/release/octa-xlsx "$APP/Contents/MacOS/octa-xlsx"
           chmod +x "$APP/Contents/MacOS/octa"
           cp assets/octa.icns "$APP/Contents/Resources/octa.icns"
           # Inside the bundle, not just beside it: users drag Octa.app out of
@@ -393,6 +394,7 @@ jobs:
           codesign --force --sign - --timestamp=none \
             --identifier dev.octa.Octa \
             Octa.app/Contents/MacOS/octa
+          codesign --force --sign - --timestamp=none Octa.app/Contents/MacOS/octa-xlsx
           codesign --force --sign - --timestamp=none Octa.app/Contents/MacOS/octa-csv
           codesign --force --sign - --timestamp=none Octa.app
           codesign --verify --verbose Octa.app

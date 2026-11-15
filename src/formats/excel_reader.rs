@@ -147,25 +147,51 @@ fn header_cell_name(cell: &Data, idx: usize) -> String {
     }
 }
 
+fn read_xlsx_ranges(
+    book: &mut calamine::Xlsx<std::io::BufReader<std::fs::File>>,
+    sheet: &str,
+) -> Result<(calamine::Range<Data>, Option<calamine::Range<String>>)> {
+    let mut reader = book.worksheet_cells_reader(sheet)?;
+    let mut values = Vec::new();
+    let mut formulas = Vec::new();
+    while let Some(cell) = reader.next_cell_with_formula()? {
+        if !matches!(cell.value, calamine::DataRef::Empty) {
+            values.push(calamine::Cell::new(cell.pos, Data::from(cell.value)));
+        }
+        if let Some(text) = cell.formula.filter(|s| !s.is_empty()) {
+            formulas.push(calamine::Cell::new(cell.pos, text));
+        }
+    }
+    Ok((
+        calamine::Range::from_sparse(values),
+        Some(calamine::Range::from_sparse(formulas)),
+    ))
+}
+
 /// Read a single worksheet by name into a `DataTable`.
 fn read_sheet(
     workbook: &mut Sheets<std::io::BufReader<std::fs::File>>,
     sheet: &str,
     path: &Path,
 ) -> Result<DataTable> {
-    let range = workbook
-        .worksheet_range(sheet)
-        .map_err(|e| anyhow::anyhow!("Failed to read sheet: {}", e))?;
-    // The formulas behind the values live in a parallel range. Read it
-    // best-effort: a sheet with no formulas is the normal case, and the older
-    // `.xls` path does not always carry one. A workbook must not fail to open
-    // because its formulas could not be read.
-    let formula_range = workbook.worksheet_formula(sheet).ok();
-
-    let mut rows_iter = range.rows();
+    // Modern Excel stores values and formulas in the same worksheet XML.
+    // Preserve the older reader's best-effort formula handling as a fallback.
+    let combined = match workbook {
+        Sheets::Xlsx(book) => read_xlsx_ranges(book, sheet).ok(),
+        _ => None,
+    };
+    let (mut range, formula_range) = match combined {
+        Some(ranges) => ranges,
+        None => {
+            let values = workbook
+                .worksheet_range(sheet)
+                .map_err(|e| anyhow::anyhow!("Failed to read sheet: {}", e))?;
+            (values, workbook.worksheet_formula(sheet).ok())
+        }
+    };
 
     // First row = headers
-    let header_row = match rows_iter.next() {
+    let header_row = match range.rows().next() {
         Some(r) => r,
         None => return Ok(DataTable::empty()),
     };
@@ -180,14 +206,14 @@ fn read_sheet(
         .collect();
 
     let col_count = columns.len();
-    let mut rows: Vec<Vec<CellValue>> = Vec::new();
+    let mut rows = Vec::with_capacity(range.height().saturating_sub(1));
 
-    for row in rows_iter {
-        let mut cells: Vec<CellValue> = row
-            .iter()
+    for index in 1..range.height() {
+        let cells: Vec<CellValue> = range[index]
+            .iter_mut()
             .map(|cell| match cell {
                 Data::Empty => CellValue::Null,
-                Data::String(s) => CellValue::String(s.clone()),
+                Data::String(s) => CellValue::String(std::mem::take(s)),
                 Data::Float(f) => CellValue::Float(*f),
                 Data::Int(i) => CellValue::Int(*i),
                 Data::Bool(b) => CellValue::Bool(*b),
@@ -202,14 +228,12 @@ fn read_sheet(
                     CellValue::Time(day_fraction_to_nanos(dt.as_f64()))
                 }
                 Data::DateTime(dt) => CellValue::DateTime(format!("{}", dt)),
-                Data::DateTimeIso(s) => CellValue::DateTime(s.clone()),
+                Data::DateTimeIso(s) => CellValue::DateTime(std::mem::take(s)),
                 Data::DurationIso(s) => crate::data::times::parse_duration(s)
-                    .map_or_else(|| CellValue::String(s.clone()), CellValue::Duration),
+                    .map_or_else(|| CellValue::String(std::mem::take(s)), CellValue::Duration),
                 Data::Error(e) => CellValue::String(format!("#ERR: {:?}", e)),
             })
             .collect();
-        // Pad or truncate to match column count
-        cells.resize(col_count, CellValue::Null);
         rows.push(cells);
     }
 
@@ -234,7 +258,10 @@ fn read_sheet(
                 Some(CellValue::Float(_)) => has_float = true,
                 Some(CellValue::Bool(_)) => has_bool = true,
                 Some(CellValue::DateTime(_)) => has_datetime = true,
-                Some(CellValue::String(_)) => has_string = true,
+                Some(CellValue::String(_)) => {
+                    has_string = true;
+                    break;
+                }
                 _ => {}
             }
         }

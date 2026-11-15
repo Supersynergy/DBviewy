@@ -122,6 +122,10 @@ against a full CSV parse, run `octa-csv verify-index sales.csv`. It prints
 the data record count on success and exits with an error on a mismatch. On macOS the
 executable is inside `Octa.app/Contents/MacOS/`.
 
+## Quick Excel preview
+
+Run `octa-xlsx sales.xlsx 20` to print the first populated row and up to 20 following rows as CSV. Supply a worksheet name as the last argument to select another sheet. Column A stays at position one, and the preview width follows the cells read. Workbook metadata and shared strings load first. The reader decodes one cell beyond the requested rows to locate the end of the preview. Formulas use their saved values and number formats are not applied. On macOS the command is in `Octa.app/Contents/MacOS/`.
+
 ## Performance
 
 For streaming formats (Parquet, CSV, TSV), Octa loads the standard
