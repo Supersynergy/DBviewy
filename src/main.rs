@@ -2,6 +2,8 @@
 
 mod app;
 mod cli;
+#[cfg(target_os = "macos")]
+mod macos_documents;
 mod mcp;
 mod view_modes;
 
@@ -200,6 +202,8 @@ fn main() -> ExitCode {
         ..Default::default()
     };
 
+    #[cfg(target_os = "macos")]
+    macos_documents::listen();
     match eframe::run_native(
         "octa",
         options,
@@ -233,6 +237,8 @@ fn main() -> ExitCode {
                 o.warn_on_id_clash = false;
                 o.zoom_with_keyboard = false;
             });
+            #[cfg(target_os = "macos")]
+            macos_documents::attach(&cc.egui_ctx);
             let mut app = OctaApp::new(initial_files, settings, resolved_icon);
             if app.settings.open_in_running_instance
                 && let Some(dir) = config_dir.as_deref()

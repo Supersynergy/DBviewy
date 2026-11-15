@@ -1595,6 +1595,10 @@ zoom_step = "한 번 확대하거나 축소할 때 크기가 바뀌는 정도예
 image_thumbnails = "이미지 URL이 있는 셀에 작은 미리보기를 표시합니다. 화면에 보이는 이미지만 가져오며, 끄기로 설정하면 모든 자동 가져오기를 중지합니다. 미리보기를 클릭하거나 셀 메뉴로 이미지 뷰어를 여세요."
 
 [chat]
+voice_record = "마이크 녹음"
+voice_file = "오디오 파일 열기..."
+voice_finish = "녹음 마치기"
+voice_hint = "기기에서 음성을 텍스트로 변환해 편집할 수 있는 초안에 추가합니다."
 result_row_limit = "결과 행 제한"
 export = "내보내기"
 export_hint = "이 대화를 Markdown 또는 JSON으로 내보냅니다"

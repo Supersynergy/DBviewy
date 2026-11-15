@@ -1608,6 +1608,10 @@ zoom_step = "O kolik jeden krok zvětšení změní velikost, u Ctrl+Plus a Ctrl
 image_thumbnails = "Zobrazuje náhled v buňkách s URL obrázku. Načítají se jen viditelné obrázky; Vypnuto zastavuje veškeré automatické načítání. Kliknutím na náhled nebo z menu buňky otevřete prohlížeč obrázků."
 
 [chat]
+voice_record = "Nahrát z mikrofonu"
+voice_file = "Otevřít zvukový soubor..."
+voice_finish = "Ukončit nahrávání"
+voice_hint = "Přepiš řeč místně do upravitelného konceptu."
 result_row_limit = "Limit řádků výsledku"
 export = "Exportovat"
 export_hint = "Exportovat tuto konverzaci do Markdown nebo JSON"

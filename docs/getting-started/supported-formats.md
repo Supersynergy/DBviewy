@@ -502,6 +502,19 @@ file are three tabs you can tell apart rather than three tabs called
 `workbook.xlsx`. The same goes for a table you pick out of a SQLite or DuckDB
 file. Renaming the tab (right-click it) still overrides the label.
 
+**Save** updates the active sheet in an opened `.xlsx`. **Save As** to another
+`.xlsx` with **All rows** copies the whole workbook and applies the active
+tab's cell edits. Other sheets, formulas and cell styles travel with the copy.
+Formula cells show cached results until a spreadsheet application opens the
+file and recalculates it. On macOS, the saved workbook keeps its Finder tags.
+
+**Only the rows you see** exports the filtered table. **File > Export workbook**
+creates a workbook from the tabs you select. Use that command for structural
+changes, Octa formatting, edits to formula cells or protected sheets, or a
+workbook set to manual calculation. For ODS, **Save As** with a new name
+exports the active sheet. Workbook saves use the decompressed-size limit in
+Settings.
+
 ## Compressed files
 
 Gzip (`.gz`) and Zstandard (`.zst`) inputs decompress transparently:

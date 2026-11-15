@@ -1607,6 +1607,10 @@ zoom_step = "Bir yakınlaştırma adımının boyutu ne kadar değiştirdiği, C
 image_thumbnails = "Görsel URL'si içeren hücrelerde küçük bir önizleme gösterir. Yalnızca ekrandaki görseller indirilir; Kapalı tüm otomatik indirmeleri durdurur. Küçük resme tıklayın veya hücre menüsünü kullanarak görüntüleyiciyi açın."
 
 [chat]
+voice_record = "Mikrofondan kaydet"
+voice_file = "Ses dosyası aç..."
+voice_finish = "Kaydı bitir"
+voice_hint = "Konuşmayı cihazında düzenlenebilir bir taslağa aktar."
 result_row_limit = "Sonuç satır sınırı"
 export = "Dışa aktar"
 export_hint = "Bu konuşmayı Markdown veya JSON olarak dışa aktar"

@@ -109,7 +109,9 @@ pub(crate) enum NavDir {
 /// writes its parsed answer into. Cancelled implicitly by dropping the job -
 /// the worker's write is simply ignored once the slot is gone.
 pub(crate) struct AskFilterJob {
-    pub(crate) tab_idx: usize,
+    pub(crate) target: Arc<()>,
+    pub(crate) columns: Vec<octa::data::ColumnInfo>,
+    pub(crate) original_search: Option<String>,
     pub(crate) result: Arc<Mutex<Option<Result<crate::app::chat::ask_filter::AskResult, String>>>>,
 }
 

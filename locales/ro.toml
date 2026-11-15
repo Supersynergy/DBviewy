@@ -1608,6 +1608,10 @@ zoom_step = "Cât schimbă dimensiunea un pas de zoom, cu Ctrl+Plus și Ctrl+Min
 image_thumbnails = "Afișează o previzualizare în celulele cu URL de imagine. Se încarcă doar imaginile vizibile; Dezactivat oprește orice încărcare automată. Faceți clic pe o miniatură sau folosiți meniul celulei pentru a deschide vizualizatorul."
 
 [chat]
+voice_record = "Înregistrează de la microfon"
+voice_file = "Deschide fișier audio..."
+voice_finish = "Încheie înregistrarea"
+voice_hint = "Transcrie local vocea într-o ciornă editabilă."
 result_row_limit = "Limită de rânduri a rezultatului"
 export = "Exportă"
 export_hint = "Exportă această conversație în Markdown sau JSON"

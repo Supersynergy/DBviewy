@@ -18,6 +18,7 @@ pub(crate) mod passes;
 mod repair;
 pub(crate) mod save;
 pub(crate) mod save_job;
+mod workbook;
 
 /// Whether a native file dialog can actually open on this system.
 ///
@@ -555,7 +556,30 @@ impl OctaApp {
             }
         };
 
-        match reader.list_tables(&path) {
+        // The sheet picker uses names only. list_tables also reads every
+        // worksheet to report its columns and row count to schema callers.
+        let opening_workbook = reader.name() == "Excel";
+        let tables = if opening_workbook {
+            use calamine::Reader;
+            calamine::open_workbook_auto(&path)
+                .map(|book| {
+                    Some(
+                        book.sheet_names()
+                            .into_iter()
+                            .map(|name| formats::TableInfo {
+                                name,
+                                schema: None,
+                                columns: vec![],
+                                row_count: None,
+                            })
+                            .collect(),
+                    )
+                })
+                .map_err(anyhow::Error::from)
+        } else {
+            reader.list_tables(&path)
+        };
+        match tables {
             // Multi-table sources that open *all* tables at once (Excel
             // sheets). Open up to `excel_max_auto_sheets` directly; above
             // that, prompt with a multi-select picker.
@@ -569,11 +593,13 @@ impl OctaApp {
                         .iter()
                         .map(|n| (n.clone(), reader.read_table(&path, n)))
                         .collect();
+                    let mut first_sheet = None;
                     for (name, res) in loaded {
                         match res {
                             Ok(table) => {
                                 self.apply_loaded_table(path.clone(), table);
                                 self.label_active_tab_sheet(name);
+                                first_sheet.get_or_insert(self.active_tab);
                             }
                             Err(e) => {
                                 self.status_message = Some((
@@ -582,6 +608,9 @@ impl OctaApp {
                                 ));
                             }
                         }
+                    }
+                    if opening_workbook && let Some(index) = first_sheet {
+                        self.active_tab = index;
                     }
                 } else {
                     let selected = (0..names.len()).map(|i| i < cap).collect();

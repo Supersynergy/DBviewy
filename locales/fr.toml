@@ -1607,6 +1607,10 @@ zoom_step = "De combien un cran de zoom change la taille, avec Ctrl+Plus et Ctrl
 image_thumbnails = "Petit aperçu dans les cellules contenant une URL d'image. Seules les images visibles sont chargées ; Désactivé arrête tout chargement automatique. Cliquez sur une vignette ou utilisez le menu contextuel pour ouvrir la visionneuse."
 
 [chat]
+voice_record = "Enregistrer au micro"
+voice_file = "Ouvrir un fichier audio..."
+voice_finish = "Terminer l'enregistrement"
+voice_hint = "Transcrire localement dans le brouillon modifiable."
 result_row_limit = "Limite de lignes du résultat"
 export = "Exporter"
 export_hint = "Exporter cette conversation en Markdown ou JSON"

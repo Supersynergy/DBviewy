@@ -1607,6 +1607,10 @@ zoom_step = "Di quanto cambia la dimensione a ogni passo dello zoom, con Ctrl+Pl
 image_thumbnails = "Mostra un'anteprima nelle celle con URL immagine. Vengono scaricate solo le immagini visibili; Disattivato interrompe ogni scaricamento automatico. Fai clic su una miniatura o usa il menu contestuale per aprire il visualizzatore."
 
 [chat]
+voice_record = "Registra dal microfono"
+voice_file = "Apri file audio..."
+voice_finish = "Termina registrazione"
+voice_hint = "Trascrivi la voce sul dispositivo in una bozza modificabile."
 result_row_limit = "Limite di righe del risultato"
 export = "Esporta"
 export_hint = "Esporta questa conversazione in Markdown o JSON"

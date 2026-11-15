@@ -333,6 +333,7 @@ impl TabState {
             column_key_names: Vec::new(),
             predicate_filters: Vec::new(),
             search_ask_mode: false,
+            ask_filter_target: None,
             search_ask_profile: String::new(),
             sql_ask_profile: String::new(),
             show_column_filter: false,

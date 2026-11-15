@@ -1607,6 +1607,10 @@ zoom_step = "Kuinka paljon yksi zoomausaskel muuttaa kokoa, kun painat Ctrl+Plus
 image_thumbnails = "Näyttää pienen esikatselun soluissa, joissa on kuvan URL-osoite. Vain näytöllä olevat kuvat haetaan; Pois pysäyttää kaiken automaattisen haun. Napsauta esikatselua tai käytä solun valikkoa avataksesi kuvanäkymän."
 
 [chat]
+voice_record = "Tallenna mikrofonista"
+voice_file = "Avaa äänitiedosto..."
+voice_finish = "Lopeta tallennus"
+voice_hint = "Muunna puhe paikallisesti muokattavaksi luonnokseksi."
 result_row_limit = "Tuloksen riviraja"
 export = "Vie"
 export_hint = "Vie tämä keskustelu Markdown- tai JSON-muotoon"

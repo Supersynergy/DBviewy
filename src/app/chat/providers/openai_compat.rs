@@ -6,7 +6,7 @@ use std::sync::atomic::AtomicBool;
 
 use crate::app::chat::types::{ChatEvent, Message, ToolDef};
 
-use super::openai::run_openai;
+use super::openai::{build_body, run_openai};
 use super::{ChatProvider, ProviderConfig};
 
 pub struct OpenAiCompat;
@@ -38,19 +38,8 @@ impl ChatProvider for OpenAiCompat {
         // Many local servers (Ollama, LM Studio) ignore the key; send it
         // anyway so hosted compatible gateways (OpenRouter, Groq) authenticate.
         let headers = [("authorization", format!("Bearer {}", cfg.api_key))];
-        run_openai(
-            super::openai::OpenAiRequest {
-                endpoint: &endpoint,
-                headers: &headers,
-                cfg,
-                system,
-                messages,
-                tools,
-                token_field: "max_tokens",
-            },
-            cancel,
-            sink,
-        )
+        let body = build_body(cfg, system, messages, tools, "max_tokens");
+        run_openai(&endpoint, &headers, &body, cancel, sink)
     }
 }
 

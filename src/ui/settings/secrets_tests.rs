@@ -88,3 +88,21 @@ fn storage_reports_none_when_nothing_is_set() {
     let s = AppSettings::default();
     assert_eq!(key_storage_for("profile.nope", None, &s), KeyStorage::None);
 }
+
+#[test]
+fn syc_free_reads_only_an_available_openrouter_credential() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("auth.json");
+    for (expires, exhausted, expected) in [
+        (200, 50, Some("synthetic-key")),
+        (100, 50, None),
+        (200, 150, None),
+    ] {
+        let auth = serde_json::json!({
+            "another": {"accessToken": "wrong"},
+            "openrouter": {"accessToken": "synthetic-key", "expiresAt": expires, "usageExhaustedUntil": exhausted}
+        });
+        std::fs::write(&path, auth.to_string()).unwrap();
+        assert_eq!(super::syc_openrouter_key(&path, 100).as_deref(), expected);
+    }
+}

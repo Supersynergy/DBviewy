@@ -20,6 +20,16 @@ query, and what does and does not reach your model provider, see
 
 ![Chat Assistant](../assets/screenshots/chatbot.png)
 
+## Voice input
+
+On Apple Silicon, open **Parakeet** beside the prompt. Choose **Record microphone**, speak, then click **Finish recording**. The default microphone records up to one minute. You can also choose **Open audio file...**. Octa appends the recognised words to your draft. Edit the text and click **Send** when ready.
+
+The default engine runs the Parakeet Ultra Q8_0 GGUF checkpoint offline with transcribe.cpp and ffmpeg. In Octa's configuration directory, place or link the checkpoint as `parakeet-ultra-Q8_0.gguf` and the native runner as `parakeet-ultra`. On macOS this directory is `~/Library/Application Support/Octa`. The runner accepts the model path and a mono 16 kHz float32 PCM file, and writes the transcript to standard output. The source distribution includes the adapter in `src/app/chat_panel/parakeet_ultra.c` for transcribe.cpp 0.4.2. macOS asks for microphone access on first use.
+
+To select the optional MLX backend, start Octa with `OCTA_VOICE_BACKEND=mlx`. It uses the installed `parakeet-mlx` command and a locally cached MLX model. Set `PARAKEET_MODEL` to the model directory or link it as `parakeet-model` in Octa's configuration directory.
+
+Use **Filter** beside **Send** to apply a spoken or typed condition to the current table. The filter chips on the table show the conditions and let you remove them.
+
 ## Opening and closing the panel
 
 There are three ways to open it, and it stays where it is across tabs:

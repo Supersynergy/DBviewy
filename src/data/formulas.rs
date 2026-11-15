@@ -1,7 +1,7 @@
 //! Excel-like formula evaluation against a [`DataTable`].
 //!
 //! Supports cell references (e.g. `A1`, `BC42`), numeric literals, the four
-//! arithmetic operators (`+`, `-`, `*`, `/`) and parenthesised sub-expressions.
+//! arithmetic operators, parenthesised sub-expressions and numeric aggregates over ranges.
 //! Re-exported from [`crate::data`] so call sites keep their existing import
 //! path (`use octa::data::evaluate_formula`).
 
@@ -57,7 +57,9 @@ pub fn evaluate_formula_with_diagnostics(formula: &str, table: &DataTable) -> Fo
         };
     };
     let mut bad: Option<FormulaBadCell> = None;
-    let value = eval_expression(&tokens, 0, table, &mut bad).map(|(val, _)| val);
+    let value = eval_expression(&tokens, 0, table, &mut bad)
+        .filter(|(_, end)| *end == tokens.len())
+        .map(|(value, _)| value);
     FormulaOutcome {
         value,
         bad_cell: bad,
@@ -82,7 +84,9 @@ fn parse_cell_ref(s: &str) -> Option<(usize, usize)> {
         if !ch.is_ascii_alphabetic() {
             return None;
         }
-        col = col * 26 + (ch.to_ascii_uppercase() as usize - b'A' as usize + 1);
+        col = col
+            .checked_mul(26)?
+            .checked_add(ch.to_ascii_uppercase() as usize - b'A' as usize + 1)?;
     }
     col -= 1; // zero-indexed
     let row: usize = row_str.parse::<usize>().ok()?;
@@ -144,6 +148,9 @@ enum FormulaToken {
     Number(f64),
     CellRef(usize, usize), // (row, col)
     Op(char),              // +, -, *, /
+    Function(Aggregate),
+    Range,
+    Separator,
     LParen,
     RParen,
 }
@@ -154,7 +161,7 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
     let mut i = 0;
     while i < chars.len() {
         match chars[i] {
-            ' ' => {
+            c if c.is_ascii_whitespace() => {
                 i += 1;
             }
             '+' | '-' | '*' | '/' => {
@@ -163,7 +170,11 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                     let is_unary = tokens.is_empty()
                         || matches!(
                             tokens.last(),
-                            Some(FormulaToken::Op(_)) | Some(FormulaToken::LParen)
+                            Some(
+                                FormulaToken::Op(_)
+                                    | FormulaToken::LParen
+                                    | FormulaToken::Separator
+                            )
                         );
                     if is_unary {
                         // Collect the number after the minus
@@ -182,6 +193,14 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                     }
                 }
                 tokens.push(FormulaToken::Op(chars[i]));
+                i += 1;
+            }
+            ':' => {
+                tokens.push(FormulaToken::Range);
+                i += 1;
+            }
+            ',' | ';' => {
+                tokens.push(FormulaToken::Separator);
                 i += 1;
             }
             '(' => {
@@ -207,8 +226,18 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                     i += 1;
                 }
                 let word: String = chars[start..i].iter().collect();
-                let (row, col) = parse_cell_ref(&word)?;
-                tokens.push(FormulaToken::CellRef(row, col));
+                let token = match word.to_ascii_uppercase().as_str() {
+                    "SUM" | "SUMME" => FormulaToken::Function(Aggregate::Sum),
+                    "AVERAGE" | "MITTELWERT" => FormulaToken::Function(Aggregate::Average),
+                    "MIN" => FormulaToken::Function(Aggregate::Min),
+                    "MAX" => FormulaToken::Function(Aggregate::Max),
+                    "COUNT" | "ANZAHL" => FormulaToken::Function(Aggregate::Count),
+                    _ => {
+                        let (row, col) = parse_cell_ref(&word)?;
+                        FormulaToken::CellRef(row, col)
+                    }
+                };
+                tokens.push(token);
             }
             _ => return None,
         }
@@ -287,6 +316,7 @@ fn eval_factor(
     }
     match &tokens[pos] {
         FormulaToken::Number(n) => Some((*n, pos + 1)),
+        FormulaToken::Function(function) => eval_aggregate(*function, tokens, pos + 1, table, bad),
         FormulaToken::CellRef(row, col) => {
             match cell_as_f64(table, *row, *col) {
                 Ok(Some(v)) => Some((v, pos + 1)),
@@ -313,4 +343,98 @@ fn eval_factor(
         }
         _ => None,
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Aggregate {
+    Sum,
+    Average,
+    Min,
+    Max,
+    Count,
+}
+
+/// Aggregate references skip empty and non-numeric cells. Numeric text is useful
+/// in imported tables and follows the same conversion as arithmetic references.
+fn aggregate_cell(table: &DataTable, row: usize, col: usize) -> Option<f64> {
+    match table.get(row, col)? {
+        CellValue::Int(n) => Some(*n as f64),
+        CellValue::Float(n) => Some(*n),
+        CellValue::String(s) => s.trim().parse().ok(),
+        _ => None,
+    }
+}
+
+fn eval_aggregate(
+    function: Aggregate,
+    tokens: &[FormulaToken],
+    mut pos: usize,
+    table: &DataTable,
+    bad: &mut Option<FormulaBadCell>,
+) -> Option<(f64, usize)> {
+    if !matches!(tokens.get(pos), Some(FormulaToken::LParen)) {
+        return None;
+    }
+    pos += 1;
+    let mut value: f64 = 0.0;
+    let mut count = 0usize;
+    let mut add = |n: f64| {
+        value = match function {
+            Aggregate::Min if count > 0 => value.min(n),
+            Aggregate::Max if count > 0 => value.max(n),
+            Aggregate::Min | Aggregate::Max => n,
+            Aggregate::Sum | Aggregate::Average => value + n,
+            Aggregate::Count => value,
+        };
+        count += 1;
+    };
+    loop {
+        match tokens.get(pos..)? {
+            [
+                FormulaToken::CellRef(r1, c1),
+                FormulaToken::Range,
+                FormulaToken::CellRef(r2, c2),
+                ..,
+            ] => {
+                // Intersect with the loaded table before walking the rectangle.
+                let end_row = r1.max(r2).saturating_add(1).min(table.row_count());
+                let end_col = c1.max(c2).saturating_add(1).min(table.col_count());
+                for row in *r1.min(r2)..end_row {
+                    for col in *c1.min(c2)..end_col {
+                        if let Some(n) = aggregate_cell(table, row, col) {
+                            add(n);
+                        }
+                    }
+                }
+                pos += 3;
+            }
+            [
+                FormulaToken::CellRef(row, col),
+                FormulaToken::Separator | FormulaToken::RParen,
+                ..,
+            ] => {
+                if let Some(n) = aggregate_cell(table, *row, *col) {
+                    add(n);
+                }
+                pos += 1;
+            }
+            _ => {
+                let (n, end) = eval_expression(tokens, pos, table, bad)?;
+                add(n);
+                pos = end;
+            }
+        }
+        match tokens.get(pos)? {
+            FormulaToken::Separator => pos += 1,
+            FormulaToken::RParen => break,
+            _ => return None,
+        }
+    }
+    let result = match function {
+        Aggregate::Count => count as f64,
+        Aggregate::Average if count == 0 => return None,
+        Aggregate::Average => value / count as f64,
+        _ => value,
+    };
+    Some((result, pos + 1))
 }

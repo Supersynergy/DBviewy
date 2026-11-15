@@ -1607,6 +1607,10 @@ zoom_step = "O ile jeden krok powiększenia zmienia rozmiar, przy Ctrl+Plus i Ct
 image_thumbnails = "Pokazuje podgląd w komórkach z adresem URL obrazu. Pobierane są tylko widoczne obrazy; Wyłączone zatrzymuje każde automatyczne pobieranie. Kliknij miniaturę lub użyj menu komórki, aby otworzyć przeglądarkę obrazów."
 
 [chat]
+voice_record = "Nagraj z mikrofonu"
+voice_file = "Otwórz plik audio..."
+voice_finish = "Zakończ nagrywanie"
+voice_hint = "Przepisz mowę lokalnie do edytowalnego szkicu."
 result_row_limit = "Limit wierszy wyniku"
 export = "Eksportuj"
 export_hint = "Wyeksportuj tę rozmowę do formatu Markdown lub JSON"

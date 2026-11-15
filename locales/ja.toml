@@ -1595,6 +1595,10 @@ zoom_step = "ズーム 1 回でサイズがどれだけ変わるか。Ctrl+Plus 
 image_thumbnails = "画像URLを含むセルに小さなプレビューを表示します。画面上の画像のみ取得され、オフでは自動取得をすべて停止します。サムネイルをクリックするかセルメニューから画像ビューアを開きます。"
 
 [chat]
+voice_record = "マイクで録音"
+voice_file = "音声ファイルを開く..."
+voice_finish = "録音を終了"
+voice_hint = "端末上で音声を文字に起こし、編集できる下書きに追加します。"
 result_row_limit = "結果の行数上限"
 export = "エクスポート"
 export_hint = "この会話を Markdown または JSON にエクスポートします"

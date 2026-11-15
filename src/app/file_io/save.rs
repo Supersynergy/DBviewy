@@ -718,6 +718,33 @@ impl OctaApp {
             self.forget_upload(&path);
             return;
         }
+        let original_workbook = super::workbook::original(&self.tabs[tab_idx].table, &path);
+        let preserve_workbook = super::workbook::whole_xlsx(&self.tabs[tab_idx].table, &path, mode);
+        if original_workbook
+            && (!path
+                .extension()
+                .is_some_and(|s| s.eq_ignore_ascii_case("xlsx"))
+                || mode != SaveMode::Rebase
+                || self.tabs[tab_idx].raw_content_modified
+                || self.tabs[tab_idx].large.is_some())
+        {
+            self.status_message = Some((
+                "Choose a new file name or use Export workbook to export this table".into(),
+                std::time::Instant::now(),
+            ));
+            self.forget_upload(&path);
+            return;
+        }
+        if preserve_workbook
+            && (self.tabs[tab_idx].raw_content_modified || self.tabs[tab_idx].large.is_some())
+        {
+            self.status_message = Some((
+                "Use Export workbook to export this view as a table".into(),
+                std::time::Instant::now(),
+            ));
+            self.forget_upload(&path);
+            return;
+        }
         if self.tabs[tab_idx].large.is_some() {
             self.start_large_export(tab_idx, path, mode);
             return;
@@ -728,17 +755,22 @@ impl OctaApp {
 
         // Answered before the `&mut` borrow of the tab below, since the shared
         // predicate takes `&self`.
-        let ask_about_style =
-            style_decision.is_none() && self.save_would_ask_about_style(tab_idx, &path);
+        let ask_about_style = !preserve_workbook
+            && style_decision.is_none()
+            && self.save_would_ask_about_style(tab_idx, &path);
 
         // If the chat assistant changed this tab, the file it is about to
         // replace is backed up first (the user's own edits don't trigger
         // this). Taken when the write happens, after every question, and the
         // flag is cleared once the save worked.
-        let assistant_backup =
-            self.settings.backup_before_modify && self.tabs[tab_idx].assistant_modified;
+        let assistant_backup = self.settings.backup_before_modify
+            && self.tabs[tab_idx].assistant_modified
+            && (!preserve_workbook || path.exists());
 
-        if self.tabs[tab_idx].saves_text() && self.tabs[tab_idx].raw_content.is_some() {
+        if !preserve_workbook
+            && self.tabs[tab_idx].saves_text()
+            && self.tabs[tab_idx].raw_content.is_some()
+        {
             let mut before = Vec::new();
             if assistant_backup {
                 before.push(PreStep::Backup(save_target(&self.tabs[tab_idx], &path)));
@@ -810,7 +842,7 @@ impl OctaApp {
             .column_number_formats
             .values()
             .any(|f| f.rounds_values());
-        if has_rounding && round_decision.is_none() {
+        if !preserve_workbook && has_rounding && round_decision.is_none() {
             self.pending_round_save = Some(crate::app::state::RoundSavePrompt {
                 tab_idx,
                 path,
@@ -837,6 +869,7 @@ impl OctaApp {
         // them), so the tab itself is not touched. A rebase writes the live
         // table and moves the tab onto the written file.
         let snapshot_rows: Option<Vec<usize>> = match mode {
+            _ if preserve_workbook => None, // The patch writer reads edits from the active sheet.
             SaveMode::Rebase => None,
             SaveMode::Copy { filtered: true, .. }
                 if tab.filtered_rows.len() < tab.table.row_count() =>
@@ -1002,7 +1035,7 @@ impl OctaApp {
             .map_or(tab.table.row_count(), Vec::len);
         let slice_rows = crate::app::slice_feed::slice_rows(tab.table.col_count());
         let reader_name = reader.name().to_string();
-        let writer = if rows_to_write <= slice_rows {
+        let writer = if preserve_workbook || rows_to_write <= slice_rows {
             None
         } else if let Some((opts, delimiter)) = &delimited {
             Some(JobWriter::Slices(formats::SliceFormat::Delimited {
@@ -1082,6 +1115,9 @@ impl OctaApp {
         // `.xlsx` formatting choice for this save.
         let mut pending_edits = None;
         let write_result = match (&snapshot, &delimited) {
+            _ if preserve_workbook => {
+                super::workbook::save(&path, tab.sheet_name.as_deref(), &tab.table).map(|()| None)
+            }
             (Some(t), Some((csv, delim))) => {
                 formats::csv_reader::write_delimited_with(&path, t, csv, *delim).map(|()| None)
             }
@@ -1105,6 +1141,21 @@ impl OctaApp {
                 let back = SaveBack::of(&self.tabs[tab_idx], &path)
                     .filter(|_| mode == SaveMode::Rebase)
                     .map(|b| b.run(&path));
+                if preserve_workbook && let Some(Err(message)) = &back {
+                    // The plain copy is current. Keep the overlay dirty so Save retries the outer file.
+                    let tab = &mut self.tabs[tab_idx];
+                    // The retry compares this updated baseline with the plain copy
+                    // and skips a second write when only the outer save is pending.
+                    let unapplied_to_origin = tab.table.apply_edits_recoverable();
+                    tab.table.edits = unapplied_to_origin;
+                    tab.file_stamp = super::file_stamp(&path);
+                    self.status_message = Some((
+                        format!("Error saving workbook: {message}"),
+                        std::time::Instant::now(),
+                    ));
+                    self.forget_upload(&path);
+                    return;
+                }
                 let save = WrittenSave {
                     path,
                     mode,
@@ -1148,9 +1199,19 @@ impl OctaApp {
             filtered_copy,
             written_rows,
         } = save;
+        let workbook_copy = super::workbook::whole_xlsx(&self.tabs[tab_idx].table, &path, mode)
+            && !super::workbook::original(&self.tabs[tab_idx].table, &path);
         if mode == SaveMode::Rebase {
             let tab = &mut self.tabs[tab_idx];
             // A background save wrote the edits without merging them first.
+            if path
+                .extension()
+                .is_some_and(|s| s.eq_ignore_ascii_case("xlsx"))
+                && !workbook_copy
+                && !super::workbook::original(&tab.table, &path)
+            {
+                tab.sheet_name = None;
+            }
             tab.table.apply_edits();
             tab.table.source_path = Some(path.to_string_lossy().to_string());
             tab.table.clear_modified();
@@ -1171,7 +1232,9 @@ impl OctaApp {
             }
         }
         self.status_message = Some((
-            if filtered_copy {
+            if workbook_copy {
+                format!("Saved workbook with all sheets to {}", path.display())
+            } else if filtered_copy {
                 format!(
                     "Exported {} filtered row{} to {} (in-memory table unchanged)",
                     written_rows,
@@ -1213,6 +1276,7 @@ impl OctaApp {
             .and_then(|e| e.to_str())
             .is_some_and(|e| e.eq_ignore_ascii_case("xlsx"));
         is_xlsx
+            && !super::workbook::original(&tab.table, path)
             && (!tab.conditional_format_rules.is_empty()
                 || !tab.column_number_formats.is_empty()
                 || tab.table_state.frozen_cols > 0

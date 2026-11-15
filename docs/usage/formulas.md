@@ -8,11 +8,6 @@ Octa supports a small subset of Excel-like formulas in two places:
    treated as a row-1 template and applied to **every row** when the
    column is created.
 
-The formula engine is intentionally simple: it covers arithmetic on
-numeric cell references and literals, not the hundreds of Excel
-built-in functions. For anything more complex, use the
-[SQL panel](sql.md).
-
 ## Syntax
 
 | Element         | Example             | Notes                                                                                            |
@@ -20,11 +15,10 @@ built-in functions. For anything more complex, use the
 | Cell reference  | `A1`, `B2`, `AA17`  | Column letter (A, B, … Z, AA, AB, …) + 1-based row number. Column letters appear in each header. |
 | Operators       | `+`, `-`, `*`, `/`  | Standard precedence; multiplication/division before addition/subtraction.                        |
 | Parentheses     | `(A1 + B1) * 2`     | Override precedence.                                                                             |
-| Numeric literal | `42`, `3.14`, `1e6` | Both integers and floats; scientific notation accepted.                                          |
+| Numeric literal | `42`, `3.14`, `-5` | Integers and decimals.                                          |
 | Whitespace      | `= A1 + B1`         | Ignored everywhere.                                                                              |
 
-Formulas **must start with `=`** in cell entry; the leading `=` is
-optional in the Insert Column dialog.
+Start a formula with `=` in the cell editor or the Insert Column dialog.
 
 ## Examples
 
@@ -32,7 +26,8 @@ optional in the Insert Column dialog.
 =A1+B1              # add two columns
 =(A1-B1)/B1*100     # percentage change from B1 to A1
 =A1*1.05            # add 5%
-=(A1+A2+A3)/3       # average of three cells
+=AVERAGE(A1:A3)     # average of three cells
+=SUM(A1:B2, D1, 5)  # add a rectangle, a single cell and a constant
 ```
 
 For Insert Column, the formula is applied per-row:
@@ -42,10 +37,17 @@ For Insert Column, the formula is applied per-row:
 | `=A1+B1`  | `A1+B1`  | `A5+B5`  |
 | `=A1*1.5` | `A1*1.5` | `A5*1.5` |
 | `=B1-C1`  | `B1-C1`  | `B5-C5`  |
+| `=SUM(A1:C1)` | `SUM(A1:C1)` | `SUM(A5:C5)` |
+
+## Aggregate functions
+
+`SUM`, `AVERAGE`, `MIN`, `MAX` and `COUNT` accept rectangular ranges, single cells and arithmetic expressions. You can nest functions and separate arguments with commas or semicolons. The German names `SUMME`, `MITTELWERT` and `ANZAHL` also work.
+
+In a range or a single-cell argument, these functions include numbers and numeric text, and skip blanks and other values. `COUNT` returns the number of included cells and scalar arguments. When there are no numbers, `AVERAGE` leaves the result empty and the other four functions return zero.
 
 ## What gets evaluated
 
-The engine tries to resolve each referenced cell to an `f64`:
+In arithmetic expressions, the engine converts each referenced cell to a number:
 
 - **Numeric columns** (Int*, Float*) are used directly.
 - **String columns** are parsed via `parse::<f64>()`. The cell is
@@ -59,7 +61,7 @@ Division by zero yields no value (the cell is left empty).
 
 ## When a formula can't be evaluated
 
-If any referenced cell is non-numeric (a string that doesn't parse,
+If an arithmetic expression references a non-numeric cell (a string that doesn't parse,
 a date, a binary blob), the formula short-circuits and the row's
 output is empty. For the Insert Column path, a banner appears above
 the table:
@@ -84,21 +86,17 @@ From [**Columns → Insert column…**](editing.md#inserting-columns):
 2. **Type**: pick a numeric type (Int64 / Float64) when the formula
    produces numbers.
 3. **Insert at position**: 0-based index. Blank = append.
-4. **Formula**: your expression. Leading `=` optional.
+4. **Formula**: start the expression with `=`.
 
 Click **OK** and the new column appears with every row's result.
 
 ## Limitations
 
-- **No functions.** No `SUM(A1:A10)`, `AVG`, `IF`, `VLOOKUP`, etc.
-  For aggregates and conditional logic, use
-  [SQL](sql.md).
-- **No range references.** `A1:A10` isn't recognised; reference cells
-  individually.
+- For conditional expressions such as `IF` and lookups, use [SQL](sql.md).
 - **No cross-sheet references.** Single table only.
 - **No string operations.** Formulas are numeric-only.
 - **No row references like `$A1` or `A$1`.** Insert Column always
-  shifts both row and column on row evaluation, so write the formula
+  shifts row numbers and preserves column letters, so write the formula
   for row 1 and it'll be applied to every row.
 
 If your use case bumps against these, the

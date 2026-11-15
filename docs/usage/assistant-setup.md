@@ -4,6 +4,8 @@ Before the [Chat Assistant](chatbot.md) can answer, it needs a model to talk
 to. This page covers the one-time setup: model profiles, API keys, local
 models through Ollama, and the settings that apply to every profile.
 
+In the Assistant profile menu, select **SYC Free (OpenRouter)** to create the free profile. Under **Settings > Chat / Assistant**, enable writes for this profile when you want it to edit data. View filters work with a read-only profile.
+
 ## Model profiles
 
 A **profile** is one saved setup: a provider, a model, a temperature, an
@@ -22,11 +24,12 @@ provider**. A typical set:
 
 Switching model is then one click, with no re-editing of settings.
 
-Octa speaks to five kinds of backend:
+Octa supports these providers:
 
 | Provider               | Notes                                                                                                                                                                                                                                                                                                                                                                                       |
 |------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Ollama (local)**     | Runs entirely on your machine. No API key. Octa can start the server and lists the models you have installed. See [Using Ollama](#using-ollama).                                                                                                                                                                                                                                            |
+| **SYC Free (OpenRouter)** | Uses free hosted models and your SynergyCoder OpenRouter login. See [Using SYC Free](#using-syc-free). |
 | **Anthropic (Claude)** | Claude models via the Anthropic Messages API.                                                                                                                                                                                                                                                                                                                                               |
 | **OpenAI**             | GPT models via the Responses API (reasoning + tools together).                                                                                                                                                                                                                                                                                                                              |
 | **OpenAI-compatible**  | Any other endpoint that speaks the OpenAI dialect: OpenRouter, Groq, LM Studio, a self-hosted gateway. Set a Base URL. This is how you reach the open-weight models (DeepSeek, GLM, Kimi, Qwen, Nemotron, MiniMax, Muse, gpt-oss, Gemma); the model dropdown lists current ones. See [When an OpenAI-compatible endpoint does not work](#when-an-openai-compatible-endpoint-does-not-work). |
@@ -352,6 +355,19 @@ This list is per install and applies to the assistant only. Octa's
 [MCP server](../mcp/setup.md#advertising-fewer-tools) has its own equivalent,
 `--mcp-tools`, as a command-line flag, because there the tool list belongs to
 whichever client launched the server.
+
+## Using SYC Free
+
+In **Settings > Chat / Assistant**, create a profile with provider **SYC Free
+(OpenRouter)** and model `openrouter/free`. Save it and select the profile
+in the Assistant panel or the search box's **Ask** profile picker.
+OpenRouter receives the question and the context included by that action.
+
+Octa can read the OpenRouter login from SynergyCoder's `~/.gg/auth.json`.
+You can also supply `OPENROUTER_API_KEY` or store a key for this provider in
+Octa. Renew an expired login in SynergyCoder or wait for a quota limit to reset. Each request caps the prompt, completion, request and image prices
+at zero. To choose a particular free model, enter its `provider/model:free` ID.
+Free endpoints can run out of capacity.
 
 ## Settings
 

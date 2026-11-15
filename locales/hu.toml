@@ -1608,6 +1608,10 @@ zoom_step = "Mennyivel változtat a méreten egy nagyítási lépés a Ctrl+Plus
 image_thumbnails = "Előnézetet mutat a kép-URL-t tartalmazó cellákban. Csak a látható képek töltődnek le; a Ki leállít minden automatikus letöltést. Kattints egy bélyegképre vagy használd a cella menüt a képnézegető megnyitásához."
 
 [chat]
+voice_record = "Felvétel mikrofonnal"
+voice_file = "Hangfájl megnyitása..."
+voice_finish = "Felvétel befejezése"
+voice_hint = "Beszéd helyi átírása szerkeszthető piszkozatba."
 result_row_limit = "Eredmény sorkorlátja"
 export = "Exportálás"
 export_hint = "A beszélgetés exportálása Markdown vagy JSON formátumba"

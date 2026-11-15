@@ -17,7 +17,8 @@ pub(crate) fn snapshot_table(table: &DataTable) -> DataTable {
 
 /// A clean tab display name (no modified `*`), for addressing via `open_tab`.
 pub(crate) fn tab_display_name(tab: &crate::app::state::TabState, index: usize) -> String {
-    tab.table
+    let filename = tab
+        .table
         .source_path
         .as_ref()
         .and_then(|p| {
@@ -25,7 +26,11 @@ pub(crate) fn tab_display_name(tab: &crate::app::state::TabState, index: usize) 
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
         })
-        .unwrap_or_else(|| format!("Untitled {}", index + 1))
+        .unwrap_or_else(|| format!("Untitled {}", index + 1));
+    match &tab.sheet_name {
+        Some(sheet) => format!("{filename} - {sheet}"),
+        None => filename,
+    }
 }
 
 /// If the caret sits inside an `@`-prefixed token (no whitespace since the

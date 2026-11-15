@@ -1607,6 +1607,10 @@ zoom_step = "Um wie viel ein Zoom-Schritt die Größe ändert, mit Strg+Plus und
 image_thumbnails = "Kleine Vorschau in Zellen mit Bild-URL. Es werden nur sichtbare Bilder geladen; Aus stoppt das automatische Laden. Thumbnail oder Zellmenü öffnet den Bildbetrachter."
 
 [chat]
+voice_record = "Mikrofon aufnehmen"
+voice_file = "Audiodatei öffnen..."
+voice_finish = "Aufnahme beenden"
+voice_hint = "Sprache lokal in den bearbeitbaren Entwurf übertragen."
 result_row_limit = "Zeilenlimit für Ergebnisse"
 export = "Exportieren"
 export_hint = "Dieses Gespräch nach Markdown oder JSON exportieren"

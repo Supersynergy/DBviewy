@@ -1604,6 +1604,10 @@ zoom_step = "Kui palju üks suumi samm suurust muudab, klahvidega Ctrl+Plus ja C
 image_thumbnails = "Kuvab väikest eelvaadet lahtrites, mis sisaldavad pildi URL-i. Laaditakse ainult ekraanil olevad pildid; Väljas peatab toda automaatse laadimise. Klõpsake pisipildil või kasutage lahtri menüüd, et avada pildivaatur."
 
 [chat]
+voice_record = "Salvesta mikrofonist"
+voice_file = "Ava helifail..."
+voice_finish = "Lõpeta salvestamine"
+voice_hint = "Teisenda kõne kohapeal muudetavaks mustandiks."
 result_row_limit = "Tulemuse ridade piirang"
 export = "Ekspordi"
 export_hint = "Ekspordi see vestlus Markdown- või JSON-vormingusse"

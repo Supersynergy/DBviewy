@@ -58,3 +58,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
 ```bash
 rm -rf /Applications/Octa.app ~/.local/bin/octa
 ```
+
+In Finder, choose **Open With > Octa** for a workbook or data file. Select
+several files to open them as tabs. Octa registers as an alternate editor,
+so installing it leaves the current default applications in place.

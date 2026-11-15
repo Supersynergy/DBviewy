@@ -1604,6 +1604,10 @@ zoom_step = "Cik daudz viens tālummaiņas solis maina izmēru, ar Ctrl+Plus un 
 image_thumbnails = "Rāda mazu priekšskatījumu šūnās ar attēla URL. Tiek ielādēti tikai redzamie attēli; Izslēgts aptur jebkādu automātisku ielādi. Noklikšķiniet uz sīktēla vai izmantojiet šūnas izvēlni, lai atvērtu attēlu skatītāju."
 
 [chat]
+voice_record = "Ierakstīt ar mikrofonu"
+voice_file = "Atvērt audiofailu..."
+voice_finish = "Beigt ierakstu"
+voice_hint = "Pārvērt runu tekstā šajā ierīcē un pievieno rediģējamam melnrakstam."
 result_row_limit = "Rezultāta rindu ierobežojums"
 export = "Eksportēt"
 export_hint = "Eksportēt šo sarunu uz Markdown vai JSON"

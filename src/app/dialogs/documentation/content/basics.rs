@@ -23,7 +23,7 @@ Open a file from **File > Open** (or **Ctrl+O**), pick one or more from the
 octa path/to/file.parquet other.csv
 ```
 
-Multiple files open into separate tabs.
+Multiple files open into separate tabs. On macOS, Finder also accepts **Open With > Octa**.
 
 Right-click an entry in **File > Recent files** for **Remove from list**, or
 **Clear all** to empty the list. The files themselves are not touched.
@@ -492,10 +492,15 @@ Cells support simple Excel-like formulas starting with **=**.
 - **Operators**: `+`, `-`, `*`, `/`.
 - **Parentheses**: `(A1 + B1) * 2`.
 - **Numeric literals**: `=A1 * 1.5`.
+- **Functions**: `SUM`, `AVERAGE`, `MIN`, `MAX` and `COUNT` accept rectangular
+  ranges, single cells and expressions. For example, `=SUM(A1:B2,C1,5)`
+  adds four cells, C1 and five. In cell arguments, blanks and non-numeric
+  values are skipped. Numeric text counts. The German names SUMME,
+  MITTELWERT and ANZAHL work with either semicolons or commas.
 
 When inserting a column via **Columns > Insert column**, you can type a formula
 into the **Formula** field. The formula is treated as a row-1 template and
-applied to every row (e.g. `=A1+B1` becomes `=A3+B3` on row 3).
+applied to every row (e.g. `=SUM(A1:C1)` becomes `=SUM(A3:C3)` on row 3).
 
 Division by zero leaves the cell empty.
 "#;
@@ -804,7 +809,7 @@ pub const SAVING: &str = r#"# Saving
 - If a tab has a per-column **rounding format**, Save asks whether to write
   the rounded values or full precision. The in-memory table keeps full
   precision either way.
-- Saving to `.xlsx` writes the active tab as one sheet. To put several open
+- Save As from XLSX to XLSX copies all sheets when saving all rows. To put several open
   tabs into one workbook, one sheet each, use **File > Export workbook...**.
 
 **Save as: the questions.** After the file picker, Save as asks only what
@@ -872,7 +877,18 @@ plain `TIMESTAMP` has no zone and is never shifted. This covers DuckDB files,
 Delta and Iceberg tables, large-file mode and the SQL panel's results, which
 all read through DuckDB.
 
-**What every Excel save carries.** Four things go into every `.xlsx` Octa
+**Saving an opened workbook.** Save updates existing text, number and boolean
+cells in the active worksheet of an `.xlsx`. Save As to another `.xlsx` with
+**All rows** copies the workbook with those edits, its other worksheets,
+formulas and styles. A spreadsheet application recalculates formulas on open.
+On macOS the file keeps its Finder tags.
+
+**Only the rows you see** exports the filtered table. **File > Export workbook**
+exports the tabs you select, including structural changes and Octa formatting.
+Use it to export formula edits, protected sheets or a manually calculated
+workbook. For ODS, Save As with a new name exports the active sheet.
+
+**Exporting an Excel file.** Four things go into every new `.xlsx` Octa
 writes, whatever the formatting switch below says. **Dates** are written as
 real Excel dates, so they sort and filter as dates rather than as text; a value
 that will not parse falls back to text instead of failing the save. **Column

@@ -188,9 +188,30 @@ impl OctaApp {
     /// Whether the active profile can run: local providers (Ollama) are always
     /// ready; cloud providers need a resolvable API key (the profile's own, or
     /// the shared one for its provider).
-    pub(crate) fn provider_ready(&self) -> bool {
+    pub(crate) fn provider_ready(&mut self) -> bool {
         let profile = chat_profiles::active_profile(&self.settings);
-        !profile.kind.needs_api_key() || profile_api_key(&profile, &self.settings).is_some()
+        if !profile.kind.needs_api_key() {
+            return true;
+        }
+        // Painting a frame should not read the keychain and SYC auth file twice.
+        // Cache only availability; a real request always resolves its current key.
+        if let Some((id, kind, own, checked, ready)) = &self.chat.readiness
+            && id == &profile.id
+            && *kind == profile.kind
+            && *own == profile.use_own_key
+            && checked.elapsed() < std::time::Duration::from_secs(1)
+        {
+            return *ready;
+        }
+        let ready = profile_api_key(&profile, &self.settings).is_some();
+        self.chat.readiness = Some((
+            profile.id,
+            profile.kind,
+            profile.use_own_key,
+            std::time::Instant::now(),
+            ready,
+        ));
+        ready
     }
 
     /// The saved-session browser window (load / delete past chats).

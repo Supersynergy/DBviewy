@@ -18,6 +18,17 @@ impl eframe::App for OctaApp {
             let icon = super::init::render_icon(self.resolved_icon.svg_source());
             octa::platform::set_taskbar_icon(&*frame, &icon.rgba, icon.width, icon.height);
         }
+        #[cfg(target_os = "macos")]
+        {
+            let files = crate::macos_documents::take();
+            if self.startup_pin_load_done {
+                if !files.is_empty() {
+                    self.enqueue_open_files(files);
+                }
+            } else {
+                self.initial_files.extend(files);
+            }
+        }
         // Load CLI-provided files on first frame. Multiple paths are queued so
         // the standard drain logic creates one tab per file. Pinned tabs from
         // a previous session enqueue alongside (de-duplicated against the

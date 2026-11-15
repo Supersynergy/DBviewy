@@ -1604,6 +1604,10 @@ zoom_step = "Kiek vienas mastelio žingsnis pakeičia dydį, su Ctrl+Plus ir Ctr
 image_thumbnails = "Rodomas mažas peržiūros vaizdas langeliuose su paveikslėlio URL. Įkeliami tik ekrane matomi paveikslėliai; Išjungta sustabdo bet kurį automatinį įkėlimą. Spustelėkite miniatiūrą arba naudokite langelio meniu, kad atidarytumėte paveikslėlių peržiūrą."
 
 [chat]
+voice_record = "Įrašyti mikrofonu"
+voice_file = "Atverti garso failą..."
+voice_finish = "Baigti įrašymą"
+voice_hint = "Paversk kalbą tekstu šiame įrenginyje ir pridėk prie redaguojamo juodraščio."
 result_row_limit = "Rezultato eilučių riba"
 export = "Eksportuoti"
 export_hint = "Eksportuoti šį pokalbį į Markdown arba JSON"

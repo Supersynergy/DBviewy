@@ -1607,6 +1607,10 @@ zoom_step = "Hoeveel één zoomstap de grootte verandert, met Ctrl+Plus en Ctrl+
 image_thumbnails = "Toont een kleine voorvertoning in cellen met een afbeeldings-URL. Alleen zichtbare afbeeldingen worden opgehaald; Uit stopt elk automatisch ophalen. Klik op een miniatuur of gebruik het celmenu om de afbeeldingsviewer te openen."
 
 [chat]
+voice_record = "Opnemen met microfoon"
+voice_file = "Audiobestand openen..."
+voice_finish = "Opname afronden"
+voice_hint = "Zet spraak lokaal om in een bewerkbaar concept."
 result_row_limit = "Rijlimiet voor resultaten"
 export = "Exporteren"
 export_hint = "Dit gesprek exporteren naar Markdown of JSON"

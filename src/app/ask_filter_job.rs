@@ -43,6 +43,26 @@ impl OctaApp {
             return;
         };
 
+        self.ask_filter_for(ctx, question, profile, true);
+    }
+
+    pub(crate) fn ask_filter_for(
+        &mut self,
+        ctx: &eframe::egui::Context,
+        question: String,
+        profile: octa::ui::settings::chat_profiles::ChatModelProfile,
+        from_search: bool,
+    ) {
+        let tab_idx = self.active_tab;
+        let Some(tab) = self.tabs.get_mut(tab_idx) else {
+            return;
+        };
+        if self.ask_filter_job.is_some() || question.trim().is_empty() || tab.table.col_count() == 0
+        {
+            return;
+        }
+        let target = Arc::new(());
+        tab.ask_filter_target = Some(target.clone());
         let api_key =
             crate::app::chat_panel::profile_api_key(&profile, &self.settings).unwrap_or_default();
         let cfg = providers::config_for_profile(
@@ -69,7 +89,9 @@ impl OctaApp {
 
         let slot: Arc<Mutex<Option<Result<AskResult, String>>>> = Arc::new(Mutex::new(None));
         self.ask_filter_job = Some(AskFilterJob {
-            tab_idx,
+            target,
+            columns: columns.clone(),
+            original_search: from_search.then(|| tab.search_text.clone()),
             result: Arc::clone(&slot),
         });
         let ctx = ctx.clone();
@@ -108,11 +130,30 @@ impl OctaApp {
         let Some(outcome) = job.result.lock().ok().and_then(|mut g| g.take()) else {
             return;
         };
-        let tab_idx = job.tab_idx;
-        self.ask_filter_job = None;
+        let tab_idx = self.tabs.iter().position(|tab| {
+            tab.ask_filter_target
+                .as_ref()
+                .is_some_and(|target| Arc::ptr_eq(target, &job.target))
+        });
+        let job = self.ask_filter_job.take().unwrap();
+        let Some(tab_idx) = tab_idx else { return };
+        self.tabs[tab_idx].ask_filter_target = None;
 
+        let tab = &self.tabs[tab_idx];
+        if tab.table.columns != job.columns
+            || job
+                .original_search
+                .as_ref()
+                .is_some_and(|s| s != &tab.search_text)
+        {
+            self.status_message = Some((
+                octa::i18n::t("search.ask_failed"),
+                std::time::Instant::now(),
+            ));
+            return;
+        }
         match outcome {
-            Ok(result) => self.apply_ask_result(tab_idx, result),
+            Ok(result) => self.apply_ask_result(tab_idx, result, job.original_search.is_some()),
             Err(e) => {
                 // Nothing is applied on failure: a half-understood sentence
                 // must not half-filter the table.
@@ -127,7 +168,7 @@ impl OctaApp {
     /// Apply a parsed answer to the tab that asked. Every condition lands as
     /// an ordinary, editable filter, so a wrong guess is visible and
     /// repairable rather than magic.
-    fn apply_ask_result(&mut self, tab_idx: usize, result: AskResult) {
+    fn apply_ask_result(&mut self, tab_idx: usize, result: AskResult, clear_search: bool) {
         let sort = result.sort;
         let Some(tab) = self.tabs.get_mut(tab_idx) else {
             return;
@@ -140,8 +181,10 @@ impl OctaApp {
         }
         // The sentence was a question, not a text search: clear the box so the
         // text matcher does not also hide rows.
-        tab.search_text.clear();
-        tab.search_nav.reset();
+        if clear_search {
+            tab.search_text.clear();
+            tab.search_nav.reset();
+        }
         tab.filter_dirty = true;
         if let Some((col, ascending)) = sort {
             self.sort_tab_rows(tab_idx, &[(col, ascending)]);

@@ -222,3 +222,51 @@ fn diagnostics_first_bad_cell_wins() {
     assert_eq!(bad.col, 1, "left operand should be reported first");
     assert_eq!(bad.content, "also bad");
 }
+
+#[test]
+fn aggregates_accept_rectangles_mixed_arguments_and_aliases() {
+    let table = formula_table();
+    for (formula, value) in [
+        ("SUM(A1:B2, A3, -5, 2*3)", 66.5),
+        ("SUMME(B2:A1;3)", 38.5),
+        ("MITTELWERT(A1:B2)", 8.875),
+        ("AVERAGE(A1:A3)", 20.0),
+        ("2 * min(A1:B2)", 5.0),
+        ("MAX(A1, MIN(A2:B2), 12)", 12.0),
+        ("COUNT(A1:C3)", 6.0),
+        ("ANZAHL(C1:C3; A1; 0)", 2.0),
+        ("SUM(A2:B2)", 23.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(value), "{formula}");
+    }
+}
+
+#[test]
+fn aggregate_ranges_read_edits_and_skip_blank_or_non_numeric_cells() {
+    let mut table = formula_table();
+    table.edits.insert((0, 2), CellValue::String("12.5".into()));
+    assert_eq!(evaluate_formula("SUM(C1:C3)", &table), Some(12.5));
+    assert_eq!(evaluate_formula("COUNT(C1:C3)", &table), Some(1.0));
+    assert_eq!(evaluate_formula("AVERAGE(C2:C3)", &table), None);
+    assert_eq!(evaluate_formula("SUM(A3:A999999999)", &table), Some(30.0));
+}
+
+#[test]
+fn malformed_ranges_and_unconsumed_operands_are_rejected() {
+    let table = formula_table();
+    for formula in [
+        "SUM(A1:)",
+        "SUM(:B1)",
+        "SUM(A1:A2:A3)",
+        "SUM(A1:B2+1)",
+        "SUM(A1,)",
+        "SUM(,A1)",
+        "A1:B2",
+        "A1 B2",
+        "SUM(A1) 42",
+        "SUM(ZZZZZZZZZZZZZZZZZZZZZZZZ1:A1)",
+        "SUM(A0:A1)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}

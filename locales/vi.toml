@@ -1608,6 +1608,10 @@ zoom_step = "Mỗi bước thu phóng thay đổi kích thước bao nhiêu, v�
 image_thumbnails = "Hiển thị bản xem trước nhỏ trong các ô chứa URL ảnh. Chỉ tải những ảnh đang hiển thị; Tắt dừng mọi tác vụ tải tự động. Nhấp vào hình thu nhỏ hoặc dùng menu ô để mở trình xem ảnh."
 
 [chat]
+voice_record = "Ghi âm từ micrô"
+voice_file = "Mở tệp âm thanh..."
+voice_finish = "Kết thúc ghi âm"
+voice_hint = "Chuyển lời nói thành bản nháp có thể chỉnh sửa ngay trên thiết bị."
 result_row_limit = "Giới hạn dòng kết quả"
 export = "Xuất"
 export_hint = "Xuất cuộc trò chuyện này ra Markdown hoặc JSON"

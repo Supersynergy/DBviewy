@@ -1,4 +1,29 @@
 fn main() {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos") {
+        let out =
+            std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join("open_documents.o");
+        let target = std::env::var("TARGET").unwrap();
+        let status = std::process::Command::new("xcrun")
+            .args([
+                "--sdk",
+                "macosx",
+                "clang",
+                "-target",
+                &target,
+                "-mmacosx-version-min=11.0",
+                "-fobjc-arc",
+                "-c",
+                "pkg/macos/open_documents.m",
+                "-o",
+            ])
+            .arg(&out)
+            .status()
+            .expect("run macOS SDK compiler");
+        assert!(status.success(), "compile Finder document delegate");
+        println!("cargo:rerun-if-changed=pkg/macos/open_documents.m");
+        println!("cargo:rustc-link-arg-bin=octa={}", out.display());
+    }
+
     // Windows gives the main thread a 1 MB stack, Linux and macOS 8 MB. In a
     // debug build clap's derive for `Cli` alone takes 1.6 MB of it
     // (`augment_args` keeps every argument's builder in its own slot), so the

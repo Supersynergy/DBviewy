@@ -21,6 +21,7 @@ mod controls;
 pub(crate) mod helpers;
 mod plan_ui;
 mod session;
+mod voice;
 mod windows;
 
 use helpers::{bubble, current_at_prefix, render_message};
@@ -93,6 +94,8 @@ impl OllamaUi {
 pub(crate) struct ChatPanelState {
     pub visible: bool,
     pub input: String,
+    voice: voice::VoiceInput,
+    readiness: Option<(String, ChatProviderKind, bool, Instant, bool)>,
     pub focus_input: bool,
     /// `@`-mention autocomplete popup is open (a partial `@token` is at the
     /// caret). Reset when the token clears or the user dismisses it.
@@ -159,6 +162,8 @@ impl ChatPanelState {
         ChatPanelState {
             visible: false,
             input: String::new(),
+            voice: voice::VoiceInput::default(),
+            readiness: None,
             focus_input: false,
             ac_visible: false,
             ac_selected: 0,
@@ -194,14 +199,17 @@ pub(crate) fn profile_api_key(
 impl OctaApp {
     /// Toggle the panel open/closed (toolbar button + shortcut).
     pub(crate) fn toggle_chat_panel(&mut self) {
-        self.chat.visible = !self.chat.visible;
         if self.chat.visible {
+            self.close_chat_panel();
+        } else {
+            self.chat.visible = true;
             self.chat.focus_input = true;
         }
     }
 
     pub(crate) fn close_chat_panel(&mut self) {
         self.chat.visible = false;
+        self.chat.voice = Default::default();
     }
 
     /// Render the docked panel. Called from the frame loop before the central
@@ -345,6 +353,34 @@ impl OctaApp {
                             chosen = Some(p.id.clone());
                         }
                     }
+                    let kind = ChatProviderKind::SycFree;
+                    if !self.settings.chat_profiles.iter().any(|p| p.kind == kind)
+                        && ui
+                            .selectable_label(false, kind.label())
+                            .on_hover_text(kind.default_model())
+                            .clicked()
+                    {
+                        let id = chat_profiles::ChatModelProfile::fresh_id(
+                            "syc-free",
+                            &self.settings.chat_profiles,
+                        );
+                        let profile = chat_profiles::ChatModelProfile {
+                            id: id.clone(),
+                            name: kind.label().into(),
+                            kind,
+                            model: kind.default_model().into(),
+                            description: String::new(),
+                            temperature: None,
+                            reasoning: String::new(),
+                            verbosity: String::new(),
+                            pro_mode: false,
+                            base_url: String::new(),
+                            use_own_key: false,
+                            allow_writes: false,
+                        };
+                        self.settings.chat_profiles.push(profile);
+                        chosen = Some(id);
+                    }
                 });
             if let Some(id) = chosen
                 && id != self.settings.chat_active_profile
@@ -422,7 +458,7 @@ impl OctaApp {
         }
 
         // Profile readiness hint.
-        if profile.kind.needs_api_key() && profile_api_key(&profile, &self.settings).is_none() {
+        if !self.provider_ready() {
             ui.colored_label(
                 egui::Color32::from_rgb(0xc0, 0x60, 0x10),
                 t("chat.no_key_hint"),
@@ -590,8 +626,9 @@ impl OctaApp {
         ui.add_space(4.0);
         let mut send_now = false;
         let mut explain_now = false;
-        let mut input_resp: Option<egui::Response> = None;
-        octa::ui::control_row::control_line(ui, |ui| {
+        let mut filter_now = false;
+        let input_resp;
+        octa::ui::control_row::control_row(ui, |ui| {
             if running {
                 if ui.button(t("chat.cancel")).clicked() {
                     self.cancel_chat();
@@ -603,6 +640,20 @@ impl OctaApp {
                 send_now = true;
             }
 
+            let profile = chat_profiles::active_profile(&self.settings);
+            let filter_hint = t("search.ask_hint").replace("{profile}", &profile.name);
+            filter_now = ui
+                .add_enabled(
+                    ready
+                        && !running
+                        && !self.chat.input.trim().is_empty()
+                        && self.ask_filter_job.is_none()
+                        && self.tabs[self.active_tab].table.col_count() > 0,
+                    egui::Button::new(t("status_bar.filter").trim_end_matches(':')),
+                )
+                .on_hover_text(&filter_hint)
+                .on_disabled_hover_text(filter_hint)
+                .clicked();
             // "Explain this file": sends a fixed prompt about the active tab.
             // Beside Send rather than in the header because it composes and
             // sends a message, which is what this row is for.
@@ -616,6 +667,10 @@ impl OctaApp {
                 explain_now = true;
             }
 
+            self.chat
+                .voice
+                .show(ui, &mut self.chat.input, &mut self.chat.focus_input);
+
             // Prompts library: opens a manager window (save / insert / delete).
             if ui
                 .button(t("chat.prompts"))
@@ -624,38 +679,37 @@ impl OctaApp {
             {
                 self.chat.prompts_window_open = !self.chat.prompts_window_open;
             }
-
-            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                let resp = ui.add_enabled(
-                    !running,
-                    egui::TextEdit::multiline(&mut self.chat.input)
-                        .id(input_id)
-                        .desired_rows(2)
-                        .desired_width(f32::INFINITY)
-                        .hint_text(t("chat.input_hint")),
-                );
-                if self.chat.focus_input {
-                    resp.request_focus();
-                    self.chat.focus_input = false;
-                }
-                // Enter sends; Shift+Enter inserts a newline. While the mention
-                // popup is open Enter was consumed above to accept a suggestion,
-                // so it never sends here.
-                if !popup_active
-                    && resp.has_focus()
-                    && ui.input(|i| i.key_pressed(egui::Key::Enter) && !i.modifiers.shift)
-                    && ready
-                    && !running
-                {
-                    send_now = true;
-                }
-                input_resp = Some(resp);
-            });
         });
+        {
+            let resp = ui.add_enabled(
+                !running,
+                egui::TextEdit::multiline(&mut self.chat.input)
+                    .id(input_id)
+                    .desired_rows(2)
+                    .desired_width(f32::INFINITY)
+                    .hint_text(t("chat.input_hint")),
+            );
+            if self.chat.focus_input {
+                resp.request_focus();
+                self.chat.focus_input = false;
+            }
+            // Enter sends; Shift+Enter inserts a newline. While the mention
+            // popup is open Enter was consumed above to accept a suggestion,
+            // so it never sends here.
+            if !popup_active
+                && resp.has_focus()
+                && ui.input(|i| i.key_pressed(egui::Key::Enter) && !i.modifiers.shift)
+                && ready
+                && !running
+            {
+                send_now = true;
+            }
+            input_resp = resp;
+        }
         ui.add_space(4.0);
 
         // --- @-mention autocomplete popup (visual + click) --------------
-        let resp = input_resp.expect("chat input always renders");
+        let resp = input_resp;
         if popup_active {
             let popup_id = ui.make_persistent_id("octa_chat_mention_popup");
             egui::Popup::from_response(&resp)
@@ -710,6 +764,14 @@ impl OctaApp {
             self.chat.ac_visible = false;
         }
 
+        if filter_now {
+            self.ask_filter_for(
+                ui.ctx(),
+                self.chat.input.clone(),
+                chat_profiles::active_profile(&self.settings),
+                false,
+            );
+        }
         if send_now && !self.chat.input.trim().is_empty() {
             let ctx = ui.ctx().clone();
             self.send_chat_message(&ctx);
@@ -717,6 +779,53 @@ impl OctaApp {
         if explain_now {
             let ctx = ui.ctx().clone();
             self.explain_active_file(&ctx);
+        }
+    }
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::*;
+
+    #[test]
+    fn compact_chat_keeps_the_filter_voice_and_draft_visible() {
+        let mut app = OctaApp::new(
+            Vec::new(),
+            AppSettings::default(),
+            crate::ui::settings::IconVariant::Rose,
+        );
+        app.chat.input = "Netto > 1000".to_owned();
+        let ctx = egui::Context::default();
+        let mut frame = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(300.0, 360.0),
+                )),
+                ..Default::default()
+            },
+            |ui| app.render_chat_input(ui),
+        );
+        frame.textures_delta.clear();
+        let labels = [
+            t("chat.send"),
+            t("status_bar.filter").trim_end_matches(':').to_owned(),
+            "Parakeet".into(),
+            app.chat.input.clone(),
+        ];
+        for label in labels {
+            assert!(
+                frame.shapes.iter().any(|shape| match &shape.shape {
+                    egui::Shape::Text(text) if text.galley.text() == label => {
+                        let bounds = text.visual_bounding_rect();
+                        bounds.left() >= shape.clip_rect.left() - 1.
+                            && bounds.right() <= shape.clip_rect.right() + 1.
+                            && bounds.right() <= 301.
+                    }
+                    _ => false,
+                }),
+                "Missing or clipped label: {label}"
+            );
         }
     }
 }

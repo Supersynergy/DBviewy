@@ -1604,6 +1604,10 @@ zoom_step = "How much one zoom step changes the size, with Ctrl+Plus and Ctrl+Mi
 image_thumbnails = "Show a small preview in cells that hold an image URL. Only pictures on screen are fetched; Off stops all automatic fetching. Click a thumbnail or use the cell menu to open the image viewer."
 
 [chat]
+voice_record = "Record microphone"
+voice_file = "Open audio file..."
+voice_finish = "Finish recording"
+voice_hint = "Transcribe locally into the editable draft."
 result_row_limit = "Result row limit"
 export = "Export"
 export_hint = "Export this conversation to Markdown or JSON"

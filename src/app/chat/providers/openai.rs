@@ -33,50 +33,22 @@ impl ChatProvider for OpenAi {
     }
 }
 
-/// Shared streaming driver for OpenAI and OpenAI-compatible endpoints.
-/// `token_field` is the request key carrying the response-token cap:
-/// `max_completion_tokens` for OpenAI proper, `max_tokens` for the broadly
-/// compatible local servers (Ollama, LM Studio, OpenRouter, ...).
-/// One chat completion request: where it goes and what it carries.
-///
-/// `endpoint`, `system` and `token_field` are three `&str` spread through what
-/// used to be a nine-argument positional list, which is the shape where a call
-/// site can put the right value in the wrong slot and still compile.
-pub(crate) struct OpenAiRequest<'a> {
-    pub endpoint: &'a str,
-    pub headers: &'a [(&'a str, String)],
-    pub cfg: &'a ProviderConfig,
-    pub system: &'a str,
-    pub messages: &'a [Message],
-    pub tools: &'a [ToolDef],
-    /// `max_completion_tokens` for OpenAI proper, `max_tokens` for the broadly
-    /// compatible local servers (Ollama, LM Studio, OpenRouter, ...).
-    pub token_field: &'a str,
-}
-
+/// Stream a Chat Completions request and assemble its tool call deltas.
 pub(crate) fn run_openai(
-    req: OpenAiRequest<'_>,
+    endpoint: &str,
+    headers: &[(&str, String)],
+    body: &Value,
     cancel: &AtomicBool,
     sink: &mut dyn FnMut(ChatEvent),
 ) -> Result<(), String> {
-    let OpenAiRequest {
-        endpoint,
-        headers,
-        cfg,
-        system,
-        messages,
-        tools,
-        token_field,
-    } = req;
-    let body = build_body(cfg, system, messages, tools, token_field);
-
     // index -> (id, name, accumulated-args). Ordered so the final emit is
     // deterministic.
     let mut calls: BTreeMap<i64, ToolAccum> = BTreeMap::new();
     let mut stop_reason = StopReason::EndTurn;
     let mut done = false;
+    let mut received_text = false;
 
-    stream_sse(endpoint, headers, &body, cancel, |data| {
+    stream_sse(endpoint, headers, body, cancel, |data| {
         if data == "[DONE]" {
             flush(&mut calls, sink);
             if !done {
@@ -86,17 +58,14 @@ pub(crate) fn run_openai(
             }
             return Ok(true);
         }
-        let v: Value = match serde_json::from_str(data) {
-            Ok(v) => v,
-            Err(_) => return Ok(false),
-        };
+        let v: Value = serde_json::from_str(data)
+            .map_err(|e| format!("invalid JSON in the completion stream: {e}"))?;
         if let Some(err) = v.get("error") {
             let msg = err["message"]
                 .as_str()
                 .unwrap_or("unknown error")
                 .to_string();
-            sink(ChatEvent::Error(msg));
-            return Ok(true);
+            return Err(msg);
         }
         if let Some(usage) = v.get("usage").filter(|u| !u.is_null()) {
             sink(ChatEvent::Usage {
@@ -111,6 +80,7 @@ pub(crate) fn run_openai(
         if let Some(text) = delta["content"].as_str()
             && !text.is_empty()
         {
+            received_text |= !text.trim().is_empty();
             sink(ChatEvent::TextDelta(text.to_string()));
         }
         if let Some(tcs) = delta["tool_calls"].as_array() {
@@ -133,6 +103,10 @@ pub(crate) fn run_openai(
             }
         }
         if let Some(fr) = choice["finish_reason"].as_str() {
+            if !received_text && calls.is_empty() {
+                let model = v["model"].as_str().unwrap_or("provider");
+                return Err(format!("{model} returned no answer (finish_reason: {fr})"));
+            }
             stop_reason = match fr {
                 "stop" => StopReason::EndTurn,
                 "length" => StopReason::MaxTokens,
@@ -144,7 +118,7 @@ pub(crate) fn run_openai(
                 stop_reason: stop_reason.clone(),
             });
             done = true;
-            return Ok(true);
+            // The final usage chunk can arrive after the finish reason.
         }
         Ok(false)
     })

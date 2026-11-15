@@ -1607,6 +1607,10 @@ zoom_step = "Hur mycket ett zoomsteg ändrar storleken, med Ctrl+Plus och Ctrl+M
 image_thumbnails = "Visar en liten förhandsvisning i celler med bild-URL. Endast bilder på skärmen hämtas; Av stoppar all automatisk hämtning. Klicka på en miniatyr eller använd cellmenyn för att öppna bildvisaren."
 
 [chat]
+voice_record = "Spela in med mikrofon"
+voice_file = "Öppna ljudfil..."
+voice_finish = "Avsluta inspelningen"
+voice_hint = "Omvandla tal lokalt till ett redigerbart utkast."
 result_row_limit = "Radgräns för resultat"
 export = "Exportera"
 export_hint = "Exportera den här konversationen till Markdown eller JSON"

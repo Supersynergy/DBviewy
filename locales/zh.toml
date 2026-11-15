@@ -1595,6 +1595,10 @@ zoom_step = "每次缩放改变的大小，适用于 Ctrl+Plus 和 Ctrl+Minus、
 image_thumbnails = "在包含图片 URL 的单元格中显示小预览。仅获取屏幕上可见的图片；关闭则停止所有自动获取。点击缩略图或使用单元格菜单打开图片查看器。"
 
 [chat]
+voice_record = "用麦克风录音"
+voice_file = "打开音频文件..."
+voice_finish = "结束录音"
+voice_hint = "在本机将语音转录到可编辑的草稿中。"
 result_row_limit = "结果行数上限"
 export = "导出"
 export_hint = "将此对话导出为 Markdown 或 JSON"

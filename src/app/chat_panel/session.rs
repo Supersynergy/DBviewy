@@ -27,6 +27,7 @@ impl OctaApp {
                 s.title_pinned = true;
                 s.messages = saved.messages;
                 self.chat.last_saved_len = s.messages.len();
+                self.chat.voice = Default::default();
                 self.chat.session = Arc::new(Mutex::new(s));
             }
             Err(e) => eprintln!("octa: failed to load chat session: {e}"),
@@ -37,6 +38,7 @@ impl OctaApp {
     pub(crate) fn new_chat_session(&mut self) {
         self.persist_current_session();
         let profile = chat_profiles::active_profile(&self.settings);
+        self.chat.voice = Default::default();
         self.chat.session = Arc::new(Mutex::new(ChatSessionState::new(
             profile.kind.id(),
             profile.model,

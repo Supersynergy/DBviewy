@@ -1604,6 +1604,10 @@ zoom_step = "Koliko en korak povečave spremeni velikost, s Ctrl+Plus in Ctrl+Mi
 image_thumbnails = "Prikaže majhen predogled v celicah z URL-jem slike. Pridobijo se samo slike na zaslonu; Izklopljeno ustavi vse samodejno pridobivanje. Kliknite sličico ali uporabite meni celice za odprtje pregledovalnika slik."
 
 [chat]
+voice_record = "Snemaj z mikrofonom"
+voice_file = "Odpri zvočno datoteko..."
+voice_finish = "Končaj snemanje"
+voice_hint = "Lokalno pretvori govor v osnutek za urejanje."
 result_row_limit = "Omejitev vrstic rezultata"
 export = "Izvozi"
 export_hint = "Izvozi ta pogovor v Markdown ali JSON"

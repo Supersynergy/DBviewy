@@ -117,3 +117,53 @@ fn blank_reasoning_omits_the_effort_field() {
         assert!(body.get("reasoning_effort").is_none());
     }
 }
+
+#[test]
+fn completion_stream_reports_provider_errors_and_empty_token_limited_turns() {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+
+    for (chunk, expected) in [
+        (
+            json!({"error":{"message":"no free capacity"}}),
+            "no free capacity",
+        ),
+        (
+            json!({"model":"test/free","choices":[{"delta":{},"finish_reason":"length"}]}),
+            "test/free returned no answer (finish_reason: length)",
+        ),
+    ] {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        let server = std::thread::spawn(move || {
+            let (mut conn, _) = listener.accept().unwrap();
+            let mut input = BufReader::new(&conn);
+            let mut content_length = None;
+            for line in input.by_ref().lines() {
+                let line = line.unwrap();
+                if line.is_empty() {
+                    break;
+                }
+                if let Some((name, value)) = line.split_once(':')
+                    && name.eq_ignore_ascii_case("content-length")
+                {
+                    content_length = value.trim().parse::<usize>().ok();
+                }
+            }
+            let mut bytes = vec![0; content_length.unwrap()];
+            input.read_exact(&mut bytes).unwrap();
+            let response = format!("data: {chunk}\n\ndata: [DONE]\n\n");
+            write!(conn, "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: {}\r\n\r\n{response}", response.len()).unwrap();
+        });
+        let error = run_openai(
+            &endpoint,
+            &[],
+            &json!({}),
+            &AtomicBool::new(false),
+            &mut |_| {},
+        )
+        .unwrap_err();
+        server.join().unwrap();
+        assert_eq!(error, expected);
+    }
+}

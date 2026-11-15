@@ -376,27 +376,9 @@ jobs:
           # codesign below, which seals the bundle.
           cp LICENSE NOTICE THIRD_PARTY_LICENSES.md "$APP/Contents/Resources/"
           cp -r licenses "$APP/Contents/Resources/licenses"
-          cat > "$APP/Contents/Info.plist" <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleDevelopmentRegion</key><string>en</string>
-            <key>CFBundleDisplayName</key><string>Octa</string>
-            <key>CFBundleExecutable</key><string>octa</string>
-            <key>CFBundleIconFile</key><string>octa</string>
-            <key>CFBundleIdentifier</key><string>dev.octa.Octa</string>
-            <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-            <key>CFBundleName</key><string>Octa</string>
-            <key>CFBundlePackageType</key><string>APPL</string>
-            <key>CFBundleShortVersionString</key><string>${VERSION}</string>
-            <key>CFBundleVersion</key><string>${VERSION}</string>
-            <key>LSMinimumSystemVersion</key><string>11.0</string>
-            <key>NSHighResolutionCapable</key><true/>
-            <key>NSPrincipalClass</key><string>NSApplication</string>
-          </dict>
-          </plist>
-          EOF
+          cp pkg/macos/Info.plist "$APP/Contents/Info.plist"
+          plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
+          plutil -replace CFBundleVersion -string "$VERSION" "$APP/Contents/Info.plist"
 
       - name: Ad-hoc codesign the bundle
         run: |

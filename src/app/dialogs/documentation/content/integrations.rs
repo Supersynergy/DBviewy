@@ -319,7 +319,14 @@ temperature, and a thinking value. Your existing setup migrates into one
 profile automatically, so nothing changes until you add more.
 
 Supported backends: Anthropic, OpenAI, Google Gemini, any
-OpenAI-compatible endpoint, and local **Ollama** (no API key needed).
+OpenAI-compatible endpoint, **SYC Free (OpenRouter)** and local **Ollama**
+(no API key needed).
+
+Choose **SYC Free (OpenRouter)** with model `openrouter/free` to use the
+SynergyCoder OpenRouter login in `~/.gg/auth.json`. Octa also accepts
+`OPENROUTER_API_KEY`. The Assistant and search box's **Ask** action send
+their question and context to OpenRouter. Every request caps token, request
+and image prices at zero. Free endpoints can be busy.
 
 ## Temperature (and turning it off)
 
@@ -558,6 +565,14 @@ a file. The save dialog offers two formats, chosen by the extension you pick:
   tool calls, and each tool's result (truncated to keep the file small).
 - **JSON (.json)**: the exact saved session, identical to the on-disk
   format, for archiving or further processing.
+
+## Voice input
+
+On Apple Silicon, open **Parakeet** beside the prompt. Choose **Record microphone**, speak, then click **Finish recording**. The default microphone records up to one minute. You can also choose **Open audio file...**. Octa appends the recognised words to your draft. Edit the text and click **Send** when ready.
+
+The default engine runs the Parakeet Ultra Q8_0 GGUF checkpoint offline with transcribe.cpp and ffmpeg. In Octa's configuration directory, place or link the checkpoint as `parakeet-ultra-Q8_0.gguf` and the native runner as `parakeet-ultra`. On macOS this directory is `~/Library/Application Support/Octa`. The runner accepts the model path and a mono 16 kHz float32 PCM file, and writes the transcript to standard output. The source distribution includes the adapter in `src/app/chat_panel/parakeet_ultra.c` for transcribe.cpp 0.4.2. macOS asks for microphone access on first use.
+
+To select the optional MLX backend, start Octa with `OCTA_VOICE_BACKEND=mlx`. It uses the installed `parakeet-mlx` command and a locally cached MLX model. Set `PARAKEET_MODEL` to the model directory or link it as `parakeet-model` in Octa's configuration directory.
 
 ## Saved prompts
 

@@ -235,6 +235,8 @@ pub enum ChatProviderKind {
     OpenAi,
     /// Any OpenAI-compatible endpoint reached via a configurable base URL.
     OpenAiCompatible,
+    /// Free OpenRouter models using the SynergyCoder login.
+    SycFree,
     /// Google Gemini generateContent API.
     Gemini,
     /// Local Ollama server. Speaks the OpenAI dialect at `/v1`; Octa can
@@ -248,6 +250,7 @@ impl ChatProviderKind {
         Self::Anthropic,
         Self::OpenAi,
         Self::OpenAiCompatible,
+        Self::SycFree,
         Self::Gemini,
     ];
 
@@ -258,6 +261,7 @@ impl ChatProviderKind {
             Self::Anthropic => "anthropic",
             Self::OpenAi => "openai",
             Self::OpenAiCompatible => "openai_compat",
+            Self::SycFree => "syc_free",
             Self::Gemini => "gemini",
             Self::Ollama => "ollama",
         }
@@ -269,6 +273,7 @@ impl ChatProviderKind {
             Self::Anthropic => "Anthropic (Claude)",
             Self::OpenAi => "OpenAI",
             Self::OpenAiCompatible => "OpenAI-compatible",
+            Self::SycFree => "SYC Free (OpenRouter)",
             Self::Gemini => "Google Gemini",
             Self::Ollama => "Ollama (local)",
         }
@@ -280,6 +285,7 @@ impl ChatProviderKind {
             Self::Anthropic => "ANTHROPIC_API_KEY",
             Self::OpenAi => "OPENAI_API_KEY",
             Self::OpenAiCompatible => "OCTA_OPENAI_COMPAT_API_KEY",
+            Self::SycFree => "OPENROUTER_API_KEY",
             Self::Gemini => "GEMINI_API_KEY",
             Self::Ollama => "OLLAMA_API_KEY",
         }
@@ -312,6 +318,7 @@ impl ChatProviderKind {
             ),
             Self::OpenAi => Some("https://openai.com/form/report-content/"),
             Self::Gemini => Some("https://support.google.com/gemini/"),
+            Self::SycFree => Some("https://openrouter.ai/support"),
             Self::OpenAiCompatible | Self::Ollama => None,
         }
     }
@@ -325,6 +332,7 @@ impl ChatProviderKind {
             Self::OpenAi => "gpt-6.1-terra",
             Self::OpenAiCompatible => "deepseek/deepseek-v4-flash",
             Self::Gemini => "gemini-3.8-flash",
+            Self::SycFree => "openrouter/free",
             Self::Ollama => "llama3.2",
         }
     }
@@ -405,6 +413,7 @@ impl ChatProviderKind {
             // v4 Flash (Jul 31, GA after an April preview), K3 (Jul 16),
             // GLM-5.2 (Jun 13), K2.7 Code (Jun 12), M3 (Jun 1), Nemotron 3
             // (Apr 28), v4 Pro (Apr 24), Gemma 4 (Apr 2), gpt-oss (Aug 2025).
+            Self::SycFree => &["openrouter/free"],
             Self::OpenAiCompatible => &[
                 "moonshotai/kimi-k3.1-pro",
                 "minimax/minimax-m3.1-flash",
@@ -449,6 +458,7 @@ impl ChatProviderKind {
                 "gemini-2.5-flash",
             ],
             // Hosted only: Alibaba publishes no weights for the Plus tier.
+            Self::SycFree => &[],
             Self::OpenAiCompatible => &["qwen/qwen3.7-plus"],
             Self::Ollama => &[],
         }

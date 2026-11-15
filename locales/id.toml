@@ -1608,6 +1608,10 @@ zoom_step = "Seberapa besar satu langkah zoom mengubah ukuran, dengan Ctrl+Plus 
 image_thumbnails = "Menampilkan pratinjau kecil di sel yang berisi URL gambar. Hanya gambar yang terlihat yang diambil; Nonaktif menghentikan semua pengambilan otomatis. Klik miniatur atau gunakan menu sel untuk membuka penampil gambar."
 
 [chat]
+voice_record = "Rekam dari mikrofon"
+voice_file = "Buka berkas audio..."
+voice_finish = "Selesaikan rekaman"
+voice_hint = "Transkripsikan suara secara lokal ke draf yang bisa disunting."
 result_row_limit = "Batas baris hasil"
 export = "Ekspor"
 export_hint = "Ekspor percakapan ini ke Markdown atau JSON"

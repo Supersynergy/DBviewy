@@ -531,6 +531,7 @@ pub(crate) struct TabState {
     pub(crate) search_ask_mode: bool,
     /// Which chat profile answers an Ask. Session-only; seeded from the active
     /// profile the first time the toolbar renders.
+    pub(crate) ask_filter_target: Option<std::sync::Arc<()>>,
     pub(crate) search_ask_profile: String,
     /// Chat profile the SQL panel's Ask box sends to. Same shape and same
     /// reason as [`Self::search_ask_profile`]: per tab, session-only, seeded

@@ -6,7 +6,9 @@ the documentation after.
 
 ## Opening a file
 
-Three ways to get a file open:
+On macOS, select one or more documents in Finder and choose **Open With > Octa**.
+
+Inside Octa you can also open files in these ways:
 
 1. **From the menu**, via `File → Open` (default shortcut **Ctrl+O**),
    which shows a file picker. Multi-select works, and every file you

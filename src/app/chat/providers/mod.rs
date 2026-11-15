@@ -10,6 +10,7 @@ pub mod ollama;
 pub mod openai;
 pub mod openai_compat;
 pub mod openai_responses;
+pub mod syc_free;
 
 use std::io::{BufRead, BufReader};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -151,6 +152,7 @@ pub fn make_provider(kind: ChatProviderKind) -> Box<dyn ChatProvider> {
         ChatProviderKind::Anthropic => Box::new(anthropic::Anthropic),
         ChatProviderKind::OpenAi => Box::new(openai::OpenAi),
         ChatProviderKind::OpenAiCompatible => Box::new(openai_compat::OpenAiCompat),
+        ChatProviderKind::SycFree => Box::new(syc_free::SycFree),
         ChatProviderKind::Gemini => Box::new(gemini::Gemini),
         ChatProviderKind::Ollama => Box::new(ollama::Ollama),
     }

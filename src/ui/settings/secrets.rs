@@ -170,14 +170,64 @@ pub fn delete_key_for(key_id: &str, settings: &mut AppSettings) {
 // Per-provider keys (the shared default).
 // ---------------------------------------------------------------------------
 
+/// SynergyCoder manages this file. Read only the OpenRouter entry and respect
+/// its expiry and quota marks; Octa never refreshes or writes it.
+fn syc_auth_path() -> Option<PathBuf> {
+    let home = std::env::home_dir()?;
+    Some(home.join(".gg").join("auth.json"))
+}
+
+fn syc_openrouter_key(path: &std::path::Path, now_ms: u64) -> Option<String> {
+    #[derive(serde::Deserialize)]
+    struct Auth {
+        openrouter: Credential,
+    }
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Credential {
+        access_token: String,
+        expires_at: Option<u64>,
+        usage_exhausted_until: Option<u64>,
+    }
+    let auth: Auth = serde_json::from_reader(std::fs::File::open(path).ok()?).ok()?;
+    let key = auth.openrouter;
+    if key.expires_at.is_some_and(|expiry| expiry <= now_ms)
+        || key
+            .usage_exhausted_until
+            .is_some_and(|until| until > now_ms)
+        || key.access_token.trim().is_empty()
+    {
+        return None;
+    }
+    Some(key.access_token)
+}
+
+fn syc_fallback(kind: ChatProviderKind) -> Option<(PathBuf, String)> {
+    if kind != ChatProviderKind::SycFree {
+        return None;
+    }
+    let path = syc_auth_path()?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?;
+    let key = syc_openrouter_key(&path, now.as_millis() as u64)?;
+    Some((path, key))
+}
+
 /// Resolve the usable key for a provider, honouring the precedence chain.
 pub fn get_api_key(kind: ChatProviderKind, settings: &AppSettings) -> Option<String> {
     get_key_for(kind.id(), Some(kind.env_var()), settings)
+        .or_else(|| syc_fallback(kind).map(|(_, key)| key))
 }
 
 /// Report where the provider's key currently resolves from.
 pub fn storage_location(kind: ChatProviderKind, settings: &AppSettings) -> KeyStorage {
-    key_storage_for(kind.id(), Some(kind.env_var()), settings)
+    match key_storage_for(kind.id(), Some(kind.env_var()), settings) {
+        KeyStorage::None => {
+            syc_fallback(kind).map_or(KeyStorage::None, |(path, _)| KeyStorage::Plaintext(path))
+        }
+        location => location,
+    }
 }
 
 /// Store a provider's key. See [`set_key_for`] for the return value.
