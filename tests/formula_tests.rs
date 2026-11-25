@@ -697,3 +697,112 @@ fn conditional_formula_from_csv_grid_saves_a_numeric_xlsx_cell() {
     );
     assert!(saved.formulas.is_empty());
 }
+
+#[test]
+fn if_selects_only_one_numeric_branch() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("IF(TRUE,7,1/0)", 7.0),
+        ("IF(FALSE,C1,3)", 3.0),
+        ("IF((A1>B1), ROUND(A1/3, 2), C2)", 3.33),
+        ("WENN(A2>=20; B2*2; 0)", 6.0),
+        ("IF(A1<=B1,1,2)", 2.0),
+        ("IF(A1<>B1,8)", 8.0),
+        ("IF(FALSE,8)", 0.0),
+        ("IF(FALSE,8,)", 0.0),
+        ("IF(-2,9)", 9.0),
+        (r#"IF(C1="HELLO",10,20)"#, 10.0),
+        (r#"IF(C3="",5,1/0)"#, 5.0),
+        (r#"IF(TRUE,1,AVERAGEIF(C1:C3,"unmatched",B1:B3))"#, 1.0),
+        ("IF(1=1,IF(TRUE,2,C2),MEDIAN(C1:C3))", 2.0),
+    ] {
+        let outcome = evaluate_formula_with_diagnostics(formula, &table);
+        assert_eq!(outcome.value, Some(expected), "{formula}");
+        assert!(outcome.bad_cell.is_none(), "{formula}");
+    }
+}
+
+#[test]
+fn iferror_falls_back_for_runtime_errors_without_leaking_diagnostics() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("IFERROR(A1/0,42)", 42.0),
+        ("WENNFEHLER(ROUND(A1,1.5); -2)", -2.0),
+        ("IFERROR(A2/2,C2)", 10.0),
+        ("IFERROR(C1,6)", 6.0),
+        ("IFERROR(IF(A1>0,C1,3),5)", 5.0),
+        (r#"IFERROR(AVERAGEIF(C1:C3,"no hit",B1:B3),11)"#, 11.0),
+        ("IFERROR(TRUE,FALSE)", 1.0),
+    ] {
+        let outcome = evaluate_formula_with_diagnostics(formula, &table);
+        assert_eq!(outcome.value, Some(expected), "{formula}");
+        assert!(outcome.bad_cell.is_none(), "{formula}");
+    }
+    let failure = evaluate_formula_with_diagnostics("IFERROR(C1,C2)", &table);
+    assert_eq!(failure.value, None);
+    let bad = failure.bad_cell.unwrap();
+    assert_eq!((bad.row, bad.col, bad.content.as_str()), (1, 2, "world"));
+    let failure = evaluate_formula_with_diagnostics("IF(TRUE,C1,C2)", &table);
+    assert_eq!(failure.value, None);
+    let bad = failure.bad_cell.unwrap();
+    assert_eq!((bad.row, bad.col, bad.content.as_str()), (0, 2, "hello"));
+}
+
+#[test]
+fn malformed_if_branches_never_become_valid_numbers() {
+    let table = formula_table();
+    for formula in [
+        "IF(TRUE,1,2+)",
+        "IF(FALSE,2+,1)",
+        "IF(TRUE,1,SUM())",
+        "IF(FALSE,A1:A2,1)",
+        "IF(TRUE,1,COUNTIF(A1:A3,))",
+        "IF(TRUE,1,IF(FALSE,8,3+))",
+        "IFERROR(1/0+,5)",
+        "IFERROR(1,2+)",
+        "IFERROR(1/0,2,3)",
+        "IF(A1>B1>C1,4,5)",
+        "IF(,2,3)",
+        "IF(TRUE,,3)",
+        "IF(TRUE,2,3,4)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}
+
+#[test]
+fn syntax_only_context_handles_nested_if_without_evaluating_ranges() {
+    let mut table = formula_table();
+    table.rows[0][0] = CellValue::Float(f64::NAN);
+    let exp = "IF(FALSE,MEDIAN(A1:ZZ999999999),1)";
+    let expected = format!("{}{}{}", "IF(TRUE,".repeat(62), exp, ",C2)".repeat(62));
+    assert_eq!(evaluate_formula(&expected, &table), Some(1.0));
+    assert_eq!(evaluate_formula("IFERROR(A1,5)", &table), Some(5.0));
+    assert_eq!(evaluate_formula("IFERROR(A1,1/0)", &table), None);
+}
+
+#[test]
+fn iferror_fallback_is_numeric_after_saving_and_reopening_xlsx() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+
+    let dir = tempfile::tempdir().unwrap();
+    let csv = dir.path().join("discount.csv");
+    std::fs::write(&csv, "region,amount,qty,result\nWest,30,0,0\nEast,12,3,0\n").unwrap();
+    let mut table = CsvReader.read_file(&csv).unwrap();
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        3,
+        r#"=IFERROR(IF(A1="west",B1/C1,0),-1)"#.into(),
+        BinaryDisplayMode::default(),
+    ));
+    let output = dir.path().join("discount.xlsx");
+    ExcelReader.write_file(&output, &table).unwrap();
+    let reopened = ExcelReader.read_file(&output).unwrap();
+    assert!(
+        matches!(reopened.get(0, 3), Some(CellValue::Int(-1)))
+            || matches!(reopened.get(0, 3), Some(CellValue::Float(v)) if *v == -1.0)
+    );
+    assert!(reopened.formulas.is_empty());
+}

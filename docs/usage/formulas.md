@@ -90,6 +90,21 @@ The German names `ZÄHLENWENN`, `SUMMEWENN` and `MITTELWERTWENN` also work.
   of the decimal point. For example, `ROUND(125, -1)` returns `130`.
   Halfway values round away from zero, so `ROUND(-1.475, 2)` returns `-1.48`.
 
+## Choose a result or handle a calculation error
+
+- `=IF(A1="West",B1*0.9,B1)` applies a discount to West only.
+  Compare numbers or text with `=`, `<>`, `<`, `<=`, `>` or `>=`.
+  Text comparison ignores case. A numeric test is true when it is nonzero,
+  and a missing false result is zero. The German name is `WENN`.
+- `=IFERROR(B1/C1,0)` uses zero when the division cannot be calculated.
+  The German name is `WENNFEHLER`. Choose the fallback deliberately: it
+  replaces the error rather than correcting the input.
+
+An `IF` evaluates only the selected result. `IFERROR` evaluates the
+fallback only if the first calculation fails. Every expression must
+still be syntactically valid. Results are numeric; use **Conditional
+column** to assign text labels based on rules.
+
 ## What gets evaluated
 
 In arithmetic expressions, the engine converts each referenced cell to a number:
@@ -138,10 +153,10 @@ Click **OK** and the new column appears with every row's result.
 
 ## Limitations
 
-- For conditional expressions such as `IF` and lookups, use [SQL](sql.md).
+- For relational lookups, use [Join Tables](join-tables.md) or [SQL](sql.md).
 - **No cross-sheet references.** Single table only.
-- Formulas return numbers. Text and `&` are supported in criteria, not
-  as general string expressions.
+- Formulas return numbers. Text is allowed in comparisons and criteria,
+  and `&` joins parts of a criterion. These are not general string operations.
 - DBviewy calculates values when you apply the formula. Editing an input
   afterwards does not recalculate already filled cells.
 

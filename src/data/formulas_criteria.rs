@@ -1,12 +1,12 @@
 //! Single-condition aggregates for the numeric formula evaluator.
 
 use std::borrow::Cow;
-use std::cmp::Ordering;
 
 use regex::{Regex, RegexBuilder};
 
 use super::{
-    CellValue, DataTable, FormulaBadCell, FormulaToken as Token, aggregate_cell, eval_expression,
+    CellValue, Comparison as Compare, Evaluation, FormulaToken as Token, aggregate_cell,
+    eval_expression,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -50,8 +50,7 @@ pub(super) fn evaluate(
     aggregate: ConditionalAggregate,
     tokens: &[Token],
     pos: usize,
-    table: &DataTable,
-    bad: &mut Option<FormulaBadCell>,
+    context: &mut Evaluation<'_>,
 ) -> Option<(f64, usize)> {
     if !matches!(tokens.get(pos), Some(Token::LParen)) {
         return None;
@@ -60,7 +59,7 @@ pub(super) fn evaluate(
     if !matches!(tokens.get(pos), Some(Token::Separator)) {
         return None;
     }
-    let (input, pos) = criterion_argument(tokens, pos + 1, table, bad)?;
+    let (input, pos) = criterion_argument(tokens, pos + 1, context)?;
     let (output, pos) = if matches!(tokens.get(pos), Some(Token::Separator))
         && !matches!(aggregate, ConditionalAggregate::Count)
     {
@@ -71,6 +70,9 @@ pub(super) fn evaluate(
     if !matches!(tokens.get(pos), Some(Token::RParen)) {
         return None;
     }
+    let Some(table) = context.table else {
+        return Some((0.0, pos + 1));
+    };
     let condition = Condition::new(input)?;
     let mut total = 0.0;
     let mut count = 0usize;
@@ -124,39 +126,52 @@ impl<'a> CriterionInput<'a> {
     }
 }
 
-fn criterion_argument<'a>(
+fn criterion_argument<'a, 't: 'a>(
     tokens: &'a [Token],
     pos: usize,
-    table: &'a DataTable,
-    bad: &mut Option<FormulaBadCell>,
+    context: &mut Evaluation<'t>,
 ) -> Option<(CriterionInput<'a>, usize)> {
-    let (input, mut next) = criterion_piece(tokens, pos, table, bad)?;
+    let (input, mut next) = criterion_piece(tokens, pos, context)?;
     if !matches!(tokens.get(next), Some(Token::Concat)) {
         return Some((input, next));
     }
-    let mut text = input.into_text().into_owned();
+    let mut text = context
+        .table
+        .is_some()
+        .then(|| input.into_text().into_owned());
     while matches!(tokens.get(next), Some(Token::Concat)) {
-        let (piece, end) = criterion_piece(tokens, next + 1, table, bad)?;
-        text.push_str(&piece.into_text());
+        let (piece, end) = criterion_piece(tokens, next + 1, context)?;
+        if let Some(text) = &mut text {
+            text.push_str(&piece.into_text());
+        }
         next = end;
     }
-    Some((CriterionInput::Text(text.into()), next))
+    Some((
+        text.map_or(CriterionInput::Number(0.0), |text| {
+            CriterionInput::Text(text.into())
+        }),
+        next,
+    ))
 }
 
-fn criterion_piece<'a>(
+fn criterion_piece<'a, 't: 'a>(
     tokens: &'a [Token],
     pos: usize,
-    table: &'a DataTable,
-    bad: &mut Option<FormulaBadCell>,
+    context: &mut Evaluation<'t>,
 ) -> Option<(CriterionInput<'a>, usize)> {
     let input = match tokens.get(pos..)? {
         [Token::Text(text), ..] => CriterionInput::Text(text.as_str().into()),
         [Token::Boolean(value), ..] => CriterionInput::Boolean(*value),
         [
+            Token::CellRef(..),
+            Token::Separator | Token::RParen | Token::Concat,
+            ..,
+        ] if context.table.is_none() => CriterionInput::Number(0.0),
+        [
             Token::CellRef(row, col),
             Token::Separator | Token::RParen | Token::Concat,
             ..,
-        ] => match table.get(*row, *col)? {
+        ] => match context.table?.get(*row, *col)? {
             CellValue::Int(value) => CriterionInput::Number(*value as f64),
             CellValue::Float(value) => CriterionInput::Number(*value),
             CellValue::Null => CriterionInput::Number(0.0),
@@ -167,21 +182,11 @@ fn criterion_piece<'a>(
             _ => return None,
         },
         _ => {
-            let (value, end) = eval_expression(tokens, pos, table, bad)?;
+            let (value, end) = eval_expression(tokens, pos, context)?;
             return Some((CriterionInput::Number(value), end));
         }
     };
     Some((input, pos + 1))
-}
-
-#[derive(Clone, Copy)]
-enum Compare {
-    Eq,
-    Ne,
-    Lt,
-    Le,
-    Gt,
-    Ge,
 }
 
 impl Compare {
@@ -199,17 +204,6 @@ impl Compare {
             }
         }
         (Self::Eq, text)
-    }
-
-    fn matches(self, order: Ordering) -> bool {
-        match self {
-            Self::Eq => order.is_eq(),
-            Self::Ne => !order.is_eq(),
-            Self::Lt => order.is_lt(),
-            Self::Le => !order.is_gt(),
-            Self::Gt => order.is_gt(),
-            Self::Ge => !order.is_lt(),
-        }
     }
 }
 

@@ -24,6 +24,8 @@
   of rescanning the full range for each row.
 - Add `COUNTIF`, `SUMIF` and `AVERAGEIF` with text, number, blank and wildcard
   criteria. Keep quoted identifiers unchanged when filling formula columns.
+- Add `IF` and `IFERROR` for numeric formulas. Check both branches for
+  syntax errors without reading cells from the unused branch.
 - Build the macOS bundle without a Homebrew runtime dependency and check
   all three bundled executables before signing.
 

@@ -6,8 +6,12 @@
 //! Re-exported from [`crate::data`] so call sites keep their existing import
 //! path (`use octa::data::evaluate_formula`).
 
+use std::cmp::Ordering;
+
 use super::{CellValue, DataTable};
 
+#[path = "formulas_control.rs"]
+mod control;
 #[path = "formulas_criteria.rs"]
 mod criteria;
 use criteria::ConditionalAggregate;
@@ -61,14 +65,28 @@ pub fn evaluate_formula_with_diagnostics(formula: &str, table: &DataTable) -> Fo
             bad_cell: None,
         };
     };
-    let mut bad: Option<FormulaBadCell> = None;
-    let value = eval_expression(&tokens, 0, table, &mut bad)
-        .filter(|(_, end)| *end == tokens.len())
-        .map(|(value, _)| value);
+    let mut context = Evaluation {
+        table: Some(table),
+        bad: None,
+    };
+    let value = eval_complete(&tokens, &mut context);
     FormulaOutcome {
         value,
-        bad_cell: bad,
+        bad_cell: context.bad,
     }
+}
+
+/// Without a table, parse the same grammar but do not read cells or check
+/// runtime arithmetic. Lazy functions use this for the inactive expression.
+#[derive(Default)]
+struct Evaluation<'a> {
+    table: Option<&'a DataTable>,
+    bad: Option<FormulaBadCell>,
+}
+
+fn eval_complete(tokens: &[FormulaToken], context: &mut Evaluation<'_>) -> Option<f64> {
+    let (value, end) = eval_expression(tokens, 0, context)?;
+    (end == tokens.len()).then_some(value)
 }
 
 /// Resolve the two parts of a reference after removing any anchors.
@@ -140,6 +158,7 @@ enum FormulaToken {
     Boolean(bool),
     CellRef(usize, usize), // (row, col)
     Op(char),              // +, -, *, /
+    Compare(Comparison),
     Function(Function),
     Range,
     Separator,
@@ -154,6 +173,31 @@ enum Function {
     Conditional(ConditionalAggregate),
     Abs,
     Round,
+    If,
+    IfError,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum Comparison {
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+}
+
+impl Comparison {
+    fn matches(self, order: Ordering) -> bool {
+        match self {
+            Self::Eq => order.is_eq(),
+            Self::Ne => !order.is_eq(),
+            Self::Lt => order.is_lt(),
+            Self::Le => !order.is_gt(),
+            Self::Gt => order.is_gt(),
+            Self::Ge => !order.is_lt(),
+        }
+    }
 }
 
 fn function_named(name: &str) -> Option<Function> {
@@ -197,6 +241,10 @@ fn function_named(name: &str) -> Option<Function> {
         ("ABS", Abs),
         ("ROUND", Round),
         ("RUNDEN", Round),
+        ("IF", Function::If),
+        ("WENN", Function::If),
+        ("IFERROR", Function::IfError),
+        ("WENNFEHLER", Function::IfError),
     ];
     NAMES
         .iter()
@@ -219,6 +267,18 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
             b'+' | b'-' | b'*' | b'/' => {
                 tokens.push(FormulaToken::Op(char::from(byte)));
                 i += 1;
+            }
+            b'=' | b'<' | b'>' => {
+                let (op, width) = match (byte, bytes.get(i + 1)) {
+                    (b'<', Some(b'=')) => (Comparison::Le, 2),
+                    (b'>', Some(b'=')) => (Comparison::Ge, 2),
+                    (b'<', Some(b'>')) => (Comparison::Ne, 2),
+                    (b'<', _) => (Comparison::Lt, 1),
+                    (b'>', _) => (Comparison::Gt, 1),
+                    _ => (Comparison::Eq, 1),
+                };
+                tokens.push(FormulaToken::Compare(op));
+                i += width;
             }
             b':' => {
                 tokens.push(FormulaToken::Range);
@@ -313,26 +373,21 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
 }
 
 /// Recursive descent parser: expression = term (('+' | '-') term)*
-///
-/// `bad` captures the first non-numeric cell ref encountered during the
-/// walk. Once set, evaluation still continues so we can drain the full
-/// token stream, but the final value is dropped by the caller (None).
 fn eval_expression(
     tokens: &[FormulaToken],
     pos: usize,
-    table: &DataTable,
-    bad: &mut Option<FormulaBadCell>,
+    context: &mut Evaluation<'_>,
 ) -> Option<(f64, usize)> {
-    let (mut left, mut p) = eval_term(tokens, pos, table, bad)?;
+    let (mut left, mut p) = eval_term(tokens, pos, context)?;
     while p < tokens.len() {
         match &tokens[p] {
             FormulaToken::Op('+') => {
-                let (right, np) = eval_term(tokens, p + 1, table, bad)?;
+                let (right, np) = eval_term(tokens, p + 1, context)?;
                 left += right;
                 p = np;
             }
             FormulaToken::Op('-') => {
-                let (right, np) = eval_term(tokens, p + 1, table, bad)?;
+                let (right, np) = eval_term(tokens, p + 1, context)?;
                 left -= right;
                 p = np;
             }
@@ -346,23 +401,24 @@ fn eval_expression(
 fn eval_term(
     tokens: &[FormulaToken],
     pos: usize,
-    table: &DataTable,
-    bad: &mut Option<FormulaBadCell>,
+    context: &mut Evaluation<'_>,
 ) -> Option<(f64, usize)> {
-    let (mut left, mut p) = eval_factor(tokens, pos, table, bad)?;
+    let (mut left, mut p) = eval_factor(tokens, pos, context)?;
     while p < tokens.len() {
         match &tokens[p] {
             FormulaToken::Op('*') => {
-                let (right, np) = eval_factor(tokens, p + 1, table, bad)?;
+                let (right, np) = eval_factor(tokens, p + 1, context)?;
                 left *= right;
                 p = np;
             }
             FormulaToken::Op('/') => {
-                let (right, np) = eval_factor(tokens, p + 1, table, bad)?;
-                if right == 0.0 {
-                    return None; // division by zero
+                let (right, np) = eval_factor(tokens, p + 1, context)?;
+                if context.table.is_some() {
+                    if right == 0.0 {
+                        return None;
+                    }
+                    left /= right;
                 }
-                left /= right;
                 p = np;
             }
             _ => break,
@@ -375,8 +431,7 @@ fn eval_term(
 fn eval_factor(
     tokens: &[FormulaToken],
     mut pos: usize,
-    table: &DataTable,
-    bad: &mut Option<FormulaBadCell>,
+    context: &mut Evaluation<'_>,
 ) -> Option<(f64, usize)> {
     let mut negate = false;
     loop {
@@ -389,16 +444,18 @@ fn eval_factor(
     }
     let (value, end) = match tokens.get(pos)? {
         FormulaToken::Number(n) => Some((*n, pos + 1)),
-        FormulaToken::Function(function) => eval_function(*function, tokens, pos + 1, table, bad),
+        FormulaToken::Boolean(value) => Some((f64::from(u8::from(*value)), pos + 1)),
+        FormulaToken::Function(function) => eval_function(*function, tokens, pos + 1, context),
+        FormulaToken::CellRef(..) if context.table.is_none() => Some((0.0, pos + 1)),
         FormulaToken::CellRef(row, col) => {
-            match cell_as_f64(table, *row, *col) {
+            match cell_as_f64(context.table?, *row, *col) {
                 Ok(Some(v)) => Some((v, pos + 1)),
                 // Out-of-bounds reference: treat as 0 so a partly-overrun
                 // formula still produces a result for the rows that do fit.
                 Ok(None) => Some((0.0, pos + 1)),
                 Err(b) => {
-                    if bad.is_none() {
-                        *bad = Some(b);
+                    if context.bad.is_none() {
+                        context.bad = Some(b);
                     }
                     // Tell the caller "this row can't be numerically
                     // resolved" by aborting the walk.
@@ -407,7 +464,7 @@ fn eval_factor(
             }
         }
         FormulaToken::LParen => {
-            let (val, p) = eval_expression(tokens, pos + 1, table, bad)?;
+            let (val, p) = eval_expression(tokens, pos + 1, context)?;
             if p < tokens.len() && matches!(tokens[p], FormulaToken::RParen) {
                 Some((val, p + 1))
             } else {
@@ -423,39 +480,43 @@ fn eval_function(
     function: Function,
     tokens: &[FormulaToken],
     pos: usize,
-    table: &DataTable,
-    bad: &mut Option<FormulaBadCell>,
+    context: &mut Evaluation<'_>,
 ) -> Option<(f64, usize)> {
     match function {
         Function::Aggregate(aggregate) => {
-            return eval_aggregate(aggregate, tokens, pos, table, bad);
+            return eval_aggregate(aggregate, tokens, pos, context);
         }
         Function::Conditional(aggregate) => {
-            return criteria::evaluate(aggregate, tokens, pos, table, bad);
+            return criteria::evaluate(aggregate, tokens, pos, context);
         }
+        Function::If => return control::evaluate_if(tokens, pos, context),
+        Function::IfError => return control::evaluate_if_error(tokens, pos, context),
         _ => {}
     }
     if !matches!(tokens.get(pos), Some(FormulaToken::LParen)) {
         return None;
     }
-    let (value, end) = eval_expression(tokens, pos + 1, table, bad)?;
+    let (value, end) = eval_expression(tokens, pos + 1, context)?;
     let (value, end) = match function {
         Function::Abs => (value.abs(), end),
         Function::Round => {
             if !matches!(tokens.get(end), Some(FormulaToken::Separator)) {
                 return None;
             }
-            let (places, end) = eval_expression(tokens, end + 1, table, bad)?;
-            (round_decimal(value, places)?, end)
+            let (places, end) = eval_expression(tokens, end + 1, context)?;
+            let rounded = if context.table.is_some() {
+                round_decimal(value, places)?
+            } else {
+                0.0
+            };
+            (rounded, end)
         }
-        Function::Aggregate(_) | Function::Conditional(_) => {
-            unreachable!("aggregates are handled above")
-        }
+        _ => unreachable!("aggregates and control functions are handled above"),
     };
     if !matches!(tokens.get(end), Some(FormulaToken::RParen)) {
         return None;
     }
-    value.is_finite().then_some((value, end + 1))
+    (context.table.is_none() || value.is_finite()).then_some((value, end + 1))
 }
 
 /// Round the shortest decimal representation rather than scaling the binary
@@ -531,8 +592,7 @@ fn eval_aggregate(
     function: Aggregate,
     tokens: &[FormulaToken],
     mut pos: usize,
-    table: &DataTable,
-    bad: &mut Option<FormulaBadCell>,
+    context: &mut Evaluation<'_>,
 ) -> Option<(f64, usize)> {
     if !matches!(tokens.get(pos), Some(FormulaToken::LParen)) {
         return None;
@@ -566,12 +626,14 @@ fn eval_aggregate(
                 ..,
             ] => {
                 // Intersect with the loaded table before walking the rectangle.
-                let end_row = r1.max(r2).saturating_add(1).min(table.row_count());
-                let end_col = c1.max(c2).saturating_add(1).min(table.col_count());
-                for row in *r1.min(r2)..end_row {
-                    for col in *c1.min(c2)..end_col {
-                        if let Some(n) = aggregate_cell(table, row, col) {
-                            add(n);
+                if let Some(table) = context.table {
+                    let end_row = r1.max(r2).saturating_add(1).min(table.row_count());
+                    let end_col = c1.max(c2).saturating_add(1).min(table.col_count());
+                    for row in *r1.min(r2)..end_row {
+                        for col in *c1.min(c2)..end_col {
+                            if let Some(n) = aggregate_cell(table, row, col) {
+                                add(n);
+                            }
                         }
                     }
                 }
@@ -582,14 +644,19 @@ fn eval_aggregate(
                 FormulaToken::Separator | FormulaToken::RParen,
                 ..,
             ] => {
-                if let Some(n) = aggregate_cell(table, *row, *col) {
+                if let Some(n) = context
+                    .table
+                    .and_then(|table| aggregate_cell(table, *row, *col))
+                {
                     add(n);
                 }
                 pos += 1;
             }
             _ => {
-                let (n, end) = eval_expression(tokens, pos, table, bad)?;
-                add(n);
+                let (n, end) = eval_expression(tokens, pos, context)?;
+                if context.table.is_some() {
+                    add(n);
+                }
                 pos = end;
             }
         }
@@ -598,6 +665,9 @@ fn eval_aggregate(
             FormulaToken::RParen => break,
             _ => return None,
         }
+    }
+    if context.table.is_none() {
+        return Some((0.0, pos + 1));
     }
     let result = match function {
         Aggregate::Count => count as f64,

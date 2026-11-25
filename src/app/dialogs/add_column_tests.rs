@@ -364,3 +364,46 @@ fn conditional_fill_shifts_cell_references_but_not_quoted_identifiers() {
         assert_eq!(table.get(row, 2), Some(&CellValue::Int(expected)));
     }
 }
+
+#[test]
+fn iferror_column_keeps_fixed_discount_and_ignores_the_unselected_branch() {
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table.columns = ["region", "amount", "qty", "discount"]
+        .map(|name| ColumnInfo {
+            name: name.into(),
+            data_type: "Utf8".into(),
+        })
+        .to_vec();
+    tab.table.rows = vec![
+        vec![
+            CellValue::String("West".into()),
+            CellValue::Int(30),
+            CellValue::Int(3),
+            CellValue::Float(0.5),
+        ],
+        vec![
+            CellValue::String("East".into()),
+            CellValue::String("not numeric".into()),
+            CellValue::Int(0),
+            CellValue::Null,
+        ],
+        vec![
+            CellValue::String("West".into()),
+            CellValue::Int(18),
+            CellValue::Int(0),
+            CellValue::Null,
+        ],
+    ];
+    tab.new_col_name = "discount per item".into();
+    tab.new_col_formula = r#"=IFERROR(IF(A1="West",B1/C1*$D$1,0),-1)"#.into();
+    tab.insert_col_at = Some(0);
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    for (row, expected) in [5, 0, -1].into_iter().enumerate() {
+        assert_eq!(tab.table.get(row, 0), Some(&CellValue::Int(expected)));
+    }
+    assert!(tab.parse_error_banner.is_none());
+    assert!(tab.table.undo());
+    assert_eq!(tab.table.col_count(), 4);
+}

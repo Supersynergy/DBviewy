@@ -627,6 +627,12 @@ tilde to escape a wildcard, `""` for blank cells and `"<>"` for nonblank
 cells. Match the shape of the criterion and value ranges to make the
 cell pairing clear.
 
+**Conditional calculation**: `=IF(A1="West",B1*0.9,B1)` applies a
+discount only to West. `=IFERROR(B1/C1,0)` returns zero if the
+division fails. The German names are WENN and WENNFEHLER. IF evaluates
+only the chosen result; IFERROR evaluates the fallback only on error.
+All expressions must be syntactically valid.
+
 When inserting a column via **Columns > Insert column**, you can type a formula
 into the **Formula** field. The formula is treated as a row-1 template and
 applied to every row (e.g. `=SUM(A1:C1)` becomes `=SUM(A3:C3)` on row 3).
