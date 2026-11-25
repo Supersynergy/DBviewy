@@ -22,6 +22,8 @@
   column. Evaluate against the original table regardless of insertion position.
 - Fill single-column running sums such as `SUM(A$1:A1)` in one pass instead
   of rescanning the full range for each row.
+- Add `COUNTIF`, `SUMIF` and `AVERAGEIF` with text, number, blank and wildcard
+  criteria. Keep quoted identifiers unchanged when filling formula columns.
 
 - Fix the native macOS About, Hide and Quit labels without moving settings
   or session storage. Load the current DBviewy icon directly in native About.

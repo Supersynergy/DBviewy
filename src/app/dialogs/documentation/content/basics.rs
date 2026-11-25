@@ -619,6 +619,14 @@ Cells support simple Excel-like formulas starting with **=**.
   number of places to round tens or hundreds. Halfway values round away
   from zero. The German name RUNDEN also works.
 
+**Conditional aggregates**: `=COUNTIF(A1:A20,"West")` counts West,
+`=SUMIF(A1:A20,"West",B1:B20)` adds the matching amounts, and
+`=AVERAGEIF(B1:B20,">="&D1)` averages values at or above D1.
+Text matching ignores case. Use `*` for any text, `?` for one character,
+tilde to escape a wildcard, `""` for blank cells and `"<>"` for nonblank
+cells. Match the shape of the criterion and value ranges to make the
+cell pairing clear.
+
 When inserting a column via **Columns > Insert column**, you can type a formula
 into the **Formula** field. The formula is treated as a row-1 template and
 applied to every row (e.g. `=SUM(A1:C1)` becomes `=SUM(A3:C3)` on row 3).

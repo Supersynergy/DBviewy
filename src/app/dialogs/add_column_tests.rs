@@ -341,3 +341,26 @@ fn prefix_sum_performance_fixture_matches_every_baseline_row() {
         old_times[1], new_times[1]
     );
 }
+
+#[test]
+fn conditional_fill_shifts_cell_references_but_not_quoted_identifiers() {
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table.columns = ["code", "amount"]
+        .map(|name| ColumnInfo {
+            name: name.into(),
+            data_type: "Utf8".into(),
+        })
+        .to_vec();
+    tab.table.rows = [("A1\"B9", 10), ("A2\"B10", 20), ("A1\"B9", 5)]
+        .into_iter()
+        .map(|(code, amount)| vec![CellValue::String(code.into()), CellValue::Int(amount)])
+        .collect();
+    tab.new_col_name = "amount plus matching total".into();
+    tab.new_col_formula = r#"=SUMIF($A$1:$A$3,"A1""B9",$B$1:$B$3)+B1"#.into();
+    add_formula_column(&mut app);
+    let table = &app.tabs[0].table;
+    for (row, expected) in [25, 35, 20].into_iter().enumerate() {
+        assert_eq!(table.get(row, 2), Some(&CellValue::Int(expected)));
+    }
+}

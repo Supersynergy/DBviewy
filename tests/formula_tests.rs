@@ -499,3 +499,201 @@ fn cell_formula_anchored_error_reports_the_referenced_source_cell() {
     let bad = result.bad_cell.unwrap();
     assert_eq!((bad.row, bad.col, bad.content.as_str()), (0, 2, "hello"));
 }
+
+fn sales_with_criteria() -> DataTable {
+    let mut table = DataTable {
+        columns: ["region", "amount", "selector"]
+            .map(|name| ColumnInfo {
+                name: name.into(),
+                data_type: "Utf8".into(),
+            })
+            .to_vec(),
+        rows: vec![
+            vec![
+                CellValue::String("West".into()),
+                CellValue::Int(10),
+                CellValue::String("west".into()),
+            ],
+            vec![
+                CellValue::String("west".into()),
+                CellValue::Int(20),
+                CellValue::Int(15),
+            ],
+            vec![
+                CellValue::String("East".into()),
+                CellValue::Float(7.5),
+                CellValue::Null,
+            ],
+            vec![
+                CellValue::String("WÉST".into()),
+                CellValue::Null,
+                CellValue::Bool(true),
+            ],
+            vec![CellValue::Null, CellValue::Int(0), CellValue::Bool(false)],
+            vec![
+                CellValue::String(String::new()),
+                CellValue::String("35".into()),
+                CellValue::Null,
+            ],
+            vec![
+                CellValue::String("West Coast".into()),
+                CellValue::String("not numeric".into()),
+                CellValue::Null,
+            ],
+        ],
+        ..DataTable::empty()
+    };
+    // Evaluate the edit overlay rather than the original load values.
+    table.set(1, 1, CellValue::Int(30));
+    table
+}
+
+#[test]
+fn conditional_aggregates_compose_case_insensitively_and_read_edits() {
+    let table = sales_with_criteria();
+    for (formula, want) in [
+        ("COUNTIF(A1:A7, \"west\")", 2.0),
+        ("Zählenwenn(A1:A7;C1)", 2.0),
+        ("SUMMEWENN(A1:A7;C1;B1:B7)", 40.0),
+        ("MITTELWERTWENN(A1:A7;C1;B1:B7)", 20.0),
+        (
+            "ROUND(SUMIF(A1:A7,\"wést\",B1:B7)+AVERAGEIF(A1:A7,\"East\",B1:B7),1)",
+            7.5,
+        ),
+        ("COUNTIF(B1:B7, \">=\"&C2)", 2.0),
+        ("COUNTIF(B1:B7, 10+20)", 1.0),
+        ("COUNTIF(B1:B7, C3)", 1.0),
+        ("COUNTIF(C1:C7,TRUE)", 1.0),
+        ("COUNTIF(A1:A7,\"west*\")", 3.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(want), "{formula}");
+    }
+}
+
+#[test]
+fn conditional_ranges_keep_the_matched_shape_and_clip_unloaded_rows() {
+    let table = sales_with_criteria();
+    assert_eq!(
+        evaluate_formula("SUMIF(A7:A1,\"west\",B1)", &table),
+        Some(40.0)
+    );
+    assert_eq!(
+        evaluate_formula("AVERAGEIF(A1:A7,\"west\",C7:B1)", &table),
+        Some(20.0)
+    );
+    assert_eq!(
+        evaluate_formula("COUNTIF(A1:A999999999,\"\")", &table),
+        Some(2.0)
+    );
+    assert_eq!(evaluate_formula("COUNTIF(A1,\"WEST\")", &table), Some(1.0));
+    assert_eq!(evaluate_formula("COUNTIF(A1:A7,\"<>\")", &table), Some(5.0));
+    assert_eq!(
+        evaluate_formula("SUMIF(A1:A7,\"no match\",B1)", &table),
+        Some(0.0)
+    );
+    assert_eq!(
+        evaluate_formula("AVERAGEIF(A1:A7,\"no match\",B1)", &table),
+        None
+    );
+    assert_eq!(
+        evaluate_formula("AVERAGEIF(A1:A7,\"wést\",B1)", &table),
+        None
+    );
+    assert_eq!(
+        evaluate_formula("AVERAGEIF(A1:A7,\"west\",B7)", &table),
+        None
+    );
+
+    // A rectangle, not an index over only the rows that matched.
+    let table = formula_table();
+    assert_eq!(
+        evaluate_formula("SUMIF(B2:A1,\">=3\",A1)", &table),
+        Some(33.0)
+    );
+    assert_eq!(evaluate_formula("SUMIF(B2:A1,\">=3\")", &table), Some(33.0));
+}
+
+#[test]
+fn wildcard_criteria_are_whole_cell_unicode_and_respect_tilde_and_quotes() {
+    let mut table = sales_with_criteria();
+    table.rows = [
+        "A1\"blue",
+        "a1\"BLUE",
+        "A1",
+        "A*",
+        "A?",
+        "xA*",
+        "MÜNCHEN",
+        "north\neast",
+    ]
+    .into_iter()
+    .map(|value| {
+        vec![
+            CellValue::String(value.into()),
+            CellValue::Int(2),
+            CellValue::Null,
+        ]
+    })
+    .collect();
+    for (formula, want) in [
+        (r#"COUNTIF(A1:A8,"A1""blue")"#, 2.0),
+        (r#"COUNTIF(A1:A8,"A~*")"#, 1.0),
+        (r#"COUNTIF(A1:A8,"A~?")"#, 1.0),
+        (r#"COUNTIF(A1:A8,"A?")"#, 3.0),
+        (r#"COUNTIF(A1:A8,"m?nchen")"#, 1.0),
+        (r#"COUNTIF(A1:A8,"*east")"#, 1.0),
+        (r#"COUNTIF(A1:A8,"*A~*")"#, 2.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(want), "{formula}");
+    }
+}
+
+#[test]
+fn invalid_conditional_criteria_fail_without_aliased_or_unloaded_data() {
+    let table = sales_with_criteria();
+    for formula in [
+        "COUNTIF(A1:A5)",
+        "COUNTIF(A1:A5,\"unterminated)",
+        "COUNTIF(A1:A5,\"west\",B1)",
+        "COUNTIF(A1:A5, A100)",
+        "COUNTIF(A1+1,2)",
+        "COUNTIF(A1:A5,\">\"&)",
+        "SUMIF(A1:A5,\"west\",B1:)",
+        "AVERAGEIF(A1:A5,\"west\",B1,1)",
+        "COUNTIF(A1:A5,\">\")",
+        "$Ä1",
+        "\"criterion text\"",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}
+
+#[test]
+fn conditional_formula_from_csv_grid_saves_a_numeric_xlsx_cell() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("regional-sales.csv");
+    std::fs::write(
+        &input,
+        "region,amount,checked\nWest,25,0\nEast,4,0\nwest,50,0\n",
+    )
+    .unwrap();
+    let mut table = CsvReader.read_file(&input).unwrap();
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        2,
+        r#"=SUMIF($A$1:$A$3,"West",$B$1:$B$3)"#.into(),
+        BinaryDisplayMode::default(),
+    ));
+    let output = dir.path().join("regional-sales.xlsx");
+    ExcelReader.write_file(&output, &table).unwrap();
+    let saved = ExcelReader.read_file(&output).unwrap();
+    assert!(
+        matches!(saved.get(0, 2), Some(CellValue::Int(75)))
+            || matches!(saved.get(0, 2), Some(CellValue::Float(v)) if *v == 75.0)
+    );
+    assert!(saved.formulas.is_empty());
+}

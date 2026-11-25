@@ -208,6 +208,22 @@ impl<'a> FormulaRows<'a> {
         let bytes = source.as_bytes();
         let mut i = 0;
         while let Some(byte) = bytes.get(i) {
+            if *byte == b'"' {
+                i += 1;
+                // A doubled quote belongs to the criterion text. Never shift
+                // a cell-like identifier anywhere inside a quoted literal.
+                while let Some(&quoted) = bytes.get(i) {
+                    i += 1;
+                    if quoted == b'"' {
+                        if bytes.get(i) == Some(&b'"') {
+                            i += 1;
+                        } else {
+                            break;
+                        }
+                    }
+                }
+                continue;
+            }
             if !byte.is_ascii_alphabetic() {
                 i += 1;
                 continue;
@@ -320,6 +336,16 @@ fn fill_formula_template(
     table: &data::DataTable,
 ) -> (FormulaResults, Option<data::FormulaBadCell>) {
     let template = FormulaRows::new(formula);
+    if template.relative.is_empty() && table.row_count() > 0 {
+        // An anchored range and constant criterion cannot change from row
+        // to row. Evaluate the whole template once, not once per result.
+        let outcome = data::evaluate_formula_with_diagnostics(formula, table);
+        let results = match outcome.value {
+            Some(value) => (0..table.row_count()).map(|row| (row, value)).collect(),
+            None => Vec::new(),
+        };
+        return (results, outcome.bad_cell);
+    }
     let mut shifted = String::with_capacity(formula.len());
     let mut results = Vec::new();
     let mut first_bad = None;

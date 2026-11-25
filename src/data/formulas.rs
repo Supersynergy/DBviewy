@@ -8,6 +8,10 @@
 
 use super::{CellValue, DataTable};
 
+#[path = "formulas_criteria.rs"]
+mod criteria;
+use criteria::ConditionalAggregate;
+
 /// Snapshot of one referenced cell that could not be coerced to a number
 /// during formula evaluation: zero-indexed `(row, col)` plus a short display
 /// of the offending content. Used to surface a parse-error banner when the
@@ -71,6 +75,9 @@ pub fn evaluate_formula_with_diagnostics(formula: &str, table: &DataTable) -> Fo
 fn parse_cell_ref(letters: &[u8], digits: &str) -> Option<(usize, usize)> {
     let mut col: usize = 0;
     for &letter in letters {
+        if !letter.is_ascii_alphabetic() {
+            return None;
+        }
         col = col
             .checked_mul(26)?
             .checked_add(usize::from(letter.to_ascii_uppercase() - b'A' + 1))?;
@@ -129,11 +136,14 @@ fn snippet(s: &str) -> String {
 #[derive(Debug, Clone)]
 enum FormulaToken {
     Number(f64),
+    Text(String),
+    Boolean(bool),
     CellRef(usize, usize), // (row, col)
     Op(char),              // +, -, *, /
     Function(Function),
     Range,
     Separator,
+    Concat,
     LParen,
     RParen,
 }
@@ -141,6 +151,7 @@ enum FormulaToken {
 #[derive(Clone, Copy, Debug)]
 enum Function {
     Aggregate(Aggregate),
+    Conditional(ConditionalAggregate),
     Abs,
     Round,
 }
@@ -158,6 +169,31 @@ fn function_named(name: &str) -> Option<Function> {
         ("COUNT", Function::Aggregate(Count)),
         ("ANZAHL", Function::Aggregate(Count)),
         ("MEDIAN", Function::Aggregate(Median)),
+        (
+            "COUNTIF",
+            Function::Conditional(ConditionalAggregate::Count),
+        ),
+        (
+            "ZÄHLENWENN",
+            Function::Conditional(ConditionalAggregate::Count),
+        ),
+        (
+            "Zählenwenn",
+            Function::Conditional(ConditionalAggregate::Count),
+        ),
+        ("SUMIF", Function::Conditional(ConditionalAggregate::Sum)),
+        (
+            "SUMMEWENN",
+            Function::Conditional(ConditionalAggregate::Sum),
+        ),
+        (
+            "AVERAGEIF",
+            Function::Conditional(ConditionalAggregate::Average),
+        ),
+        (
+            "MITTELWERTWENN",
+            Function::Conditional(ConditionalAggregate::Average),
+        ),
         ("ABS", Abs),
         ("ROUND", Round),
         ("RUNDEN", Round),
@@ -192,6 +228,25 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                 tokens.push(FormulaToken::Separator);
                 i += 1;
             }
+            b'&' => {
+                tokens.push(FormulaToken::Concat);
+                i += 1;
+            }
+            b'"' => {
+                i += 1;
+                let mut value = String::new();
+                loop {
+                    let end = i + bytes.get(i..)?.iter().position(|&b| b == b'"')?;
+                    value.push_str(&expr[i..end]);
+                    i = end + 1;
+                    if bytes.get(i) != Some(&b'"') {
+                        break;
+                    }
+                    value.push('"');
+                    i += 1;
+                }
+                tokens.push(FormulaToken::Text(value));
+            }
             b'(' => {
                 depth += 1;
                 if depth > MAX_NESTING {
@@ -220,7 +275,12 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                 let column_fixed = c == b'$';
                 i += usize::from(column_fixed);
                 let col_start = i;
-                while bytes.get(i).is_some_and(u8::is_ascii_alphabetic) {
+                // Function names can contain an umlaut (ZÄHLENWENN).
+                // Cell columns are still strictly ASCII in parse_cell_ref.
+                while bytes
+                    .get(i)
+                    .is_some_and(|b| b.is_ascii_alphabetic() || !b.is_ascii())
+                {
                     i += 1;
                 }
                 let col_end = i;
@@ -234,9 +294,12 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                     i += 1;
                 }
                 if !column_fixed && !row_fixed && row_start == i {
-                    tokens.push(FormulaToken::Function(function_named(
-                        &expr[col_start..col_end],
-                    )?));
+                    let name = &expr[col_start..col_end];
+                    if name.eq_ignore_ascii_case("TRUE") || name.eq_ignore_ascii_case("FALSE") {
+                        tokens.push(FormulaToken::Boolean(name.eq_ignore_ascii_case("TRUE")));
+                    } else {
+                        tokens.push(FormulaToken::Function(function_named(name)?));
+                    }
                 } else {
                     let (row, col) =
                         parse_cell_ref(&bytes[col_start..col_end], &expr[row_start..i])?;
@@ -363,8 +426,14 @@ fn eval_function(
     table: &DataTable,
     bad: &mut Option<FormulaBadCell>,
 ) -> Option<(f64, usize)> {
-    if let Function::Aggregate(aggregate) = function {
-        return eval_aggregate(aggregate, tokens, pos, table, bad);
+    match function {
+        Function::Aggregate(aggregate) => {
+            return eval_aggregate(aggregate, tokens, pos, table, bad);
+        }
+        Function::Conditional(aggregate) => {
+            return criteria::evaluate(aggregate, tokens, pos, table, bad);
+        }
+        _ => {}
     }
     if !matches!(tokens.get(pos), Some(FormulaToken::LParen)) {
         return None;
@@ -379,7 +448,9 @@ fn eval_function(
             let (places, end) = eval_expression(tokens, end + 1, table, bad)?;
             (round_decimal(value, places)?, end)
         }
-        Function::Aggregate(_) => unreachable!("aggregates are handled above"),
+        Function::Aggregate(_) | Function::Conditional(_) => {
+            unreachable!("aggregates are handled above")
+        }
     };
     if !matches!(tokens.get(end), Some(FormulaToken::RParen)) {
         return None;

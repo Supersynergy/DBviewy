@@ -61,6 +61,27 @@ and start at a fixed row. To order or restart totals by another column, use
 
 In a range or a single-cell argument, these functions include numbers and numeric text, and skip blanks and other values. `COUNT` returns the number of included cells and scalar arguments. `MEDIAN` skips non-finite values and averages the two middle numbers when there is an even count. When there are no numbers, `AVERAGE` and `MEDIAN` return no numeric result; the other four functions return zero.
 
+### Conditional totals, counts and averages
+
+| Formula | Result |
+|----------|--------|
+| `=COUNTIF(A1:A100,"West")` | Count rows whose region is West. |
+| `=SUMIF(A1:A100,"West",B1:B100)` | Add the amounts for West. |
+| `=AVERAGEIF(B1:B100,">="&D1)` | Average amounts at or above the threshold in D1. |
+
+Use a number, a cell reference or quoted text as the criterion. Text
+matching ignores case. In text criteria, `*` matches any text and `?`
+matches one character. Use `~*` or `~?` for a literal wildcard and
+double a quote inside a literal, as in `"A1""blue"`. Numeric comparisons
+include numeric text. Use `""` for blank cells, `"<>"` for nonblank cells,
+and unquoted `TRUE` or `FALSE` for boolean cells.
+
+If you supply a value range, its top-left cell is where the sum or average
+starts. The size and shape come from the criterion range, so prefer matching
+rectangles to make the mapping clear. Only loaded cells are considered.
+`AVERAGEIF` returns no number if none of the matching values are numeric.
+The German names `ZÄHLENWENN`, `SUMMEWENN` and `MITTELWERTWENN` also work.
+
 ## Single-value functions
 
 - `ABS(value)` returns the magnitude without the sign.
@@ -119,7 +140,8 @@ Click **OK** and the new column appears with every row's result.
 
 - For conditional expressions such as `IF` and lookups, use [SQL](sql.md).
 - **No cross-sheet references.** Single table only.
-- **No string operations.** Formulas are numeric-only.
+- Formulas return numbers. Text and `&` are supported in criteria, not
+  as general string expressions.
 - DBviewy calculates values when you apply the formula. Editing an input
   afterwards does not recalculate already filled cells.
 
