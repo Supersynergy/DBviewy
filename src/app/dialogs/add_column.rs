@@ -1,6 +1,9 @@
 //! "Insert Column" modal dialog: name + type + insert position + formula.
 //! On confirm, the formula (if any) is evaluated for every existing row.
 
+use std::fmt::Write;
+use std::ops::Range;
+
 use eframe::egui;
 use egui::RichText;
 
@@ -9,7 +12,6 @@ use octa::ui::settings::{
     DialogSize, center_on_first_show, dialog_header, remember_dialog_rect, size_dialog_window,
 };
 
-use super::super::file_io::shift_formula_row;
 use super::super::init::COLUMN_TYPES;
 use super::super::state::OctaApp;
 
@@ -192,78 +194,133 @@ pub(crate) fn render_add_column_dialog(app: &mut OctaApp, ctx: &egui::Context) {
     }
 }
 
-/// Add the formula column the dialog describes, as ONE undo step.
-fn add_formula_column(app: &mut OctaApp) {
-    let start = app.tabs[app.active_tab].table.undo_stack.len();
-    let idx = app.tabs[app.active_tab]
-        .insert_col_at
-        .unwrap_or(app.tabs[app.active_tab].table.col_count());
-    let formula_text = app.tabs[app.active_tab].new_col_formula.trim().to_string();
-    let col_name = app.tabs[app.active_tab].new_col_name.clone();
-    let col_type = app.tabs[app.active_tab].new_col_type.clone();
-    app.tabs[app.active_tab]
-        .table
-        .insert_column(idx, col_name, col_type);
-    if let Some(formula_body) = formula_text.strip_prefix('=') {
-        let row_count = app.tabs[app.active_tab].table.row_count();
-        // Collect per-row diagnostics so we can pop a "skipped N rows;
-        // first non-numeric cell: X" banner if any reference resolves
-        // to a non-numeric value (previously silent-fall-back to 0).
-        let mut skipped: usize = 0;
-        let mut first_bad: Option<data::FormulaBadCell> = None;
-        for row in 0..row_count {
-            let shifted = shift_formula_row(formula_body, row);
-            let outcome =
-                data::evaluate_formula_with_diagnostics(&shifted, &app.tabs[app.active_tab].table);
-            if let Some(bad) = outcome.bad_cell
-                && first_bad.is_none()
-            {
-                first_bad = Some(bad);
+/// Find the decimal row spans once. The evaluator still validates the whole
+/// expression. This template only rewrites a relative row, never its column,
+/// an anchored row or an invalid row zero.
+struct FormulaRows<'a> {
+    source: &'a str,
+    relative: Vec<(Range<usize>, usize)>,
+}
+
+impl<'a> FormulaRows<'a> {
+    fn new(source: &'a str) -> Self {
+        let mut relative = Vec::new();
+        let bytes = source.as_bytes();
+        let mut i = 0;
+        while let Some(byte) = bytes.get(i) {
+            if !byte.is_ascii_alphabetic() {
+                i += 1;
+                continue;
             }
-            match outcome.value {
-                Some(result) => {
-                    let val = if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
-                        data::CellValue::Int(result as i64)
-                    } else {
-                        data::CellValue::Float(result)
-                    };
-                    app.tabs[app.active_tab].table.set(row, idx, val);
-                }
-                None => {
-                    skipped += 1;
-                }
+            while bytes.get(i).is_some_and(u8::is_ascii_alphabetic) {
+                i += 1;
+            }
+            // A dollar sign here ends the match: the following digits don't
+            // move, unlike those in e.g. `$A1` where only the column is fixed.
+            let start = i;
+            while bytes.get(i).is_some_and(u8::is_ascii_digit) {
+                i += 1;
+            }
+            if start != i
+                && let Ok(row @ 1..) = source[start..i].parse::<usize>()
+            {
+                relative.push((start..i, row));
             }
         }
-        if let Some(bad) = first_bad {
-            let col_name = app.tabs[app.active_tab]
-                .table
-                .columns
-                .get(bad.col)
-                .map(|c| c.name.as_str())
-                .unwrap_or("?");
-            app.tabs[app.active_tab].parse_error_banner = Some(format!(
-                "{} {}/{} {}; {} \"{}\" {} {} = {:?}",
+        Self { source, relative }
+    }
+
+    fn at<'b>(&'b self, offset: usize, buffer: &'b mut String) -> Option<&'b str> {
+        if offset == 0 || self.relative.is_empty() {
+            return Some(self.source);
+        }
+        buffer.clear();
+        let mut copied = 0;
+        for (span, row) in &self.relative {
+            buffer.push_str(&self.source[copied..span.start]);
+            write!(buffer, "{}", row.checked_add(offset)?).ok()?;
+            copied = span.end;
+        }
+        buffer.push_str(&self.source[copied..]);
+        Some(buffer)
+    }
+}
+
+/// Add the formula column the dialog describes, as ONE undo step.
+fn add_formula_column(app: &mut OctaApp) {
+    if app.is_readonly() {
+        return;
+    }
+    let tab = &mut app.tabs[app.active_tab];
+    let start = tab.table.undo_stack.len();
+    let col_count = tab.table.col_count();
+    let idx = tab.insert_col_at.unwrap_or(col_count).min(col_count);
+    let mut results = Vec::new();
+    if let Some(formula) = tab.new_col_formula.trim().strip_prefix('=') {
+        let template = FormulaRows::new(formula);
+        let mut shifted = String::with_capacity(formula.len());
+        let row_count = tab.table.row_count();
+        let mut first_bad = None;
+        // Read the pre-insertion table, including existing edits. A formula
+        // must see the same original columns regardless of output position.
+        for row in 0..row_count {
+            let Some(formula) = template.at(row, &mut shifted) else {
+                continue;
+            };
+            let outcome = data::evaluate_formula_with_diagnostics(formula, &tab.table);
+            if first_bad.is_none() {
+                first_bad = outcome.bad_cell;
+            }
+            if let Some(value) = outcome.value {
+                results.push((row, value));
+            }
+        }
+        let skipped = row_count - results.len();
+        if skipped > 0 {
+            let mut banner = format!(
+                "{} {}/{} {}.",
                 octa::i18n::t("dialog.formula_skipped"),
                 skipped,
                 row_count,
                 octa::i18n::t("dialog.formula_rows"),
-                octa::i18n::t("dialog.formula_first_ref"),
-                col_name,
-                octa::i18n::t("dialog.formula_row"),
-                bad.row + 1,
-                bad.content
-            ));
+            );
+            if let Some(bad) = first_bad {
+                let name = tab
+                    .table
+                    .columns
+                    .get(bad.col)
+                    .map(|c| c.name.as_str())
+                    .unwrap_or("?");
+                let first_ref = octa::i18n::t("dialog.formula_first_ref");
+                let row = octa::i18n::t("dialog.formula_row");
+                let number = bad.row + 1;
+                let content = bad.content;
+                banner.push_str(&format!(
+                    " {first_ref} \"{name}\", {row} {number} = {content:?}"
+                ));
+            }
+            tab.parse_error_banner = Some(banner);
         }
     }
-    // The column and every formula value come out with one Ctrl+Z.
-    app.tabs[app.active_tab].table.coalesce_undo_since(start);
-    if let Some((row, _)) = app.tabs[app.active_tab].table_state.selected_cell {
-        app.tabs[app.active_tab].table_state.selected_cell = Some((row, idx));
+    tab.table
+        .insert_column(idx, tab.new_col_name.clone(), tab.new_col_type.clone());
+    for (row, result) in results {
+        let value = if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
+            data::CellValue::Int(result as i64)
+        } else {
+            data::CellValue::Float(result)
+        };
+        tab.table.set(row, idx, value);
     }
-    app.tabs[app.active_tab].table_state.widths_initialized = false;
-    app.tabs[app.active_tab].filter_dirty = true;
-    app.tabs[app.active_tab].show_add_column_dialog = false;
-    app.tabs[app.active_tab].insert_col_at_text.clear();
+    // The column and every formula value come out with one Ctrl+Z.
+    tab.table.coalesce_undo_since(start);
+    if let Some((row, _)) = tab.table_state.selected_cell {
+        tab.table_state.selected_cell = Some((row, idx));
+    }
+    tab.table_state.widths_initialized = false;
+    tab.filter_dirty = true;
+    tab.show_add_column_dialog = false;
+    tab.insert_col_at_text.clear();
 }
 
 #[cfg(test)]

@@ -18,6 +18,8 @@
   the cell editor share one parser.
 - Add `ROUND`, `ABS` and `MEDIAN` to cell and column formulas, including
   negative rounding precision and decimal ties away from zero.
+- Keep fixed Excel-style references such as `$B$1` when filling a calculated
+  column. Evaluate against the original table regardless of insertion position.
 
 - Fix the native macOS About, Hide and Quit labels without moving settings
   or session storage. Load the current DBviewy icon directly in native About.

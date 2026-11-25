@@ -166,48 +166,6 @@ pub(crate) fn resync_db_meta_baseline(tab: &mut TabState) {
     }
 }
 
-/// Shift cell references in a formula to target a specific row. The formula
-/// is written as a template using row 1 (e.g. "A1+B1"). For `target_row=4`
-/// (0-indexed), references are shifted so row 1 -> row 5 (1-indexed).
-/// References that already use a different row number are shifted by the same
-/// offset.
-pub(crate) fn shift_formula_row(formula: &str, target_row: usize) -> String {
-    let chars: Vec<char> = formula.chars().collect();
-    let mut result = String::new();
-    let mut i = 0;
-    while i < chars.len() {
-        if chars[i].is_ascii_alphabetic() {
-            let col_start = i;
-            while i < chars.len() && chars[i].is_ascii_alphabetic() {
-                i += 1;
-            }
-            if i < chars.len() && chars[i].is_ascii_digit() {
-                let col_part: String = chars[col_start..i].iter().collect();
-                let num_start = i;
-                while i < chars.len() && chars[i].is_ascii_digit() {
-                    i += 1;
-                }
-                let num_str: String = chars[num_start..i].iter().collect();
-                if let Ok(orig_row) = num_str.parse::<usize>() {
-                    let new_row = target_row + orig_row;
-                    result.push_str(&col_part);
-                    result.push_str(&new_row.to_string());
-                } else {
-                    result.push_str(&col_part);
-                    result.push_str(&num_str);
-                }
-            } else {
-                let part: String = chars[col_start..i].iter().collect();
-                result.push_str(&part);
-            }
-        } else {
-            result.push(chars[i]);
-            i += 1;
-        }
-    }
-    result
-}
-
 /// A file's modification time and size, the pair used to notice that
 /// something else rewrote it while a tab had it open.
 ///

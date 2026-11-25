@@ -12,7 +12,7 @@ Octa supports a small subset of Excel-like formulas in two places:
 
 | Element         | Example             | Notes                                                                                            |
 |-----------------|---------------------|--------------------------------------------------------------------------------------------------|
-| Cell reference  | `A1`, `B2`, `AA17`  | Column letter (A, B, … Z, AA, AB, …) + 1-based row number. Column letters appear in each header. |
+| Cell reference  | `A1`, `AA17`, `$B$1` | Column letter and 1-based row number. A dollar sign before the row holds it fixed when filling down. |
 | Operators       | `+`, `-`, `*`, `/`  | Standard precedence; multiplication/division before addition/subtraction.                        |
 | Parentheses     | `(A1 + B1) * 2`     | Override precedence.                                                                             |
 | Numeric literal | `42`, `3.14`, `-5` | Integers and decimals.                                          |
@@ -41,6 +41,14 @@ For Insert Column, the formula is applied per-row:
 | `=A1*1.5` | `A1*1.5` | `A5*1.5` |
 | `=B1-C1`  | `B1-C1`  | `B5-C5`  |
 | `=SUM(A1:C1)` | `SUM(A1:C1)` | `SUM(A5:C5)` |
+| `=ROUND(A1*$B$1,2)` | `ROUND(A1*$B$1,2)` | `ROUND(A5*$B$1,2)` |
+| `=SUM(A$1:A1)` | `SUM(A$1:A1)` | `SUM(A$1:A5)` |
+
+Use a fixed row for a shared input such as the exchange rate in B1.
+`B$1` and `$B$1` both keep row 1 fixed. With `$B1` only the column is
+fixed, so the row still advances. Insert Column fills down and never changes
+column letters. It looks up all references in the table **before** inserting
+the result, even when you place the new column first.
 
 ## Aggregate functions
 
@@ -97,7 +105,7 @@ From [**Columns → Insert column…**](editing.md#inserting-columns):
 1. **Name**: the new column's name.
 2. **Type**: pick a numeric type (Int64 / Float64) when the formula
    produces numbers.
-3. **Insert at position**: 0-based index. Blank = append.
+3. **Insert at position**: 1-based column position; the default is to append.
 4. **Formula**: start the expression with `=`.
 
 Click **OK** and the new column appears with every row's result.
@@ -107,9 +115,8 @@ Click **OK** and the new column appears with every row's result.
 - For conditional expressions such as `IF` and lookups, use [SQL](sql.md).
 - **No cross-sheet references.** Single table only.
 - **No string operations.** Formulas are numeric-only.
-- **No row references like `$A1` or `A$1`.** Insert Column always
-  shifts row numbers and preserves column letters, so write the formula
-  for row 1 and it'll be applied to every row.
+- DBviewy calculates values when you apply the formula. Editing an input
+  afterwards does not recalculate already filled cells.
 
 If your use case bumps against these, the
 [SQL panel](sql.md) is almost always the right tool:

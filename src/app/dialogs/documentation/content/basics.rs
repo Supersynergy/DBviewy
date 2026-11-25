@@ -622,6 +622,11 @@ Cells support simple Excel-like formulas starting with **=**.
 When inserting a column via **Columns > Insert column**, you can type a formula
 into the **Formula** field. The formula is treated as a row-1 template and
 applied to every row (e.g. `=SUM(A1:C1)` becomes `=SUM(A3:C3)` on row 3).
+Put `$` before a row number to keep it fixed: `=ROUND(A1*$B$1,2)` uses
+B1 on every row, and `=SUM(A$1:A1)` creates a running total. A dollar
+sign before a column letter alone does not fix the row. References use
+the original columns even if you insert the result in the first position.
+The calculated values do not automatically update when you edit an input later.
 
 Division by zero yields no numeric result. Inline editing keeps the input
 as text; Insert Column leaves that result empty.

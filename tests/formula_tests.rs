@@ -454,3 +454,48 @@ fn formula_edit_undo_redo_and_xlsx_reopen_keep_numeric_results() {
     );
     assert!(reopened.formulas.is_empty());
 }
+
+#[test]
+fn cell_formula_resolves_absolute_and_mixed_references() {
+    let table = formula_table();
+    for (formula, value) in [
+        ("$A$1+B2", 13.0),
+        ("$A1+B$2", 13.0),
+        ("a$2+$b$3", 20.5),
+        ("SUM($B$2:A$1, $A3)", 65.5),
+        ("ROUND(A$1*$B1, 0)", 25.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(value), "{formula}");
+    }
+}
+
+#[test]
+fn cell_formula_rejects_malformed_anchors_and_oversized_addresses() {
+    let table = formula_table();
+    let overflow = format!("$A${}0", usize::MAX);
+    for formula in [
+        "$",
+        "$$A1",
+        "A$$1",
+        "$1",
+        "$A",
+        "A$0",
+        "A1$",
+        "$A $1",
+        "$SUM(A1)",
+        "SUM($A1:$B$)",
+        "$XXXXXXXXXXXXXXXXXXXXXX$1",
+        &overflow,
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}
+
+#[test]
+fn cell_formula_anchored_error_reports_the_referenced_source_cell() {
+    let table = formula_table();
+    let result = evaluate_formula_with_diagnostics("A2 * $C$1", &table);
+    assert_eq!(result.value, None);
+    let bad = result.bad_cell.unwrap();
+    assert_eq!((bad.row, bad.col, bad.content.as_str()), (0, 2, "hello"));
+}

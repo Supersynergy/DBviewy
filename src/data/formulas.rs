@@ -67,34 +67,16 @@ pub fn evaluate_formula_with_diagnostics(formula: &str, table: &DataTable) -> Fo
     }
 }
 
-/// Resolve a cell reference like "A1", "BC42" to (row, col) zero-indexed.
-fn parse_cell_ref(s: &str) -> Option<(usize, usize)> {
-    let s = s.trim();
-    let col_end = s.bytes().position(|b| b.is_ascii_digit())?;
-    if col_end == 0 {
-        return None;
-    }
-    let col_str = &s[..col_end];
-    let row_str = &s[col_end..];
-    if row_str.is_empty() {
-        return None;
-    }
-    // Column: A=0, B=1, ..., Z=25, AA=26
+/// Resolve the two parts of a reference after removing any anchors.
+fn parse_cell_ref(letters: &[u8], digits: &str) -> Option<(usize, usize)> {
     let mut col: usize = 0;
-    for ch in col_str.chars() {
-        if !ch.is_ascii_alphabetic() {
-            return None;
-        }
+    for &letter in letters {
         col = col
             .checked_mul(26)?
-            .checked_add(ch.to_ascii_uppercase() as usize - b'A' as usize + 1)?;
+            .checked_add(usize::from(letter.to_ascii_uppercase() - b'A' + 1))?;
     }
-    col -= 1; // zero-indexed
-    let row: usize = row_str.parse::<usize>().ok()?;
-    if row == 0 {
-        return None;
-    }
-    Some((row - 1, col))
+    let row: usize = digits.parse().ok()?;
+    Some((row.checked_sub(1)?, col.checked_sub(1)?))
 }
 
 /// Try to read a cell as f64. Returns:
@@ -163,31 +145,54 @@ enum Function {
     Round,
 }
 
+fn function_named(name: &str) -> Option<Function> {
+    use Aggregate::{Average, Count, Max, Median, Min, Sum};
+    use Function::{Abs, Round};
+    const NAMES: &[(&str, Function)] = &[
+        ("SUM", Function::Aggregate(Sum)),
+        ("SUMME", Function::Aggregate(Sum)),
+        ("AVERAGE", Function::Aggregate(Average)),
+        ("MITTELWERT", Function::Aggregate(Average)),
+        ("MIN", Function::Aggregate(Min)),
+        ("MAX", Function::Aggregate(Max)),
+        ("COUNT", Function::Aggregate(Count)),
+        ("ANZAHL", Function::Aggregate(Count)),
+        ("MEDIAN", Function::Aggregate(Median)),
+        ("ABS", Abs),
+        ("ROUND", Round),
+        ("RUNDEN", Round),
+    ];
+    NAMES
+        .iter()
+        .find(|(word, _)| word.eq_ignore_ascii_case(name))
+        .map(|&(_, function)| function)
+}
+
 fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
     // Evaluation uses recursive descent for nested parentheses and calls.
     const MAX_NESTING: usize = 64;
     let mut tokens = Vec::new();
-    let chars: Vec<char> = expr.chars().collect();
+    let bytes = expr.as_bytes();
     let mut i = 0;
     let mut depth = 0usize;
-    while i < chars.len() {
-        match chars[i] {
+    while let Some(&byte) = bytes.get(i) {
+        match byte {
             c if c.is_ascii_whitespace() => {
                 i += 1;
             }
-            '+' | '-' | '*' | '/' => {
-                tokens.push(FormulaToken::Op(chars[i]));
+            b'+' | b'-' | b'*' | b'/' => {
+                tokens.push(FormulaToken::Op(char::from(byte)));
                 i += 1;
             }
-            ':' => {
+            b':' => {
                 tokens.push(FormulaToken::Range);
                 i += 1;
             }
-            ',' | ';' => {
+            b',' | b';' => {
                 tokens.push(FormulaToken::Separator);
                 i += 1;
             }
-            '(' => {
+            b'(' => {
                 depth += 1;
                 if depth > MAX_NESTING {
                     return None;
@@ -195,42 +200,48 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                 tokens.push(FormulaToken::LParen);
                 i += 1;
             }
-            ')' => {
+            b')' => {
                 depth = depth.checked_sub(1)?;
                 tokens.push(FormulaToken::RParen);
                 i += 1;
             }
-            c if c.is_ascii_digit() || c == '.' => {
+            c if c.is_ascii_digit() || c == b'.' => {
                 let start = i;
-                while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '.') {
+                while bytes
+                    .get(i)
+                    .is_some_and(|b| b.is_ascii_digit() || *b == b'.')
+                {
                     i += 1;
                 }
-                let num_str: String = chars[start..i].iter().collect();
-                let val: f64 = num_str.parse().ok()?;
+                let val: f64 = expr[start..i].parse().ok()?;
                 tokens.push(FormulaToken::Number(val));
             }
-            c if c.is_ascii_alphabetic() => {
-                let start = i;
-                while i < chars.len() && (chars[i].is_ascii_alphanumeric()) {
+            c if c.is_ascii_alphabetic() || c == b'$' => {
+                let column_fixed = c == b'$';
+                i += usize::from(column_fixed);
+                let col_start = i;
+                while bytes.get(i).is_some_and(u8::is_ascii_alphabetic) {
                     i += 1;
                 }
-                let word: String = chars[start..i].iter().collect();
-                let function = match word.to_ascii_uppercase().as_str() {
-                    "SUM" | "SUMME" => Function::Aggregate(Aggregate::Sum),
-                    "AVERAGE" | "MITTELWERT" => Function::Aggregate(Aggregate::Average),
-                    "MIN" => Function::Aggregate(Aggregate::Min),
-                    "MAX" => Function::Aggregate(Aggregate::Max),
-                    "COUNT" | "ANZAHL" => Function::Aggregate(Aggregate::Count),
-                    "MEDIAN" => Function::Aggregate(Aggregate::Median),
-                    "ABS" => Function::Abs,
-                    "ROUND" | "RUNDEN" => Function::Round,
-                    _ => {
-                        let (row, col) = parse_cell_ref(&word)?;
-                        tokens.push(FormulaToken::CellRef(row, col));
-                        continue;
-                    }
-                };
-                tokens.push(FormulaToken::Function(function));
+                let col_end = i;
+                if col_start == col_end {
+                    return None;
+                }
+                let row_fixed = bytes.get(i) == Some(&b'$');
+                i += usize::from(row_fixed);
+                let row_start = i;
+                while bytes.get(i).is_some_and(u8::is_ascii_digit) {
+                    i += 1;
+                }
+                if !column_fixed && !row_fixed && row_start == i {
+                    tokens.push(FormulaToken::Function(function_named(
+                        &expr[col_start..col_end],
+                    )?));
+                } else {
+                    let (row, col) =
+                        parse_cell_ref(&bytes[col_start..col_end], &expr[row_start..i])?;
+                    tokens.push(FormulaToken::CellRef(row, col));
+                }
             }
             _ => return None,
         }
