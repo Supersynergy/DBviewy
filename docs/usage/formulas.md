@@ -82,6 +82,24 @@ rectangles to make the mapping clear. Only loaded cells are considered.
 `AVERAGEIF` returns no number if none of the matching values are numeric.
 The German names `ZÄHLENWENN`, `SUMMEWENN` and `MITTELWERTWENN` also work.
 
+### Require several conditions at once
+
+| Formula | Result |
+|---------|--------|
+| `=COUNTIFS(A1:A100,"West",B1:B100,"Paid")` | Count paid records in West. |
+| `=SUMIFS(C1:C100,A1:A100,"West",B1:B100,"Paid")` | Total their amounts from column C. |
+| `=AVERAGEIFS(C1:C100,A1:A100,"West",C1:C100,">="&D1)` | Average West amounts at or above the threshold in D1. |
+
+Every condition must match. Each range must have the same height and
+width, but ranges may start in different places. A single cell is a
+one-cell range. Use up to 127 range/criterion pairs. For `SUMIFS` and
+`AVERAGEIFS`, put the value range first, unlike the singular forms.
+
+Only positions loaded in every range are considered. `COUNTIFS` and
+`SUMIFS` return zero if nothing matches; `AVERAGEIFS` returns no number
+if no matching values are numeric. The German names are
+`ZÄHLENWENNS`, `SUMMEWENNS` and `MITTELWERTWENNS`.
+
 ## Single-value functions
 
 - `ABS(value)` returns the magnitude without the sign.

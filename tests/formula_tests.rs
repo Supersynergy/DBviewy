@@ -806,3 +806,142 @@ fn iferror_fallback_is_numeric_after_saving_and_reopening_xlsx() {
     );
     assert!(reopened.formulas.is_empty());
 }
+
+#[test]
+fn multi_criteria_joins_wildcard_boolean_numeric_and_edit_overlay() {
+    let table = sales_with_criteria();
+    for (formula, expected) in [
+        (r#"COUNTIFS(A1:A7,"west*",B1:B7,">="&$C$2)"#, 1.0),
+        (r#"Zählenwenns(C1:C7;TRUE;A1:A7;"W?ST")"#, 1.0),
+        (r#"SUMIFS(B1:B7,A1:A7,"west*",A1:A7,"<>West Coast")"#, 40.0),
+        (r#"SUMMEWENNS(B1:B7;A1:A7;"West";B1:B7;">25")"#, 30.0),
+        (r#"AVERAGEIFS(B1:B7,A1:A7,"west*")"#, 20.0),
+        (r#"MITTELWERTWENNS(B1:B7;A1:A7;"west*";B1:B7;">=10")"#, 20.0),
+        (r#"SUMIFS(B1:B7,A1:A7,"")"#, 35.0),
+        (r#"SUMIFS(B1:B7,A1:A7,"missing")"#, 0.0),
+        (r#"IFERROR(AVERAGEIFS(B1:B7,A1:A7,"missing"),-1)"#, -1.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn multi_criteria_aligns_rectangles_by_relative_position() {
+    let table = formula_table();
+    // Match [yes, yes; yes, no] across two different 2×2 blocks.
+    for (formula, expected) in [
+        (r#"COUNTIFS(B2:A1,">=2",C3:B2,"<>")"#, 3.0),
+        (r#"SUMIFS(B3:A2,B2:A1,">=2",C3:B2,"<>")"#, 53.0),
+        (r#"AVERAGEIFS(A2:B3,A1:B2,">=2",B2:C3,"<>")"#, 53.0 / 3.0),
+        (r#"SUMIFS(A2,A1,10,B1,">2")"#, 20.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn multi_criteria_rejects_shape_mismatch_and_malformed_pairs() {
+    let table = formula_table();
+    for malformed in [
+        "COUNTIFS()",
+        "SUMIFS(A1:A2)",
+        "COUNTIFS(A1:A2)",
+        "COUNTIFS(A1:A2,10,B1:B2)",
+        "SUMIFS(B1:B2,A1:A2,10,)",
+        "AVERAGEIFS(B1:B2,A1:A2,)",
+        "COUNTIFS(A1+1,10)",
+        "COUNTIFS(A1:A2,10,B1:B2,&)",
+    ] {
+        assert_eq!(evaluate_formula(malformed, &table), None, "{malformed}");
+        assert_eq!(
+            evaluate_formula(&format!("IF(TRUE,7,{malformed})"), &table),
+            None
+        );
+        assert_eq!(
+            evaluate_formula(&format!("IFERROR({malformed},7)"), &table),
+            None
+        );
+    }
+    for invalid_shape in [
+        r#"COUNTIFS(A1:A2,">0",B1:C1,"<>")"#,
+        r#"SUMIFS(B1:B3,A1:A2,">0")"#,
+        r#"AVERAGEIFS(A1:B2,A1:A4,">0")"#,
+    ] {
+        assert_eq!(
+            evaluate_formula(invalid_shape, &table),
+            None,
+            "{invalid_shape}"
+        );
+        assert_eq!(
+            evaluate_formula(&format!("IFERROR({invalid_shape},7)"), &table),
+            Some(7.0)
+        );
+    }
+}
+
+#[test]
+fn multi_criteria_clips_to_loaded_cells_without_counting_phantom_blanks() {
+    let table = sales_with_criteria();
+    for (formula, expected) in [
+        (r#"COUNTIFS(A1:A99999999,"",C2:C100000000,"")"#, 2.0),
+        (r#"COUNTIFS(A1:A99999999,"",Z1:Z99999999,"")"#, 0.0),
+        (r#"COUNTIFS(A6:A7,"<>",C7:C8,"")"#, 0.0),
+        (
+            r#"SUMIFS(B2:B100000000,A1:A99999999,"West",C1:C99999999,"<>")"#,
+            37.5,
+        ),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn multi_criteria_enforces_the_excel_pair_limit() {
+    let table = formula_table();
+    let legal = format!("COUNTIFS(A1,10{})", ",A1,10".repeat(126));
+    let too_many = format!("COUNTIFS(A1,10{})", ",A1,10".repeat(127));
+    assert_eq!(evaluate_formula(&legal, &table), Some(1.0));
+    assert_eq!(evaluate_formula(&too_many, &table), None);
+    assert_eq!(
+        evaluate_formula(&format!("IF(TRUE,7,{too_many})"), &table),
+        None
+    );
+}
+
+#[test]
+fn multi_criteria_formula_survives_inline_save_and_reopen_xlsx() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+
+    let dir = tempfile::tempdir().unwrap();
+    let csv = dir.path().join("payments.csv");
+    std::fs::write(&csv, "region,status,amount,result\nWest,Paid,32,0\nwest,Pending,45,0\nEast,Paid,19,0\nWest,Paid,8,0\n").unwrap();
+    let mut table = CsvReader.read_file(&csv).unwrap();
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        3,
+        r#"=SUMIFS(C1:C4,A1:A4,"West",B1:B4,"Paid")"#.into(),
+        BinaryDisplayMode::default(),
+    ));
+    let output = dir.path().join("payments.xlsx");
+    ExcelReader.write_file(&output, &table).unwrap();
+    let reopened = ExcelReader.read_file(&output).unwrap();
+    assert!(
+        matches!(reopened.get(0, 3), Some(CellValue::Int(40)))
+            || matches!(reopened.get(0, 3), Some(CellValue::Float(v)) if *v == 40.0)
+    );
+    assert!(reopened.formulas.is_empty());
+}

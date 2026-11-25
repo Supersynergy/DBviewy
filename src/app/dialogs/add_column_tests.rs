@@ -407,3 +407,43 @@ fn iferror_column_keeps_fixed_discount_and_ignores_the_unselected_branch() {
     assert!(tab.table.undo());
     assert_eq!(tab.table.col_count(), 4);
 }
+
+#[test]
+fn multi_criteria_column_respects_fixed_and_shifted_references() {
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table.columns = ["region", "status", "amount", "minimum"]
+        .map(|name| ColumnInfo {
+            name: name.into(),
+            data_type: "Utf8".into(),
+        })
+        .to_vec();
+    tab.table.rows = [
+        ("West", "Paid", 40, CellValue::Int(10)),
+        ("West", "Paid", 5, CellValue::Int(100)),
+        ("East", "Paid", 20, CellValue::Null),
+        ("East", "Pending", 100, CellValue::Null),
+    ]
+    .into_iter()
+    .map(|(region, status, amount, minimum)| {
+        vec![
+            CellValue::String(region.into()),
+            CellValue::String(status.into()),
+            CellValue::Int(amount),
+            minimum,
+        ]
+    })
+    .collect();
+    tab.insert_col_at = Some(0);
+    tab.new_col_name = "paid for this region".into();
+    tab.new_col_formula =
+        r#"=SUMIFS($C$1:$C$4,$A$1:$A$4,A1,$B$1:$B$4,"Paid",$C$1:$C$4,">="&$D$1)"#.into();
+    add_formula_column(&mut app);
+    let table = &mut app.tabs[0].table;
+    for (r, expected) in [40, 40, 20, 20].into_iter().enumerate() {
+        assert_eq!(table.get(r, 0), Some(&CellValue::Int(expected)));
+    }
+    assert!(table.undo());
+    assert_eq!(table.col_count(), 4);
+    assert_eq!(table.get(0, 0), Some(&CellValue::String("West".into())));
+}

@@ -26,6 +26,8 @@
   criteria. Keep quoted identifiers unchanged when filling formula columns.
 - Add `IF` and `IFERROR` for numeric formulas. Check both branches for
   syntax errors without reading cells from the unused branch.
+- Add `COUNTIFS`, `SUMIFS` and `AVERAGEIFS` to count, sum or average
+  cells that meet every criterion.
 - Build the macOS bundle without a Homebrew runtime dependency and check
   all three bundled executables before signing.
 

@@ -171,6 +171,7 @@ enum FormulaToken {
 enum Function {
     Aggregate(Aggregate),
     Conditional(ConditionalAggregate),
+    ConditionalMany(ConditionalAggregate),
     Abs,
     Round,
     If,
@@ -245,6 +246,34 @@ fn function_named(name: &str) -> Option<Function> {
         ("WENN", Function::If),
         ("IFERROR", Function::IfError),
         ("WENNFEHLER", Function::IfError),
+        (
+            "COUNTIFS",
+            Function::ConditionalMany(ConditionalAggregate::Count),
+        ),
+        (
+            "ZÄHLENWENNS",
+            Function::ConditionalMany(ConditionalAggregate::Count),
+        ),
+        (
+            "Zählenwenns",
+            Function::ConditionalMany(ConditionalAggregate::Count),
+        ),
+        (
+            "SUMIFS",
+            Function::ConditionalMany(ConditionalAggregate::Sum),
+        ),
+        (
+            "SUMMEWENNS",
+            Function::ConditionalMany(ConditionalAggregate::Sum),
+        ),
+        (
+            "AVERAGEIFS",
+            Function::ConditionalMany(ConditionalAggregate::Average),
+        ),
+        (
+            "MITTELWERTWENNS",
+            Function::ConditionalMany(ConditionalAggregate::Average),
+        ),
     ];
     NAMES
         .iter()
@@ -488,6 +517,9 @@ fn eval_function(
         }
         Function::Conditional(aggregate) => {
             return criteria::evaluate(aggregate, tokens, pos, context);
+        }
+        Function::ConditionalMany(aggregate) => {
+            return criteria::evaluate_many(aggregate, tokens, pos, context);
         }
         Function::If => return control::evaluate_if(tokens, pos, context),
         Function::IfError => return control::evaluate_if_error(tokens, pos, context),

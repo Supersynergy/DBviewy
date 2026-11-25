@@ -627,6 +627,11 @@ tilde to escape a wildcard, `""` for blank cells and `"<>"` for nonblank
 cells. Match the shape of the criterion and value ranges to make the
 cell pairing clear.
 
+Use `COUNTIFS`, `SUMIFS` or `AVERAGEIFS` when every criterion must match.
+For example, `=SUMIFS(C1:C20,A1:A20,"West",B1:B20,"Paid")` adds amounts
+from C only for paid records in West. Give each range the same height
+and width. For SUMIFS and AVERAGEIFS, give the value range first.
+
 **Conditional calculation**: `=IF(A1="West",B1*0.9,B1)` applies a
 discount only to West. `=IFERROR(B1/C1,0)` returns zero if the
 division fails. The German names are WENN and WENNFEHLER. IF evaluates

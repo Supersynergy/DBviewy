@@ -1,11 +1,11 @@
-//! Single-condition aggregates for the numeric formula evaluator.
+//! Conditional aggregates for the numeric formula evaluator.
 
 use std::borrow::Cow;
 
 use regex::{Regex, RegexBuilder};
 
 use super::{
-    CellValue, Comparison as Compare, Evaluation, FormulaToken as Token, aggregate_cell,
+    CellValue, Comparison as Compare, DataTable, Evaluation, FormulaToken as Token, aggregate_cell,
     eval_expression,
 };
 
@@ -22,6 +22,20 @@ struct Rectangle {
     left: usize,
     bottom: usize,
     right: usize,
+}
+
+impl Rectangle {
+    fn shape(self) -> (usize, usize) {
+        (self.bottom - self.top + 1, self.right - self.left + 1)
+    }
+
+    fn loaded_shape(self, table: &DataTable) -> (usize, usize) {
+        let (rows, cols) = self.shape();
+        (
+            rows.min(table.row_count().saturating_sub(self.top)),
+            cols.min(table.col_count().saturating_sub(self.left)),
+        )
+    }
 }
 
 fn rectangle(tokens: &[Token], pos: usize) -> Option<(Rectangle, usize)> {
@@ -74,28 +88,123 @@ pub(super) fn evaluate(
         return Some((0.0, pos + 1));
     };
     let condition = Condition::new(input)?;
+    let output = (!matches!(aggregate, ConditionalAggregate::Count)).then_some(output);
+    // The singular forms use the criterion rectangle's shape even when
+    // the value range specifies a different far corner.
+    let value = aggregate_matching(
+        aggregate,
+        table,
+        range.loaded_shape(table),
+        output,
+        |r, c| {
+            condition.matches(
+                table
+                    .get(range.top + r, range.left + c)
+                    .unwrap_or(&CellValue::Null),
+            )
+        },
+    )?;
+    Some((value, pos + 1))
+}
+
+/// Plural forms pair equal-size rectangles by relative position. Sum and
+/// average take the result rectangle first, unlike their singular forms.
+pub(super) fn evaluate_many(
+    aggregate: ConditionalAggregate,
+    tokens: &[Token],
+    open: usize,
+    context: &mut Evaluation<'_>,
+) -> Option<(f64, usize)> {
+    const MAX_PAIRS: usize = 127;
+    if !matches!(tokens.get(open), Some(Token::LParen)) {
+        return None;
+    }
+    let (output, mut pos) = if matches!(aggregate, ConditionalAggregate::Count) {
+        (None, open + 1)
+    } else {
+        let (range, next) = rectangle(tokens, open + 1)?;
+        if !matches!(tokens.get(next), Some(Token::Separator)) {
+            return None;
+        }
+        (Some(range), next + 1)
+    };
+    let mut pairs = 0;
+    let mut criteria = Vec::new();
+    let mut shape = output.map(Rectangle::shape);
+    let end = loop {
+        if pairs == MAX_PAIRS {
+            return None;
+        }
+        pairs += 1;
+        let (range, next) = rectangle(tokens, pos)?;
+        if !matches!(tokens.get(next), Some(Token::Separator)) {
+            return None;
+        }
+        let (input, next) = criterion_argument(tokens, next + 1, context)?;
+        if context.table.is_some() {
+            let range_shape = range.shape();
+            if shape
+                .replace(range_shape)
+                .is_some_and(|shape| shape != range_shape)
+            {
+                return None;
+            }
+            criteria.push((range, Condition::new(input)?));
+        }
+        match tokens.get(next) {
+            Some(Token::RParen) => break next + 1,
+            Some(Token::Separator) => pos = next + 1,
+            _ => return None,
+        }
+    };
+    let Some(table) = context.table else {
+        // No data lookup, regex compilation or shape errors when checking
+        // syntax alone. IFERROR can handle a valid call with unequal ranges.
+        return Some((0.0, end));
+    };
+    // Intersect loaded offsets across every rectangle before scanning.
+    // Unloaded cells must not turn into matching blank cells.
+    let mut bounds = output.map(|range| range.loaded_shape(table));
+    for (range, _) in &criteria {
+        let (rows, cols) = range.loaded_shape(table);
+        bounds = Some(bounds.map_or((rows, cols), |(r, c)| (r.min(rows), c.min(cols))));
+    }
+    let value = aggregate_matching(aggregate, table, bounds?, output, |r, c| {
+        criteria.iter().all(|(range, condition)| {
+            let cell = table
+                .get(range.top + r, range.left + c)
+                .unwrap_or(&CellValue::Null);
+            condition.matches(cell)
+        })
+    })?;
+    Some((value, end))
+}
+
+fn aggregate_matching(
+    aggregate: ConditionalAggregate,
+    table: &DataTable,
+    (rows, cols): (usize, usize),
+    output: Option<Rectangle>,
+    mut matches: impl FnMut(usize, usize) -> bool,
+) -> Option<f64> {
     let mut total = 0.0;
     let mut count = 0usize;
-    // Intersect with loaded rows/columns first, even for a blank criterion.
-    // Sum and average ranges start at their top-left cell and use the
-    // criterion rectangle's shape, not the supplied range's far corner.
-    let end_row = range.bottom.saturating_add(1).min(table.row_count());
-    let end_col = range.right.saturating_add(1).min(table.col_count());
-    for row in range.top..end_row {
-        for col in range.left..end_col {
-            if !condition.matches(table.get(row, col).unwrap_or(&CellValue::Null)) {
-                continue;
-            }
-            if matches!(aggregate, ConditionalAggregate::Count) {
-                count += 1;
-                continue;
-            }
-            if let (Some(r), Some(c)) = (
-                output.top.checked_add(row - range.top),
-                output.left.checked_add(col - range.left),
-            ) && let Some(value) = aggregate_cell(table, r, c).filter(|value| value.is_finite())
-            {
-                total += value;
+    if cols > 0 {
+        for r in 0..rows {
+            for c in 0..cols {
+                if !matches(r, c) {
+                    continue;
+                }
+                if let Some(output) = output {
+                    let value = output
+                        .top
+                        .checked_add(r)
+                        .zip(output.left.checked_add(c))
+                        .and_then(|(row, col)| aggregate_cell(table, row, col))
+                        .filter(|value| value.is_finite());
+                    let Some(value) = value else { continue };
+                    total += value;
+                }
                 count += 1;
             }
         }
@@ -106,7 +215,7 @@ pub(super) fn evaluate(
         ConditionalAggregate::Average if count > 0 => total / count as f64,
         ConditionalAggregate::Average => return None,
     };
-    value.is_finite().then_some((value, pos + 1))
+    value.is_finite().then_some(value)
 }
 
 enum CriterionInput<'a> {
