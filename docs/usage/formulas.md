@@ -100,6 +100,20 @@ Only positions loaded in every range are considered. `COUNTIFS` and
 if no matching values are numeric. The German names are
 `ZÄHLENWENNS`, `SUMMEWENNS` and `MITTELWERTWENNS`.
 
+### Weighted totals and averages
+
+Use `=SUMPRODUCT(B1:B100,C1:C100)` to multiply each unit price in B
+by its quantity in C and add the line amounts. Divide by
+`SUM(C1:C100)` for the weighted unit price. Wrap the division in
+`IFERROR` if a zero total quantity needs a fallback.
+
+Give every range the same height and width. DBviewy pairs cells by
+position within their ranges, counts numeric text as a number, and
+treats blanks and other text as zero. Only positions loaded in every
+range are used. A scalar expression is a one-cell argument. Pass
+the ranges as separate arguments rather than multiplying ranges
+inside the call. The German name is `SUMMENPRODUKT`.
+
 ## Single-value functions
 
 - `ABS(value)` returns the magnitude without the sign.

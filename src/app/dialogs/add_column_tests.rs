@@ -679,3 +679,31 @@ fn lookup_fill_performance_matches_every_reference_row() {
         baseline[1], candidate[1]
     );
 }
+
+#[test]
+fn sumproduct_formula_column_uses_fixed_weights_and_shifted_prices() {
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table.columns = ["price", "weight"]
+        .map(|name| data::ColumnInfo {
+            name: name.into(),
+            data_type: "Int64".into(),
+        })
+        .to_vec();
+    tab.table.rows = [(10, 2), (20, 3), (30, 7)]
+        .into_iter()
+        .map(|(price, weight)| vec![data::CellValue::Int(price), data::CellValue::Int(weight)])
+        .collect();
+    tab.new_col_name = "weighted next two prices".into();
+    tab.new_col_formula = "=SUMPRODUCT(A1:A2,$B$1:$B$2)".into();
+    tab.insert_col_at = Some(0);
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    for (row, expected) in [80, 130, 60].into_iter().enumerate() {
+        assert_eq!(tab.table.get(row, 0), Some(&data::CellValue::Int(expected)));
+    }
+    assert!(tab.parse_error_banner.is_none());
+    assert!(tab.table.undo());
+    assert_eq!(tab.table.col_count(), 2);
+    assert_eq!(tab.table.get(2, 0), Some(&data::CellValue::Int(30)));
+}

@@ -1136,3 +1136,145 @@ fn formula_lookup_price_survives_xlsx_round_trip() {
     assert_eq!(reopened.get(0, 3), Some(&CellValue::Float(19.5)));
     assert!(reopened.formulas.is_empty());
 }
+
+#[test]
+fn sumproduct_pairs_cells_and_nested_weighted_calculation() {
+    let mut table = formula_table();
+    for (row, (price, units)) in [(20, 500), (25, 750), (35, 200)].into_iter().enumerate() {
+        table.set(row, 0, CellValue::Int(price));
+        table.set(row, 1, CellValue::Int(units));
+    }
+    for (formula, expected) in [
+        ("SUMPRODUCT(A1:A3,B1:B3)", 35_750.0),
+        ("ROUND(SUMPRODUCT(A1:A3,B1:B3)/SUM(B1:B3),2)", 24.66),
+        ("SUMPRODUCT(ABS(-5),2+3)", 25.0),
+        ("SUMPRODUCT(-3,2.5)", -7.5),
+        ("SUMPRODUCT(A1:A3)", 80.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn sumproduct_aligns_shifted_rectangles_in_two_dimensions() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("SUMPRODUCT(A1:B2,A2:B3)", 809.0),
+        ("SUMMENPRODUKT($B$2:$A$1;B3:A2)", 809.0),
+        ("SUMPRODUCT(A1:A3,B1:B3)", 100.0),
+        ("SUMPRODUCT(A1,B1)", 25.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn sumproduct_handles_blank_numeric_text_edits_and_zero_before_overflow() {
+    let mut table = formula_table();
+    table.set(0, 0, CellValue::String(" 2 ".into()));
+    table.set(0, 1, CellValue::Int(4));
+    table.set(1, 0, CellValue::Float(1e308));
+    table.set(1, 1, CellValue::Float(1e308));
+    table.set(1, 2, CellValue::Int(0));
+    table.set(2, 0, CellValue::Null);
+    for (formula, expected) in [
+        ("SUMPRODUCT(A1,B1)", Some(8.0)),
+        ("SUMPRODUCT(A1,B1,C1)", Some(0.0)),
+        ("SUMPRODUCT(A3,B3)", Some(0.0)),
+        ("SUMPRODUCT(A2,B2,C2)", Some(0.0)),
+        ("SUMPRODUCT(A2,B2)", None),
+        ("IFERROR(SUMPRODUCT(A2,B2),-1)", Some(-1.0)),
+    ] {
+        let outcome = evaluate_formula_with_diagnostics(formula, &table);
+        assert_eq!(outcome.value, expected, "{formula}");
+        assert!(outcome.bad_cell.is_none(), "{formula}");
+    }
+}
+
+#[test]
+fn sumproduct_rejects_shape_mismatch_malformed_calls_and_too_many_ranges() {
+    let table = formula_table();
+    for wrong_shape in ["SUMPRODUCT(A1:A2,5)", "SUMPRODUCT(A1:A2,A1:B1)"] {
+        assert_eq!(evaluate_formula(wrong_shape, &table), None, "{wrong_shape}");
+        assert_eq!(
+            evaluate_formula(&format!("IFERROR({wrong_shape},7)"), &table),
+            Some(7.0)
+        );
+        assert_eq!(
+            evaluate_formula(&format!("IF(TRUE,7,{wrong_shape})"), &table),
+            Some(7.0)
+        );
+    }
+    for invalid in [
+        "SUMPRODUCT()",
+        "SUMPRODUCT(A1:A3,)",
+        "SUMPRODUCT(A1:B2,A1:B2+)",
+        "SUMPRODUCT(A1:A3*B1:B3)",
+    ] {
+        assert_eq!(evaluate_formula(invalid, &table), None, "{invalid}");
+        assert_eq!(
+            evaluate_formula(&format!("IFERROR({invalid},7)"), &table),
+            None
+        );
+        assert_eq!(
+            evaluate_formula(&format!("IF(TRUE,7,{invalid})"), &table),
+            None
+        );
+    }
+    let limit = format!("SUMPRODUCT(2{})", ",1".repeat(254));
+    let excess = format!("SUMPRODUCT(2{})", ",1".repeat(255));
+    assert_eq!(evaluate_formula(&limit, &table), Some(2.0));
+    assert_eq!(evaluate_formula(&excess, &table), None);
+    assert_eq!(
+        evaluate_formula(&format!("IF(TRUE,7,{excess})"), &table),
+        None
+    );
+}
+
+#[test]
+fn sumproduct_clips_to_the_loaded_intersection() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("SUMPRODUCT(A1:A400000000,B2:B400000001)", 40.0),
+        ("SUMPRODUCT(A1:ZZ400000000,B1:AAA400000000)", 100.0),
+        ("SUMPRODUCT(A1:A400000000,ZZ1:ZZ400000000)", 0.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn weighted_unit_price_stays_numeric_after_xlsx_round_trip() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("purchases.csv");
+    let csv = "unit_price,units,weighted_price\n20,500,0\n25,750,0\n35,200,0\n";
+    std::fs::write(&input, csv).unwrap();
+    let mut table = CsvReader.read_file(&input).unwrap();
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        2,
+        "=IFERROR(ROUND(SUMPRODUCT(A1:A3,B1:B3)/SUM(B1:B3),2),0)".into(),
+        BinaryDisplayMode::default(),
+    ));
+    let output = dir.path().join("costs.xlsx");
+    ExcelReader.write_file(&output, &table).unwrap();
+    let reopened = ExcelReader.read_file(&output).unwrap();
+    assert_eq!(reopened.get(0, 2), Some(&CellValue::Float(24.66)));
+    assert!(reopened.formulas.is_empty());
+    assert_eq!(std::fs::read_to_string(input).unwrap(), csv);
+}

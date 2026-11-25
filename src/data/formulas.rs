@@ -16,6 +16,8 @@ mod control;
 mod criteria;
 #[path = "formulas_lookup.rs"]
 mod lookup;
+#[path = "formulas_product.rs"]
+mod product;
 use criteria::ConditionalAggregate;
 
 /// Snapshot of one referenced cell that could not be coerced to a number
@@ -179,6 +181,7 @@ enum Function {
     If,
     IfError,
     Lookup(lookup::ResultKind),
+    SumProduct,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -253,6 +256,8 @@ fn function_named(name: &str) -> Option<Function> {
         ("XVERWEIS", Function::Lookup(lookup::ResultKind::Value)),
         ("XMATCH", Function::Lookup(lookup::ResultKind::Position)),
         ("XVERGLEICH", Function::Lookup(lookup::ResultKind::Position)),
+        ("SUMPRODUCT", Function::SumProduct),
+        ("SUMMENPRODUKT", Function::SumProduct),
         (
             "COUNTIFS",
             Function::ConditionalMany(ConditionalAggregate::Count),
@@ -529,6 +534,7 @@ fn eval_function(
             return criteria::evaluate_many(aggregate, tokens, pos, context);
         }
         Function::Lookup(kind) => return lookup::evaluate(kind, tokens, pos, context),
+        Function::SumProduct => return product::evaluate(tokens, pos, context),
         Function::If => return control::evaluate_if(tokens, pos, context),
         Function::IfError => return control::evaluate_if_error(tokens, pos, context),
         _ => {}

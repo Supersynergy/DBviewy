@@ -30,6 +30,7 @@
   cells that meet every criterion.
 - Look up a numeric value with `XLOOKUP` or find a position with `XMATCH`.
   Use exact or wildcard matching and choose the first or last result.
+- Calculate weighted totals from corresponding cells with `SUMPRODUCT`.
 - Build the macOS bundle without a Homebrew runtime dependency and check
   all three bundled executables before signing.
 

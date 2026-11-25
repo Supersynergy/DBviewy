@@ -632,6 +632,11 @@ For example, `=SUMIFS(C1:C20,A1:A20,"West",B1:B20,"Paid")` adds amounts
 from C only for paid records in West. Give each range the same height
 and width. For SUMIFS and AVERAGEIFS, give the value range first.
 
+**Weighted totals**: `=SUMPRODUCT(B1:B20,C1:C20)` multiplies each
+price by its quantity, then adds the products. Divide by `SUM(C1:C20)`
+for the weighted unit price. Give each range the same height and
+width. The German name is SUMMENPRODUKT.
+
 **Conditional calculation**: `=IF(A1="West",B1*0.9,B1)` applies a
 discount only to West. `=IFERROR(B1/C1,0)` returns zero if the
 division fails. The German names are WENN and WENNFEHLER. IF evaluates
