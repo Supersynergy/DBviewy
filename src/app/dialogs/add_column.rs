@@ -16,6 +16,11 @@ use octa::ui::settings::{
 use super::super::init::COLUMN_TYPES;
 use super::super::state::OctaApp;
 
+// Used by the library evaluator as well. Keep the library's formula API
+// unchanged while ensuring E3 in 1E3 isn't mistaken for a cell to shift.
+#[path = "../../data/formula_lex.rs"]
+mod formula_lex;
+
 pub(crate) fn render_add_column_dialog(app: &mut OctaApp, ctx: &egui::Context) {
     if !app.tabs[app.active_tab].show_add_column_dialog {
         return;
@@ -223,6 +228,13 @@ impl<'a> FormulaRows<'a> {
                         }
                     }
                 }
+                continue;
+            }
+            if byte.is_ascii_digit() || *byte == b'.' {
+                let Some(end) = formula_lex::number_end(bytes, i) else {
+                    break; // preserve malformed literals for evaluator rejection
+                };
+                i = end;
                 continue;
             }
             if !byte.is_ascii_alphabetic() {

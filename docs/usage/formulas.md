@@ -13,12 +13,23 @@ Octa supports a small subset of Excel-like formulas in two places:
 | Element         | Example             | Notes                                                                                            |
 |-----------------|---------------------|--------------------------------------------------------------------------------------------------|
 | Cell reference  | `A1`, `AA17`, `$B$1` | Column letter and 1-based row number. A dollar sign before the row holds it fixed when filling down. |
-| Operators       | `+`, `-`, `*`, `/`  | Standard precedence; multiplication/division before addition/subtraction.                        |
+| Operators       | `+`, `-`, `*`, `/`, `^`, `%` | Arithmetic, powers and postfix percent. |
 | Parentheses     | `(A1 + B1) * 2`     | Override precedence.                                                                             |
-| Numeric literal | `42`, `3.14`, `-5` | Integers and decimals.                                          |
-| Whitespace      | `= A1 + B1`         | Ignored everywhere.                                                                              |
+| Numeric literal | `42`, `3.14`, `-5`, `2.5E-3` | Integers, decimals and scientific notation with `E` or `e`. |
+| Whitespace | `= A1 + B1` | Allowed between tokens, not within cell addresses or numbers. |
 
 Start a formula with `=` in the cell editor or the Insert Column dialog.
+
+## Percentages and powers
+
+`=A1*(1-15%)` applies a 15% discount. The percent operator divides by
+100; it does not change the cell's display format. Use `^` or
+`POWER(base, exponent)` (`POTENZ`) for powers.
+
+DBviewy applies signs first, then percent, then powers. Chained powers
+evaluate from left to right: `2^3^2` is 64. Use parentheses to make a
+different order explicit: `-(2^2)` is -4. A numeric literal such as
+`1E-3` means 0.001 and is unchanged when you fill a formula column.
 
 ## Examples
 

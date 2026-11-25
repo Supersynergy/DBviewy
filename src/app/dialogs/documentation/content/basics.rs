@@ -604,9 +604,13 @@ Cells support simple Excel-like formulas starting with **=**.
 
 - **Cell references**: A1, B2, AA1, etc. (column letter + 1-based row number;
   the column letter appears in each header).
-- **Operators**: `+`, `-`, `*`, `/`.
+- **Operators**: `+`, `-`, `*`, `/`, `^` for powers and `%` for percent.
 - **Parentheses**: `(A1 + B1) * 2`.
-- **Numeric literals**: `=A1 * 1.5`.
+- **Numeric literals**: `=A1 * 1.5` or `=A1 * 1E-3`. The latter multiplies
+  by 0.001.
+- **Percent and powers**: `=A1*(1-15%)` applies a discount. `=2^3`
+  gives 8, the same as `POWER(2,3)` (POTENZ). Signs and percent bind
+  before powers. Use parentheses to make the intended order clear.
 - **Functions**: `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` and `MEDIAN` accept rectangular
   ranges, single cells and expressions. For example, `=SUM(A1:B2,C1,5)`
   adds four cells, C1 and five. In cell arguments, blanks and non-numeric

@@ -1278,3 +1278,129 @@ fn weighted_unit_price_stays_numeric_after_xlsx_round_trip() {
     assert!(reopened.formulas.is_empty());
     assert_eq!(std::fs::read_to_string(input).unwrap(), csv);
 }
+
+#[test]
+fn excel_operators_evaluate_percentages_in_context() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("50%", 0.5),
+        ("1+5%", 1.05),
+        ("200*(1-15%)", 170.0),
+        ("A1*(50+50)%", 10.0),
+        ("B1/-50%", -5.0),
+        ("(50%)%", 0.005),
+        ("IF(A1>500%,A1*50%,0)", 5.0),
+        (r#"COUNTIF(B1:B3,">="&50%)"#, 3.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn excel_operators_honor_negation_percent_and_left_associative_powers() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("2^3^2", 64.0),
+        ("2^(3^2)", 512.0),
+        ("-2^2", 4.0),
+        ("-(2^2)", -4.0),
+        ("2^-3", 0.125),
+        ("2^3*2+3", 19.0),
+        ("9^50%", 3.0),
+        ("(9^2)%", 0.81),
+        ("POWER(2,-3)", 0.125),
+        ("POTENZ(A1/5;3)", 8.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn scientific_literals_remain_distinct_from_cell_references() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("1.25E3+5e-1", 1_250.5),
+        (".25e2", 25.0),
+        ("1E+2+A1", 110.0),
+        ("1E2%", 1.0),
+        ("COUNTIF(A1:A3,2e1)", 1.0),
+        ("SUM(1e3,2e2,3e-1)", 1_200.3),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+    let invalid = evaluate_formula_with_diagnostics("1E3+C2%", &table);
+    assert_eq!(invalid.value, None);
+    let bad = invalid.bad_cell.unwrap();
+    assert_eq!((bad.row, bad.col, bad.content.as_str()), (1, 2, "world"));
+}
+
+#[test]
+fn excel_operators_keep_syntax_errors_distinct_from_arithmetic_errors() {
+    let table = formula_table();
+    for expression in ["0^0", "0^-1", "(-3)^0.5", "10^400", "POWER(0,0)", "1E309"] {
+        assert_eq!(evaluate_formula(expression, &table), None, "{expression}");
+        assert_eq!(
+            evaluate_formula(&format!("IFERROR({expression},7)"), &table),
+            Some(7.0)
+        );
+        assert_eq!(
+            evaluate_formula(&format!("IF(TRUE,7,{expression})"), &table),
+            Some(7.0)
+        );
+    }
+    for malformed in [
+        "2^",
+        "%2",
+        "1e+",
+        "1.2.3E2",
+        ".E3",
+        "POWER(2)",
+        "POWER(2,3,4)",
+    ] {
+        assert_eq!(evaluate_formula(malformed, &table), None, "{malformed}");
+        assert_eq!(
+            evaluate_formula(&format!("IFERROR({malformed},7)"), &table),
+            None
+        );
+        assert_eq!(
+            evaluate_formula(&format!("IF(TRUE,7,{malformed})"), &table),
+            None
+        );
+    }
+}
+
+#[test]
+fn discount_and_growth_formula_survives_numeric_xlsx_round_trip() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("forecast.csv");
+    let csv = "base_price,discount_percent,cycles,result\n100,50,2,0\n";
+    std::fs::write(&input, csv).unwrap();
+    let mut table = CsvReader.read_file(&input).unwrap();
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        3,
+        "=ROUND(A1*(1-B1%)*(1+2.5E-1)^C1,2)".into(),
+        BinaryDisplayMode::default(),
+    ));
+    let output = dir.path().join("forecast.xlsx");
+    ExcelReader.write_file(&output, &table).unwrap();
+    let reloaded = ExcelReader.read_file(&output).unwrap();
+    assert_eq!(reloaded.get(0, 3), Some(&CellValue::Float(78.13)));
+    assert!(reloaded.formulas.is_empty());
+    assert_eq!(std::fs::read_to_string(input).unwrap(), csv);
+}

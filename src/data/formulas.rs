@@ -14,6 +14,8 @@ use super::{CellValue, DataTable};
 mod control;
 #[path = "formulas_criteria.rs"]
 mod criteria;
+#[path = "formula_lex.rs"]
+mod lex;
 #[path = "formulas_lookup.rs"]
 mod lookup;
 #[path = "formulas_product.rs"]
@@ -161,7 +163,7 @@ enum FormulaToken {
     Text(String),
     Boolean(bool),
     CellRef(usize, usize), // (row, col)
-    Op(char),              // +, -, *, /
+    Op(char),              // +, -, *, /, ^, %
     Compare(Comparison),
     Function(Function),
     Range,
@@ -182,6 +184,7 @@ enum Function {
     IfError,
     Lookup(lookup::ResultKind),
     SumProduct,
+    Power,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -258,6 +261,8 @@ fn function_named(name: &str) -> Option<Function> {
         ("XVERGLEICH", Function::Lookup(lookup::ResultKind::Position)),
         ("SUMPRODUCT", Function::SumProduct),
         ("SUMMENPRODUKT", Function::SumProduct),
+        ("POWER", Function::Power),
+        ("POTENZ", Function::Power),
         (
             "COUNTIFS",
             Function::ConditionalMany(ConditionalAggregate::Count),
@@ -305,7 +310,7 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
             c if c.is_ascii_whitespace() => {
                 i += 1;
             }
-            b'+' | b'-' | b'*' | b'/' => {
+            b'+' | b'-' | b'*' | b'/' | b'^' | b'%' => {
                 tokens.push(FormulaToken::Op(char::from(byte)));
                 i += 1;
             }
@@ -363,12 +368,7 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
             }
             c if c.is_ascii_digit() || c == b'.' => {
                 let start = i;
-                while bytes
-                    .get(i)
-                    .is_some_and(|b| b.is_ascii_digit() || *b == b'.')
-                {
-                    i += 1;
-                }
+                i = lex::number_end(bytes, start)?;
                 let val: f64 = expr[start..i].parse().ok()?;
                 tokens.push(FormulaToken::Number(val));
             }
@@ -438,22 +438,22 @@ fn eval_expression(
     Some((left, p))
 }
 
-/// term = factor (('*' | '/') factor)*
+/// term = power (('*' | '/') power)*
 fn eval_term(
     tokens: &[FormulaToken],
     pos: usize,
     context: &mut Evaluation<'_>,
 ) -> Option<(f64, usize)> {
-    let (mut left, mut p) = eval_factor(tokens, pos, context)?;
+    let (mut left, mut p) = eval_power(tokens, pos, context)?;
     while p < tokens.len() {
         match &tokens[p] {
             FormulaToken::Op('*') => {
-                let (right, np) = eval_factor(tokens, p + 1, context)?;
+                let (right, np) = eval_power(tokens, p + 1, context)?;
                 left *= right;
                 p = np;
             }
             FormulaToken::Op('/') => {
-                let (right, np) = eval_factor(tokens, p + 1, context)?;
+                let (right, np) = eval_power(tokens, p + 1, context)?;
                 if context.table.is_some() {
                     if right == 0.0 {
                         return None;
@@ -466,6 +466,51 @@ fn eval_term(
         }
     }
     Some((left, p))
+}
+
+/// Excel binds signs and postfix percentages before powers, and follows
+/// the same left-to-right rule for chained powers as for other operators.
+fn eval_power(
+    tokens: &[FormulaToken],
+    pos: usize,
+    context: &mut Evaluation<'_>,
+) -> Option<(f64, usize)> {
+    let (mut base, mut end) = eval_percent(tokens, pos, context)?;
+    while matches!(tokens.get(end), Some(FormulaToken::Op('^'))) {
+        let (exponent, next) = eval_percent(tokens, end + 1, context)?;
+        base = numeric_power(base, exponent, context)?;
+        end = next;
+    }
+    Some((base, end))
+}
+
+fn eval_percent(
+    tokens: &[FormulaToken],
+    pos: usize,
+    context: &mut Evaluation<'_>,
+) -> Option<(f64, usize)> {
+    let (mut value, mut end) = eval_factor(tokens, pos, context)?;
+    while matches!(tokens.get(end), Some(FormulaToken::Op('%'))) {
+        if context.table.is_some() {
+            value /= 100.0;
+            if !value.is_finite() {
+                return None;
+            }
+        }
+        end += 1;
+    }
+    Some((value, end))
+}
+
+fn numeric_power(base: f64, exponent: f64, context: &Evaluation<'_>) -> Option<f64> {
+    if context.table.is_none() {
+        return Some(0.0); // syntax-only pass of an inactive branch
+    }
+    if !base.is_finite() || !exponent.is_finite() || (base == 0.0 && exponent == 0.0) {
+        return None;
+    }
+    let value = base.powf(exponent);
+    value.is_finite().then_some(value)
 }
 
 /// factor = ('+' | '-')* (Number | CellRef | function | '(' expression ')')
@@ -484,7 +529,9 @@ fn eval_factor(
         pos += 1;
     }
     let (value, end) = match tokens.get(pos)? {
-        FormulaToken::Number(n) => Some((*n, pos + 1)),
+        FormulaToken::Number(n) => {
+            (context.table.is_none() || n.is_finite()).then_some((*n, pos + 1))
+        }
         FormulaToken::Boolean(value) => Some((f64::from(u8::from(*value)), pos + 1)),
         FormulaToken::Function(function) => eval_function(*function, tokens, pos + 1, context),
         FormulaToken::CellRef(..) if context.table.is_none() => Some((0.0, pos + 1)),
@@ -556,6 +603,13 @@ fn eval_function(
                 0.0
             };
             (rounded, end)
+        }
+        Function::Power => {
+            if !matches!(tokens.get(end), Some(FormulaToken::Separator)) {
+                return None;
+            }
+            let (exponent, end) = eval_expression(tokens, end + 1, context)?;
+            (numeric_power(value, exponent, context)?, end)
         }
         _ => unreachable!("aggregates and control functions are handled above"),
     };

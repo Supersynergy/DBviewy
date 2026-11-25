@@ -31,6 +31,8 @@
 - Look up a numeric value with `XLOOKUP` or find a position with `XMATCH`.
   Use exact or wildcard matching and choose the first or last result.
 - Calculate weighted totals from corresponding cells with `SUMPRODUCT`.
+- Support percent, powers and scientific notation in formulas. Keep
+  exponents such as the one in `1E-3` fixed when filling a column.
 - Build the macOS bundle without a Homebrew runtime dependency and check
   all three bundled executables before signing.
 

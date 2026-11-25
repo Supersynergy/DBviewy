@@ -707,3 +707,49 @@ fn sumproduct_formula_column_uses_fixed_weights_and_shifted_prices() {
     assert_eq!(tab.table.col_count(), 2);
     assert_eq!(tab.table.get(2, 0), Some(&data::CellValue::Int(30)));
 }
+
+#[test]
+fn scientific_formula_fill_moves_cell_addresses_but_not_exponents() {
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table.columns = ["price", "fee", "spare 1", "spare 2", "per-row adjustment"]
+        .map(|name| data::ColumnInfo {
+            name: name.into(),
+            data_type: "Int64".into(),
+        })
+        .to_vec();
+    tab.table.rows = [(100, 10, 1), (200, 30, 2), (300, 90, 3)]
+        .into_iter()
+        .map(|(price, fee, adjustment)| {
+            vec![
+                data::CellValue::Int(price),
+                data::CellValue::Int(fee),
+                data::CellValue::Null,
+                data::CellValue::Null,
+                data::CellValue::Int(adjustment),
+            ]
+        })
+        .collect();
+    let source = "ROUND(A1*(1+1e1%)+$B$1+E1+1E-1,2)";
+    let template = FormulaRows::new(source);
+    let mut shifted = String::new();
+    assert_eq!(
+        template.at(2, &mut shifted),
+        Some("ROUND(A3*(1+1e1%)+$B$1+E3+1E-1,2)")
+    );
+    tab.new_col_name = "discounted price forecast".into();
+    tab.new_col_formula = format!("={source}");
+    tab.insert_col_at = Some(0);
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    for (row, expected) in [121.1, 232.1, 343.1].into_iter().enumerate() {
+        assert_eq!(
+            tab.table.get(row, 0),
+            Some(&data::CellValue::Float(expected))
+        );
+    }
+    assert!(tab.parse_error_banner.is_none());
+    assert!(tab.table.undo());
+    assert_eq!(tab.table.col_count(), 5);
+    assert_eq!(tab.table.get(2, 0), Some(&data::CellValue::Int(300)));
+}
