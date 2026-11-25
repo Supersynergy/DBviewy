@@ -1138,6 +1138,117 @@ fn formula_lookup_price_survives_xlsx_round_trip() {
 }
 
 #[test]
+fn lookup_nearest_numeric_mode_is_directional_without_sorting() {
+    let mut table = formula_table();
+    table.set(0, 0, CellValue::Int(30));
+    table.set(1, 0, CellValue::Int(10));
+    table.set(2, 0, CellValue::Int(10));
+    for (formula, expected) in [
+        ("XMATCH(25,A1:A3,-1,1)", Some(2.0)),
+        ("XMATCH(25,A1:A3,-1,-1)", Some(3.0)),
+        ("XMATCH(25,A1:A3,1,-1)", Some(1.0)),
+        ("XMATCH(10,A1:A3,1,-1)", Some(3.0)),
+        ("XVERWEIS(25;A1:A3;B1:B3;;-1;-1)", Some(0.5)),
+        ("XLOOKUP(35,A1:A3,B1:B3,42,1)", Some(42.0)),
+        ("XLOOKUP(5,A1:A3,B1:B3,42,-1)", Some(42.0)),
+        ("XLOOKUP(25,A1:A3,B1:B3,1/0,1)", Some(2.5)),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+    table.set(2, 0, CellValue::String("not a threshold".into()));
+    assert_eq!(evaluate_formula("XMATCH(5,A1:A3,1)", &table), Some(2.0));
+}
+
+#[test]
+fn lookup_binary_modes_follow_sorted_numeric_ranges() {
+    let mut table = formula_table();
+    for (formula, expected) in [
+        ("XMATCH(10,A1:A3,0,2)", Some(1.0)),
+        ("XMATCH(20,A1:A3,0,2)", Some(2.0)),
+        ("XMATCH(30,A1:A3,0,2)", Some(3.0)),
+        ("XMATCH(23,A1:A3,-1,2)", Some(2.0)),
+        ("XMATCH(23,A1:A3,1,2)", Some(3.0)),
+        ("XMATCH(23,A1:A3,0,2)", None),
+        ("XMATCH(-2,A1:A3,-1,2)", None),
+        ("XMATCH(99,A1:A3,1,2)", None),
+        ("XLOOKUP(23,A1:A3,B1:B3,99,-1,2)", Some(3.0)),
+        ("XLOOKUP(23,A1:A3,B1:B3,99,0,2)", Some(99.0)),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+    table.set(1, 0, CellValue::Int(10));
+    assert_eq!(evaluate_formula("XMATCH(10,A1:A3,0,2)", &table), Some(1.0));
+    assert_eq!(evaluate_formula("XMATCH(22,A1:A3,-1,2)", &table), Some(1.0));
+    table.set(0, 2, CellValue::Int(-1));
+    table.set(1, 2, CellValue::Int(40));
+    for (formula, expected) in [
+        ("XVERGLEICH(2.5;A1:C1;0;-2)", Some(2.0)),
+        ("XMATCH(3,A1:C1,1,-2)", Some(1.0)),
+        ("XMATCH(3,A1:C1,-1,-2)", Some(2.0)),
+        ("XMATCH(-2,A1:C1,-1,-2)", None),
+        ("XMATCH(99,A1:C1,1,-2)", None),
+        ("XLOOKUP(-1,A1:C1,A2:C2,99,0,-2)", Some(40.0)),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+}
+
+#[test]
+fn lookup_binary_retains_numeric_precision_and_loaded_bounds() {
+    let mut table = formula_table();
+    table.set(0, 0, CellValue::Float(9_007_199_254_740_992.0));
+    table.set(1, 0, CellValue::Int(9_007_199_254_740_993));
+    table.set(2, 0, CellValue::Int(9_007_199_254_740_994));
+    table.set(0, 2, CellValue::Int(9_007_199_254_740_993));
+    assert_eq!(
+        evaluate_formula("XLOOKUP(C1,A1:A1000000,B1:B1000000,8,0,2)", &table),
+        Some(3.0)
+    );
+    assert_eq!(
+        evaluate_formula("XMATCH(9007199254740992,A1:A1000000,0,2)", &table),
+        Some(1.0)
+    );
+    assert_eq!(evaluate_formula("XMATCH(0,D1:D1000000,-1,2)", &table), None);
+}
+
+#[test]
+fn lookup_binary_does_not_apply_not_found_value_to_invalid_modes_or_keys() {
+    let catalogue = lookup_catalog();
+    for formula in [
+        r#"XLOOKUP("ax-01",A1:A7,B1:B7,8,0,2)"#,
+        r#"XLOOKUP("ax-*",A1:A7,B1:B7,8,2,2)"#,
+        r#"XLOOKUP("ax-01",A1:A7,B1:B7,8,1,1)"#,
+        "XLOOKUP(10,A1:A7,B1:B7,8,0,-2)",
+        "XLOOKUP(10,A1:A7,B1:B6,8,0,2)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &catalogue), None, "{formula}");
+    }
+    assert_eq!(
+        evaluate_formula("IFERROR(XLOOKUP(10,A1:A7,B1:B7,8,0,-2),9)", &catalogue),
+        Some(9.0)
+    );
+}
+
+#[test]
+fn lookup_binary_large_inventory_agrees_with_unindexed_lookup() {
+    let mut table = formula_table();
+    table.rows = (0..32_000)
+        .map(|i| vec![CellValue::Int(10_000 + 2 * i), CellValue::Int(5 + i % 99)])
+        .collect();
+    table.columns.truncate(2);
+    for key in [9_999, 10_000, 19_999, 27_458, 36_200, 73_998, 74_000] {
+        for mode in [-1, 0, 1] {
+            let lookup = |search| format!("XLOOKUP({key},A1:A32000,B1:B32000,-1,{mode},{search})");
+            assert_eq!(
+                evaluate_formula(&lookup(2), &table),
+                evaluate_formula(&lookup(1), &table),
+                "inventory SKU {key}, mode {mode}"
+            );
+        }
+    }
+}
+
+#[test]
 fn classic_vlookup_matches_first_exact_key_and_wildcards() {
     let mut table = lookup_catalog();
     table.set(0, 2, CellValue::Bool(false));

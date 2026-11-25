@@ -660,6 +660,12 @@ ignores text case and takes the first result by default. Use a single
 row or column and the same shape for the return range. The German
 names are XVERWEIS and XVERGLEICH.
 
+For numeric keys, match mode -1 takes the exact or next smaller key;
+mode 1 takes the exact or next larger. For a large sorted numeric
+range, `=XMATCH(D1,A1:A100000,0,2)` uses binary search. Search mode 2
+requires ascending keys and -2 requires descending keys. Use the default
+search if the keys are unsorted or include text.
+
 Use `=VLOOKUP(D1,$A$1:$C$100,3,FALSE)` to match an ID in column A and
 return the number from column C. `=HLOOKUP(D5,$A$1:$F$3,3,FALSE)`
 searches the first row and returns the number from the third row.

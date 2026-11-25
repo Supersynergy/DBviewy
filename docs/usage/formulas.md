@@ -189,8 +189,24 @@ distinct. Search starts at the first loaded cell by default. To prefer
 the last match, pass `-1` as the last argument:
 `=XLOOKUP(D1,A1:A100,B1:B100,-1,0,-1)` or `=XMATCH(D1,A1:A100,0,-1)`.
 Match mode `0` is exact. Mode `2` enables text wildcards `*` and `?`
-with `~` to escape them. Approximate and binary search modes are not
-supported. The German names are `XVERWEIS` and `XVERGLEICH`.
+with `~` to escape them. The German names are `XVERWEIS` and
+`XVERGLEICH`.
+
+### Find a numeric threshold in a large catalogue
+
+Match mode `-1` takes the exact or next smaller numeric key; mode
+`1` takes the exact or next larger one. For example,
+`=XLOOKUP(D1,A1:A100,B1:B100,0,-1)` returns the rate at the highest
+threshold not above D1, or zero if there is none. The default search
+works with unsorted keys and skips non-numeric keys in these modes.
+
+For sorted numeric keys, use search mode `2` for ascending order or
+`-2` for descending order. For example,
+`=XMATCH(D1,A1:A100000,0,2)` finds a numeric ID without scanning the
+whole range. This also works with match mode `-1` or `1` and returns
+the first entry when the chosen key repeats. The search does not check
+the entire range. **Do not use it with unsorted or mixed-type keys**;
+use search mode `1` or `-1` instead. Binary search does not use wildcards.
 
 ### Look up a price or tier in a rectangular range
 

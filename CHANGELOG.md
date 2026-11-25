@@ -7,6 +7,8 @@
 - Fill blank cells in existing XLSX rows without exporting a new workbook.
 - Find prices or numeric tiers with `VLOOKUP` and `HLOOKUP` (German:
   `SVERWEIS` and `WVERWEIS`).
+- Find the next smaller or larger numeric key with `XLOOKUP` and `XMATCH`.
+  Use binary search when the numeric keys are sorted.
 
 - Integrate Octa 0.22.1, keeping DBviewy's workbook preservation, per-session
   crash markers, assistant integrations, and local table interface.

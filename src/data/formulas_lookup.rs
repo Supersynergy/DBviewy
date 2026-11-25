@@ -85,17 +85,6 @@ pub(super) fn evaluate(
     if rows != 1 && cols != 1 || output.is_some_and(|output| output.shape() != (rows, cols)) {
         return None;
     }
-    let reverse = match direction {
-        1.0 => false,
-        -1.0 => true,
-        _ => return None,
-    };
-    let matcher = match (mode, key) {
-        (0.0, key) => Matcher::Exact(key),
-        (2.0, Key::Text(pattern)) => Matcher::Wildcard(wildcard(pattern)?),
-        _ => return None,
-    };
-
     // Cap the search at loaded cells *before* reversing it. Off-sheet
     // cells are never candidates, even when looking for a blank.
     let (loaded_rows, loaded_cols) = search.loaded_shape(table);
@@ -107,12 +96,37 @@ pub(super) fn evaluate(
             range.at(index, 0)
         }
     };
-    let found = (0..len)
-        .map(|offset| if reverse { len - 1 - offset } else { offset })
-        .find(|&offset| {
-            let (r, c) = at(search, offset);
-            Key::from_cell(table.get(r, c)).is_some_and(|value| matcher.matches(value))
-        });
+    let key_at = |offset| {
+        let (r, c) = at(search, offset);
+        Key::from_cell(table.get(r, c))
+    };
+    let mut offsets = (0..len).map(|offset| {
+        if direction == -1.0 {
+            len - 1 - offset
+        } else {
+            offset
+        }
+    });
+    let side = match mode {
+        -1.0 => Some(Ordering::Less),
+        1.0 => Some(Ordering::Greater),
+        _ => None,
+    };
+    let found = match (direction, mode) {
+        (1.0 | -1.0, 0.0 | 2.0) => {
+            let matcher = match (mode, key) {
+                (0.0, key) => Matcher::Exact(key),
+                (2.0, Key::Text(pattern)) => Matcher::Wildcard(wildcard(pattern)?),
+                _ => return None,
+            };
+            offsets.find_map(|i| matcher.matches(key_at(i)?).then_some(i))
+        }
+        (1.0 | -1.0, -1.0 | 1.0) => nearest_numeric(offsets, key, side?, key_at)?,
+        (2.0 | -2.0, -1.0 | 0.0 | 1.0) => {
+            binary_numeric(len, key, side, direction == -2.0, key_at)?
+        }
+        _ => return None,
+    };
     let value = match (found, output) {
         (Some(offset), Some(output)) => {
             let (r, c) = at(output, offset);
@@ -122,6 +136,82 @@ pub(super) fn evaluate(
         (None, _) => eval_complete(fallback?, context)?,
     };
     value.is_finite().then_some((value, end))
+}
+
+fn nearest_numeric<'a>(
+    offsets: impl Iterator<Item = usize>,
+    key: Key<'a>,
+    side: Ordering,
+    key_at: impl Fn(usize) -> Option<Key<'a>>,
+) -> Option<Option<usize>> {
+    key.numeric_cmp(key)?;
+    let mut best = None;
+    for offset in offsets {
+        let Some(cell) = key_at(offset) else {
+            continue;
+        };
+        match cell.numeric_cmp(key) {
+            Some(Ordering::Equal) => return Some(Some(offset)),
+            Some(order) if order == side => {
+                if best.is_none_or(|(_, threshold)| {
+                    cell.numeric_cmp(threshold) == Some(side.reverse())
+                }) {
+                    best = Some((offset, cell));
+                }
+            }
+            _ => {}
+        }
+    }
+    Some(best.map(|(offset, _)| offset))
+}
+
+fn lower_bound(len: usize, mut before: impl FnMut(usize) -> Option<bool>) -> Option<usize> {
+    let (mut start, mut end) = (0, len);
+    while start < end {
+        let mid = start + (end - start) / 2;
+        if before(mid)? {
+            start = mid + 1;
+        } else {
+            end = mid;
+        }
+    }
+    Some(start)
+}
+
+fn binary_numeric<'a>(
+    len: usize,
+    key: Key<'a>,
+    side: Option<Ordering>,
+    descending: bool,
+    key_at: impl Fn(usize) -> Option<Key<'a>>,
+) -> Option<Option<usize>> {
+    key.numeric_cmp(key)?;
+    // Search modes +/-2 explicitly require a sorted numeric catalogue.
+    // Do not scan it to check sort order; that would make each lookup linear.
+    let order = |cmp: Ordering| if descending { cmp.reverse() } else { cmp };
+    let compare = |offset, target| Some(order(key_at(offset)?.numeric_cmp(target)?));
+    let bound = lower_bound(len, |i| Some(compare(i, key)?.is_lt()))?;
+    if bound < len && compare(bound, key)?.is_eq() {
+        return Some(Some(bound));
+    }
+    let Some(side) = side else {
+        return Some(None);
+    };
+    if order(side).is_gt() {
+        return Some((bound < len).then_some(bound));
+    }
+    let Some(prior) = bound.checked_sub(1) else {
+        return Some(None);
+    };
+    let threshold = key_at(prior)?;
+    if prior == 0 || !compare(prior - 1, threshold)?.is_eq() {
+        return Some(Some(prior));
+    }
+    // The preceding threshold can be duplicated. Keep the first row rather
+    // than picking whichever duplicate happened to be probed by the search.
+    Some(Some(lower_bound(prior, |i| {
+        Some(compare(i, threshold)?.is_lt())
+    })?))
 }
 
 pub(super) fn evaluate_table(
@@ -313,3 +403,7 @@ impl Matcher<'_> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "formulas_lookup_tests.rs"]
+mod tests;
