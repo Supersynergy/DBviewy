@@ -82,6 +82,156 @@ fn unsafe_saves_keep_original_bytes_and_edits() {
 }
 
 #[test]
+fn fill_originally_absent_cell_through_save_and_reopen() {
+    use crate::app::state::OctaApp;
+    use octa::ui::settings::{AppSettings, IconVariant};
+    let (_dir, path, baseline) = fixture();
+    let mut before = members(&path);
+    let part = "xl/worksheets/sheet2.xml";
+    let original = String::from_utf8(before.remove(part).unwrap()).unwrap();
+    assert!(!original.contains(r#"r="E5""#));
+
+    let mut app = OctaApp::new(vec![], AppSettings::default(), IconVariant::Rose);
+    app.load_file(path.clone());
+    let tab = app
+        .tabs
+        .iter()
+        .position(|tab| tab.sheet_name.as_deref() == Some("Costs & sales"))
+        .unwrap();
+    assert_eq!(app.tabs[tab].table.get(1, 1), Some(&CellValue::Null));
+    app.tabs[tab].table.set(1, 1, CellValue::Bool(true));
+    app.save_tab(tab);
+    assert!(
+        !app.tabs[tab].table.is_modified(),
+        "{:?}",
+        app.status_message
+    );
+    let reopened = ExcelReader.read_table(&path, "Costs & sales").unwrap();
+    assert_eq!(reopened.get(1, 1), Some(&CellValue::Bool(true)));
+    assert_eq!(reopened.formulas, baseline.formulas);
+
+    let expected = original.replace(
+        r#"<c r="D5"><v>700</v></c>"#,
+        r#"<c r="D5"><v>700</v></c><c r="E5" t="b"><v>1</v></c>"#,
+    );
+    assert_ne!(expected, original);
+    let mut after = members(&path);
+    assert_eq!(after.remove(part).unwrap(), expected.as_bytes());
+    assert_eq!(after, before);
+}
+
+#[test]
+fn inserts_sparse_cells_in_numeric_column_order() {
+    let xml = r#"<worksheet><sheetData><row r="7" ht="16">
+<c r="Z7" s="2"><v>5</v></c><c r="AC7"><f>Z7*2</f><v>10</v></c>
+</row></sheetData><mergeCells><mergeCell ref="AE7:AF7"/></mergeCells></worksheet>"#;
+    let value = CellValue::Int(4);
+    let text = CellValue::String("<&>".into());
+    let changes = [
+        ("AD7", &text),
+        ("AB7", &value),
+        ("Z7", &value),
+        ("AA7", &value),
+        ("Y7", &value),
+    ];
+    assert_eq!(
+        patch(
+            xml,
+            changes
+                .into_iter()
+                .map(|(r, v)| (r.to_owned(), v))
+                .collect()
+        )
+        .unwrap(),
+        r#"<worksheet><sheetData><row r="7" ht="16">
+<c r="Y7" t="n"><v>4</v></c><c r="Z7" s="2" t="n"><v>4</v></c><c r="AA7" t="n"><v>4</v></c><c r="AB7" t="n"><v>4</v></c><c r="AC7"><f>Z7*2</f><v>10</v></c>
+<c r="AD7" t="inlineStr"><is><t xml:space="preserve">&lt;&amp;&gt;</t></is></c></row></sheetData><mergeCells><mergeCell ref="AE7:AF7"/></mergeCells></worksheet>"#
+    );
+}
+
+#[test]
+fn refuses_to_guess_sparse_row_layout() {
+    let value = CellValue::Int(4);
+    for (data, error) in [
+        (r#"<row><c r="A2"/></row>"#, "unnumbered rows"),
+        (r#"<row r="2"><c/></row>"#, "unnumbered cells"),
+        (
+            r#"<row r="2"><c r="A3"/></row>"#,
+            "Ambiguous worksheet cells",
+        ),
+        (
+            r#"<row r="2"><c r="D2"/><c r="A2"/></row>"#,
+            "Ambiguous worksheet cells",
+        ),
+        (
+            r#"<row r="2"><c r="A2"/></row><row r="2"><c r="D2"/></row>"#,
+            "Ambiguous worksheet row",
+        ),
+        (r#"<row r="2"><extLst/></row>"#, "unsupported metadata"),
+        (
+            r#"<row r="2" spans="3:4"><c r="D2"/></row>"#,
+            "outside the worksheet's row span",
+        ),
+        (r#"<row r="2"/>"#, "existing worksheet rows"),
+    ] {
+        let xml = format!("<worksheet><sheetData>{data}</sheetData></worksheet>");
+        let err = patch(&xml, HashMap::from([("B2".into(), &value)])).unwrap_err();
+        assert!(err.to_string().contains(error), "{data}: {err:#}");
+    }
+}
+
+#[test]
+fn rejects_missing_cells_in_merged_and_formula_ranges() {
+    let value = CellValue::Int(4);
+    for (data, extras, error) in [
+        (
+            r#"<c r="A2"/>"#,
+            r#"<mergeCells><mergeCell ref="A2:B3"/></mergeCells>"#,
+            "merged range A2:B3",
+        ),
+        (
+            r#"<c r="A2"/>"#,
+            r#"<mergeCells><mergeCell ref="A2:XFE3"/></mergeCells>"#,
+            "Unrecognised merged range",
+        ),
+        (
+            r#"<c r="A2"><f t="array" ref="A2:B3">1+1</f><v>2</v></c>"#,
+            "",
+            "Range formulas",
+        ),
+        (r#"<c r="A2"/>"#, "<sheetProtection/>", "protected"),
+    ] {
+        let xml = format!(
+            r#"<worksheet><sheetData><row r="2">{data}</row></sheetData>{extras}</worksheet>"#
+        );
+        let err = patch(&xml, HashMap::from([("B2".into(), &value)])).unwrap_err();
+        assert!(err.to_string().contains(error), "{xml}: {err:#}");
+    }
+}
+
+#[test]
+fn missing_row_rejects_entire_workbook_edit() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("missing-row.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet();
+    sheet.write_string(0, 0, "Total").unwrap();
+    sheet.write_number(1, 0, 2).unwrap();
+    sheet.write_number(3, 0, 4).unwrap();
+    book.save(&path).unwrap();
+    let mut table = ExcelReader.read_table(&path, "Sheet1").unwrap();
+    assert_eq!(table.get(1, 0), Some(&CellValue::Null));
+    let original = std::fs::read(&path).unwrap();
+    table.set(0, 0, CellValue::Int(20));
+    table.set(1, 0, CellValue::Int(30));
+    let err = save(&path, Some("Sheet1"), &table).unwrap_err();
+    assert!(format!("{err:#}").contains("existing worksheet rows"));
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+    assert_eq!(table.edits.len(), 2);
+    assert_eq!(table.get(1, 0), Some(&CellValue::Int(30)));
+}
+
+#[test]
 fn recalc_settings_preserve_order_and_manual_mode() {
     let disabled =
         r#"<workbook><sheets/><calcPr calcId="42" fullCalcOnLoad="0" iterate="1"/></workbook>"#;

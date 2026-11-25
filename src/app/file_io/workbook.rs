@@ -1,4 +1,4 @@
-//! Patch existing scalar cells without serialising the workbook from its table view.
+//! Patch scalar cells without serialising the workbook from its table view.
 use anyhow::{Context, Result, bail, ensure};
 use calamine::{Reader as _, open_workbook_auto};
 use octa::data::{CellValue, DataTable};
@@ -9,6 +9,9 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
+
+#[path = "workbook_sparse.rs"]
+mod sparse;
 
 pub(super) fn whole_xlsx(
     table: &DataTable,
@@ -148,9 +151,13 @@ fn replace_cell(
         body.is_empty() || scalar || inline,
         "Formula or unsupported cell contents at {address}"
     );
+    let style = attr(tag, "s")?.map(|s| s.parse()).transpose()?;
+    scalar_cell(address, style, value)
+}
+
+fn scalar_cell(address: &str, style: Option<u32>, value: &CellValue) -> Result<String> {
     let mut out = format!("<c r=\"{address}\"");
-    if let Some(style) = attr(tag, "s")? {
-        let id: u32 = style.parse()?;
+    if let Some(id) = style {
         out.push_str(&format!(" s=\"{id}\""));
     }
     if matches!(value, CellValue::Null) {
@@ -164,10 +171,15 @@ fn replace_cell(
     Ok(out)
 }
 
+struct XmlChange {
+    start: usize,
+    end: usize,
+    cell: String,
+}
+
 fn patch(xml: &str, mut changes: HashMap<String, &CellValue>) -> Result<String> {
     let mut reader = Reader::from_str(xml);
-    let mut out = String::with_capacity(xml.len());
-    let mut copied = 0;
+    let mut splices = Vec::with_capacity(changes.len());
     let mut stack = Vec::new();
     loop {
         let start = reader.buffer_position() as usize;
@@ -196,9 +208,11 @@ fn patch(xml: &str, mut changes: HashMap<String, &CellValue>) -> Result<String> 
                     } else {
                         ""
                     };
-                    out.push_str(&xml[copied..start]);
-                    out.push_str(&replace_cell(e, body, &address, value)?);
-                    copied = reader.buffer_position() as usize;
+                    splices.push(XmlChange {
+                        start,
+                        end: reader.buffer_position() as usize,
+                        cell: replace_cell(e, body, &address, value)?,
+                    });
                 } else if matches!(event, Event::Start(_)) {
                     stack.push(name.as_ref().to_owned());
                 }
@@ -210,10 +224,21 @@ fn patch(xml: &str, mut changes: HashMap<String, &CellValue>) -> Result<String> 
             _ => {}
         }
     }
-    ensure!(
-        changes.is_empty(),
-        "Only existing worksheet cells can be edited in place"
-    );
+    if !changes.is_empty() {
+        // Plan against the original bytes so mixed edits only build one
+        // output copy. At a shared offset insert before replacing the
+        // following cell; stable ordering keeps adjacent inserts in order.
+        splices.extend(sparse::plan(xml, changes)?);
+        splices.sort_by_key(|edit| (edit.start, edit.end));
+    }
+    let mut out = String::with_capacity(xml.len());
+    let mut copied = 0;
+    for edit in splices {
+        ensure!(copied <= edit.start, "Overlapping worksheet edits");
+        out.push_str(&xml[copied..edit.start]);
+        out.push_str(&edit.cell);
+        copied = edit.end;
+    }
     out.push_str(&xml[copied..]);
     Ok(out)
 }

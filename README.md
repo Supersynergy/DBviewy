@@ -74,9 +74,10 @@ for their documentation. Upstream downloads install **Octa**, not DBviewy.
 ## Workbook safety
 
 For supported cell-value edits to an existing `.xlsx` file, DBviewy patches
-the worksheet in the original workbook. Existing text, numbers and
-booleans can be replaced or cleared without removing the cell's style.
-Other sheets, formulas and filters stay in place. Excel may recalculate
+the worksheet in the original workbook. Replace or clear text, numbers
+and booleans without removing the cell's style, or fill a blank in an
+existing row within the opened data. Other sheets, formulas and filters
+stay in place. Excel may recalculate
 formulas after reopening; DBviewy does not recalculate the whole workbook.
 
 Clearing a cell is not secure redaction. Shared strings and cached

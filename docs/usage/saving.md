@@ -332,14 +332,16 @@ Parquet's compression and encoding choices use the defaults of the
 
 ### Excel (`.xlsx`)
 
-For an opened `.xlsx`, **Save** updates existing text, number or
-boolean cells in the selected worksheet. Clearing a value keeps the
-cell address and style. **Save As** to another `.xlsx` with **All rows**
+For an opened `.xlsx`, **Save** can update or clear text, numbers and
+booleans, or fill blanks in existing rows within the loaded data area.
+Clearing a value keeps the cell's address and style. **Save As** to another
+`.xlsx` with **All rows**
 copies the workbook and applies those same edits. The other worksheets,
 formulas and filters remain intact.
 
-Formula cells, protected worksheets and structural edits are not
-changed by this save path. Use **File > Export workbook...** to write
+This save path cannot fill a blank inside a merged range or create a missing
+worksheet row. Formula cells, protected worksheets and structural edits
+are also refused. Use **File > Export workbook...** to write
 the tabs you select as new worksheets. Exporting **Only the rows you
 see** writes the filtered table, not a copy of the original workbook.
 
