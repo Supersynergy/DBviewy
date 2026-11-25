@@ -432,6 +432,26 @@ Because Ctrl+click also toggles a cell in a multi-cell selection, on a link cell
 the Ctrl+click opens the link instead of toggling that one cell. You can turn the
 whole feature off with **Settings > Table View > Clickable web links**.
 
+## File paths in cells
+
+When a cell's whole text is a local file path, its right-click menu gains a
+**File** section. Recognised forms: an absolute path (`/Users/me/report.pdf`,
+`C:\data\sales.csv`), a home path (`~/Downloads/x.png`), a `file://` address,
+or a relative name resolved against the folder of the file you opened - so a
+CSV that lists `images/photo.png` finds the picture sitting next to it.
+
+- **Open** hands the file to its default app: Preview for images, QuickTime
+  for media, the file manager for a folder.
+- **Show in file manager** selects the file in Finder, Explorer or the
+  desktop's file manager.
+- **Open in new tab...** loads the file as a table when one of Octa's readers
+  claims it; it greys out for files that would only open as plain text.
+- **Copy path** puts the resolved absolute path on the clipboard.
+
+Entries grey out with the reason when the file no longer exists. Detection is
+deliberately strict - the cell's whole trimmed text must be the path, so a URL
+inside a sentence or a bare number never triggers the section.
+
 ## See also
 
 - [Search & Filter](search-and-filter.md) narrows the table to rows
@@ -442,3 +462,16 @@ whole feature off with **Settings > Table View > Clickable web links**.
   columns.
 - [Saving](saving.md) writes back to disk, with format-specific
   notes for databases.
+
+## DBviewy start and whole databases
+
+The start screen offers Open, New table and up to twelve recent files. Each
+recent file shows its path and size; missing files remain visible but disabled.
+Keyboard shortcuts and the build version appear below the list.
+
+For a local SQLite or DuckDB file with several tables, choose **Open all
+tables** (Ctrl+Enter) in the table picker to open the entire database as
+separate tabs. The ordinary Open button still opens just the selected table.
+This uses the same reader as opening each table separately: it loads full
+tables into memory, so select a single table for a very large database.
+Opening does not change the database on disk.

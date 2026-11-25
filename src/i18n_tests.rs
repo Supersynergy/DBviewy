@@ -408,22 +408,23 @@ const OPENS_SOMETHING: &[&str] = &[
     "datadrift.menu",         // dialog
     "relmap.menu",            // dialog
     "analyse_menu.pivot",
-    "analyse_menu.timeseries",      // dialog
-    "analyse_menu.correlation",     // dialog
-    "analyse_menu.lookups",         // dialog
-    "context_menu.cell_history",    // dialog
-    "columns_menu.filter",          // dialog
-    "distcmp.menu",                 // dialog
-    "refint.menu",                  // dialog
-    "analyse_menu.multi_sort",      // dialog
-    "analyse_menu.random_sample",   // dialog
-    "analyse_menu.value_frequency", // dialog
-    "help_menu.documentation",      // window
-    "help_menu.settings",           // window
-    "help_menu.about",              // window
-    "help_menu.check_updates",      // window
-    "help_menu.store_updates",      // the Store app's window
-    "ai_report.menu",               // window
+    "analyse_menu.timeseries",       // dialog
+    "analyse_menu.correlation",      // dialog
+    "analyse_menu.lookups",          // dialog
+    "context_menu.cell_history",     // dialog
+    "context_menu.open_file_in_tab", // new tab
+    "columns_menu.filter",           // dialog
+    "distcmp.menu",                  // dialog
+    "refint.menu",                   // dialog
+    "analyse_menu.multi_sort",       // dialog
+    "analyse_menu.random_sample",    // dialog
+    "analyse_menu.value_frequency",  // dialog
+    "help_menu.documentation",       // window
+    "help_menu.settings",            // window
+    "help_menu.about",               // window
+    "help_menu.check_updates",       // window
+    "help_menu.store_updates",       // the Store app's window
+    "ai_report.menu",                // window
     "analyse_menu.row_compare",
     "file_menu.export_pdf",
     "context_menu.export_pdf",
@@ -495,6 +496,9 @@ const JUST_EXECUTES: &[&str] = &[
     "tabgroup.close", // asks only through the unsaved-changes confirmation
     "tabcolour.menu", // opens a submenu
     "tabcolour.none",
+    "context_menu.open_file",   // OS handler takes over, nothing opens here
+    "context_menu.reveal_file", // file manager selects the file
+    "context_menu.copy_file_path", // clipboard only
 ];
 
 /// Whether a label carries an ellipsis at all. Deliberately not "ends with":

@@ -18,13 +18,11 @@ mod search;
 mod view;
 
 /// Height of the toolbar's widget row plus its frame margins.
-const TOOLBAR_ROW_H: f32 = 40.0;
+const TOOLBAR_ROW_H: f32 = 34.0;
 /// Id of the single foreground layer every window-resize grab strip lives in.
 const HANDLE_LAYER: &str = "octa_window_resize_handles";
-/// Total height of the toolbar panel: the widget row plus the strip its
-/// horizontal scrollbar lives in. One definition, used both for the panel itself
-/// and to keep the window resize-grab strips clear of it.
-const TOOLBAR_H: f32 = TOOLBAR_ROW_H + ui::toolbar::SCROLL_BAR_STRIP;
+/// Gap between the menu row and the ribbon below it.
+const RIBBON_GAP: f32 = 4.0;
 
 impl OctaApp {
     /// Paint invisible resize-grab strips along the window edges and corners
@@ -78,11 +76,11 @@ impl OctaApp {
         const CORNER: f32 = 20.0; // bottom corners: big and easy to hit
         const TOP_CORNER: f32 = 8.0; // top corners: small, above the toolbar
         // Keep the side strips clear of the toolbar's interactive row (menus +
-        // window-control buttons live here); `TOOLBAR_H` is the same const
+        // window-control buttons live here); `toolbar_height` is the same value
         // `render_toolbar` sizes the panel with.
         let rect = ctx.viewport_rect();
         let (l, r, t, b) = (rect.left(), rect.right(), rect.top(), rect.bottom());
-        let side_top = t + TOOLBAR_H;
+        let side_top = t + self.toolbar_height();
 
         // (id, grab rect, resize direction, hover cursor). Non-overlapping.
         let handles: [(&str, egui::Rect, Dir, CursorIcon); 8] = [
@@ -193,6 +191,18 @@ impl OctaApp {
         }
     }
 
+    /// Height of the toolbar panel: the menu row, plus the ribbon when it is
+    /// unfolded. One definition for the panel and for the resize-grab strips,
+    /// which must stay clear of it.
+    fn toolbar_height(&self) -> f32 {
+        TOOLBAR_ROW_H
+            + if self.settings.show_ribbon {
+                ui::toolbar::RIBBON_HEIGHT + RIBBON_GAP
+            } else {
+                0.0
+            }
+    }
+
     pub(crate) fn render_toolbar(&mut self, parent_ui: &mut egui::Ui) {
         let ctx = parent_ui.ctx().clone();
         let ctx = &ctx;
@@ -201,8 +211,9 @@ impl OctaApp {
             .fill(header_colors.bg_header)
             .inner_margin(egui::Margin::symmetric(4, 4))
             .stroke(egui::Stroke::new(1.0_f32, header_colors.border_subtle));
+        let toolbar_h = self.toolbar_height();
         egui::Panel::top("toolbar")
-            .exact_size(TOOLBAR_H)
+            .exact_size(toolbar_h)
             .frame(toolbar_frame)
             .show(parent_ui, |ui| {
                 self.ensure_logo_textures(ctx);
@@ -342,6 +353,7 @@ impl OctaApp {
                     table: &tab.table,
                     logo_texture: self.logo_texture.as_ref(),
                     show_window_controls: self.settings.use_custom_title_bar,
+                    ribbon_open: self.settings.show_ribbon,
                 };
                 let search = ui::toolbar::SearchControls {
                     text: &mut tab.search_text,
@@ -466,6 +478,29 @@ impl OctaApp {
             self.apply_zoom(ctx);
         }
         self.dispatch_view_menu(ctx, &action);
+        if action.toggle_ribbon {
+            self.settings.show_ribbon = !self.settings.show_ribbon;
+            self.settings.save();
+        }
+        if let Some((row, col)) = action.goto_cell {
+            self.jump_to_cell(row, col);
+        }
+        if let Some((row, col, text)) = action.commit_cell_text.clone()
+            && !self.is_readonly()
+        {
+            let mode = self.settings.binary_display_mode;
+            let tab = &mut self.tabs[self.active_tab];
+            if octa::ui::table_view::commit_cell_text(&mut tab.table, row, col, text, mode) {
+                tab.table_state.invalidate_row_heights();
+                tab.filter_dirty = true;
+            }
+        }
+        if action.copy_cells {
+            self.do_copy(ctx);
+        }
+        if action.paste_cells {
+            self.do_paste(ctx, None);
+        }
         if action.search_changed {
             self.tabs[self.active_tab].search_nav.reset();
             self.tabs[self.active_tab].filter_dirty = true;
@@ -567,3 +602,6 @@ mod tests;
 #[cfg(test)]
 #[path = "toolbar_menu_tests.rs"]
 mod toolbar_menu_tests;
+
+#[cfg(test)]
+mod instant_search_tests;

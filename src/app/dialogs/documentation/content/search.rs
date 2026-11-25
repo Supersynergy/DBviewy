@@ -10,6 +10,14 @@
 
 pub const SEARCH: &str = r#"# Search & Replace
 
+## DBviewy instant search
+
+The search field stays centred above the table, outside the scrolling menus.
+Type to search immediately. Ctrl+F focuses it; Escape or x clears it and keeps
+focus in the field. Each tab keeps its own query. Smartchat is a separate field
+on the right. Mode, column scope, Filter / Highlight and Ask use the same search
+state. In Ask mode, Enter submits the question; typing alone does not filter.
+
 The toolbar search box matches rows in real time. Three modes (selectable in
 the dropdown next to the box):
 

@@ -730,6 +730,10 @@ pub struct AppSettings {
     /// one queries its server at start-up.
     #[serde(default)]
     pub restore_session_connections: bool,
+    /// Show the Excel-style editing ribbon (formula bar + quick actions)
+    /// below the menu row. The chevron at the right of the menu row folds it.
+    #[serde(default = "default_true")]
+    pub show_ribbon: bool,
     /// Mark spaces, tabs and invisible characters inside table cells.
     #[serde(default)]
     pub show_invisible_chars: bool,
@@ -1253,6 +1257,7 @@ impl Default for AppSettings {
             restore_session: false,
             restore_session_cloud: false,
             restore_session_connections: false,
+            show_ribbon: true,
             show_invisible_chars: false,
             shape_detail: Default::default(),
             natural_sort: false,

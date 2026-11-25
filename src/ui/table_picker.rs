@@ -27,6 +27,8 @@ pub enum TablePickerAction {
     Open(PathBuf, String),
     /// User cancelled.
     Cancel,
+    /// Open every listed table, keeping qualified names intact.
+    OpenAll,
 }
 
 /// Render the modal picker. Returns the user's action for this frame.
@@ -34,6 +36,12 @@ pub fn render_table_picker(ctx: &egui::Context, state: &mut TablePickerState) ->
     let mut action = TablePickerAction::None;
     let mut close = false;
     let previous = state.selected;
+    if ctx.input_mut(|i| i.consume_key(egui::Modifiers::CTRL, egui::Key::Enter))
+        && !state.tables.is_empty()
+    {
+        return TablePickerAction::OpenAll;
+    }
+
     let key = |key| ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, key));
     if key(egui::Key::Escape) {
         return TablePickerAction::Cancel;
@@ -117,6 +125,17 @@ pub fn render_table_picker(ctx: &egui::Context, state: &mut TablePickerState) ->
                 crate::ui::control_row::control_line(ui, |ui| {
                     if ui.button(crate::i18n::t("common.cancel")).clicked() {
                         action = TablePickerAction::Cancel;
+                    }
+                    if ui
+                        .add_enabled(
+                            !state.tables.is_empty(),
+                            egui::Button::new(crate::i18n::t("table_picker.open_all")),
+                        )
+                        .on_hover_text(crate::i18n::t("table_picker.open_all_hint"))
+                        .on_disabled_hover_text(crate::i18n::t("file_menu.recent_none"))
+                        .clicked()
+                    {
+                        action = TablePickerAction::OpenAll;
                     }
                     let can_open = state.selected < state.tables.len();
                     let open_resp = ui.add_enabled(

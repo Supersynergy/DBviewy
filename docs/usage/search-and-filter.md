@@ -1,5 +1,16 @@
 # Search & Filter
 
+## DBviewy instant search
+
+DBviewy pins the search field above the table, outside the horizontally
+scrolling menus. It remains centred between the menus and Smartchat, with Smartchat
+separate on the right. Type to search immediately, use **Ctrl+F** to focus
+the field, and **Escape** or **x** to clear it without changing the data.
+The field belongs to the active tab. Search mode, column scope, Filter /
+Highlight and Ask remain available in the scrolling toolbar. Ask drafts
+are only submitted with Enter and never applied as partial text filters.
+
+
 Octa's search filters the table in real time, so only rows containing
 a match stay visible. The same field doubles as the entry point for
 **Find & Replace**.

@@ -6,6 +6,8 @@
 //! This keeps false positives out of ordinary prose cells that merely mention a
 //! URL, and keeps the check cheap on the hot render path.
 
+use std::path::{Path, PathBuf};
+
 /// Return the URL when `text` is, after trimming, a single `http`/`https` link;
 /// otherwise `None`.
 pub fn detect_url(text: &str) -> Option<&str> {
@@ -156,6 +158,61 @@ pub(crate) fn local_file_uri(text: &str) -> Option<std::borrow::Cow<'_, str>> {
         return Some(std::borrow::Cow::Owned(decoded[1..].to_owned()));
     }
     Some(decoded)
+}
+
+/// Local file-system path a cell's whole text points at: a `file://` URI, an
+/// absolute path, a `~/` home path or - given `base`, normally the folder of
+/// the file the table was read from - a relative one. Syntactic only: callers
+/// probe existence when they act on the result, never on the render path.
+/// Relative candidates need `base`; without it a bare "report.pdf" means
+/// nothing and returns `None`.
+pub fn resolve_file_path(text: &str, base: Option<&Path>) -> Option<PathBuf> {
+    let text = text.trim();
+    if text.is_empty() || text.len() > 4096 || text.chars().any(char::is_control) {
+        return None;
+    }
+    if text
+        .get(..7)
+        .is_some_and(|p| p.eq_ignore_ascii_case("file://"))
+    {
+        let decoded = local_file_uri(text)?;
+        let path = PathBuf::from(decoded.as_ref());
+        return path.is_absolute().then_some(path);
+    }
+    // Other URI-ish or protocol-relative text is a link, not a file.
+    if text.contains("://") || text.starts_with("//") {
+        return None;
+    }
+    if text == "~" {
+        return std::env::home_dir();
+    }
+    if let Some(rest) = text.strip_prefix("~/").or_else(|| text.strip_prefix("~\\")) {
+        return Some(std::env::home_dir()?.join(rest));
+    }
+    let path = Path::new(text);
+    if path.is_absolute() {
+        return Some(path.to_path_buf());
+    }
+    // Relative candidates must look like a path: an explicit ./ or ../, or a
+    // name with an alphabetic extension ("report.pdf", "my file.png"). That
+    // keeps "3.14", "version 2" and "and/or" out while still catching the
+    // bare filenames CSVs typically carry next to their media.
+    let explicit = text.starts_with("./")
+        || text.starts_with("../")
+        || text.starts_with(".\\")
+        || text.starts_with("..\\");
+    let named = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|ext| {
+            ext.len() >= 2
+                && ext.chars().all(|c| c.is_alphanumeric())
+                && ext.chars().any(|c| c.is_alphabetic())
+        });
+    if !(explicit || named) {
+        return None;
+    }
+    base.map(|dir| dir.join(text))
 }
 
 /// Every `(row, col)` cell whose text is an image URL, in `order` row order

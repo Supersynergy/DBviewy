@@ -175,6 +175,21 @@ pub(super) fn draw_data_row_direct(
                 }
                 _ => None,
             };
+            // Local file the cell text points at (absolute, `~/`, `file://`
+            // or relative to the table's own folder). Resolved syntactically;
+            // existence is probed only when the context menu opens.
+            let cell_file_path = match table.get(actual_row, col_idx) {
+                Some(crate::data::CellValue::String(text)) => {
+                    crate::data::links::resolve_file_path(
+                        text,
+                        table
+                            .source_path
+                            .as_deref()
+                            .and_then(|p| std::path::Path::new(p).parent()),
+                    )
+                }
+                _ => None,
+            };
             // A narrow column may show only the picture. Keep both the picture
             // and its hit area inside the cell when a user shrinks the column.
             let thumb_rect = cell_image_url.as_ref().and_then(|_| {
@@ -329,39 +344,8 @@ pub(super) fn draw_data_row_direct(
                     }
                 }
                 if let Some(new_text) = commit_text {
-                    if let Some(old_val) = table.get(actual_row, col_idx) {
-                        let new_val =
-                            if let Some(formula) = new_text.strip_prefix('=') {
-                                // Formula: evaluate and store result
-                                match crate::data::evaluate_formula(formula, table) {
-                                    Some(result) => {
-                                        // Keep result as Int if it's a whole number, otherwise Float
-                                        if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
-                                            crate::data::CellValue::Int(result as i64)
-                                        } else {
-                                            crate::data::CellValue::Float(result)
-                                        }
-                                    }
-                                    None => {
-                                        // Invalid formula - store as string
-                                        crate::data::CellValue::String(new_text)
-                                    }
-                                }
-                            } else if matches!(old_val, CellValue::Binary(_)) {
-                                CellValue::parse_binary(&new_text, binary_display_mode)
-                            } else {
-                                match table.columns.get(col_idx).and_then(|c| {
-                                    crate::data::times::TimeKind::of_type(&c.data_type)
-                                }) {
-                                    Some(kind) => crate::data::times::text_to_cell(kind, &new_text)
-                                        .unwrap_or_else(|| CellValue::String(new_text.clone())),
-                                    None => CellValue::parse_like(old_val, &new_text),
-                                }
-                            };
-                        if new_val != *old_val {
-                            table.set(actual_row, col_idx, new_val);
-                            state.invalidate_row_heights();
-                        }
+                    if commit_cell_text(table, actual_row, col_idx, new_text, binary_display_mode) {
+                        state.invalidate_row_heights();
                     }
                     state.editing_cell = None;
                 }
@@ -1151,6 +1135,72 @@ pub(super) fn draw_data_row_direct(
                         interaction.ctx_cell_history = Some((actual_row, col_idx));
                         ui.close();
                     }
+
+                    // --- File actions: the cell text resolved to a local
+                    // path. Shown only then, like **View image**; the entries
+                    // inside grey out with the reason when the file is gone
+                    // or no table reader claims it.
+                    if let Some(file_path) = &cell_file_path {
+                        ui.separator();
+                        ui.label(
+                            RichText::new(crate::i18n::t("context_menu.sec_file"))
+                                .strong()
+                                .size(11.0),
+                        );
+                        let file_exists = file_path.try_exists().unwrap_or(false);
+                        let missing = (!file_exists).then(|| crate::i18n::t("greyed.file_missing"));
+                        if crate::ui::menu_entry::keyed_menu_entry(
+                            ui,
+                            "context_menu.open_file",
+                            &crate::i18n::t("context_menu.open_file_hint"),
+                            missing.as_deref(),
+                        ) {
+                            interaction.ctx_open_file = Some(file_path.clone());
+                            ui.close();
+                        }
+                        if crate::ui::menu_entry::keyed_menu_entry(
+                            ui,
+                            "context_menu.reveal_file",
+                            &crate::i18n::t("context_menu.reveal_file_hint"),
+                            missing.as_deref(),
+                        ) {
+                            interaction.ctx_reveal_file = Some(file_path.clone());
+                            ui.close();
+                        }
+                        // "Open in new tab" earns its entry only when a real
+                        // table reader claims the file; the Text fallback
+                        // would just show bytes.
+                        let tab_why = if !file_exists {
+                            Some(crate::i18n::t("greyed.file_missing"))
+                        } else if !file_path.is_file() {
+                            Some(crate::i18n::t("greyed.not_data_file"))
+                        } else {
+                            let registry = crate::formats::FormatRegistry::new();
+                            registry
+                                .reader_for_path(file_path)
+                                .filter(|r| r.name() != "Text")
+                                .is_none()
+                                .then(|| crate::i18n::t("greyed.not_data_file"))
+                        };
+                        if crate::ui::menu_entry::keyed_menu_entry(
+                            ui,
+                            "context_menu.open_file_in_tab",
+                            &crate::i18n::t("context_menu.open_file_in_tab_hint"),
+                            tab_why.as_deref(),
+                        ) {
+                            interaction.ctx_open_file_in_tab = Some(file_path.clone());
+                            ui.close();
+                        }
+                        if crate::ui::menu_entry::menu_entry(
+                            ui,
+                            &crate::i18n::t("context_menu.copy_file_path"),
+                            &crate::i18n::t("context_menu.copy_file_path_hint"),
+                            None,
+                        ) {
+                            ui.ctx().copy_text(file_path.display().to_string());
+                            ui.close();
+                        }
+                    }
                 });
             }
         }
@@ -1573,5 +1623,54 @@ fn hide_row_entry(
     ) {
         interaction.ctx_hide_row = Some(actual_row);
         ui.close();
+    }
+}
+
+/// Write text typed into a cell (or the ribbon's formula bar) back into the
+/// table: `=...` is evaluated, binary and time columns parse their own syntax,
+/// everything else is read like the value it replaces. Returns whether the cell
+/// changed.
+pub fn commit_cell_text(
+    table: &mut DataTable,
+    row: usize,
+    col: usize,
+    new_text: String,
+    binary_display_mode: crate::data::BinaryDisplayMode,
+) -> bool {
+    let Some(old_val) = table.get(row, col) else {
+        return false;
+    };
+    let new_val = if let Some(formula) = new_text.strip_prefix('=') {
+        // Formula: evaluate and store result
+        match crate::data::evaluate_formula(formula, table) {
+            Some(result) => {
+                // Keep result as Int if it's a whole number, otherwise Float
+                if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
+                    CellValue::Int(result as i64)
+                } else {
+                    CellValue::Float(result)
+                }
+            }
+            // Invalid formula - store as string
+            None => CellValue::String(new_text),
+        }
+    } else if matches!(old_val, CellValue::Binary(_)) {
+        CellValue::parse_binary(&new_text, binary_display_mode)
+    } else {
+        match table
+            .columns
+            .get(col)
+            .and_then(|c| crate::data::times::TimeKind::of_type(&c.data_type))
+        {
+            Some(kind) => crate::data::times::text_to_cell(kind, &new_text)
+                .unwrap_or_else(|| CellValue::String(new_text.clone())),
+            None => CellValue::parse_like(old_val, &new_text),
+        }
+    };
+    if new_val != *old_val {
+        table.set(row, col, new_val);
+        true
+    } else {
+        false
     }
 }

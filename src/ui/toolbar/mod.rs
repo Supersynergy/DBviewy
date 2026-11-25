@@ -9,12 +9,27 @@ mod edit_menu;
 mod file_menu;
 pub use file_menu::clipboard_source;
 mod help_menu;
+mod instant_search;
+#[cfg(test)]
+mod instant_search_tests;
 mod menu_button;
+mod ribbon;
+#[cfg(test)]
+mod ribbon_tests;
 mod search_menu;
 mod types;
 mod view_menu;
 
+pub use ribbon::RIBBON_HEIGHT;
 pub use types::{AskControls, FullScanKind, ParseScope, SearchControls, ToolbarAction, ToolbarCtx};
+
+/// Width reserved for the ribbon fold button at the right edge of row 1.
+const TOGGLE_W: f32 = 26.0;
+/// Narrowest the search group is allowed to get before the menus scroll.
+const SEARCH_MIN_W: f32 = 150.0;
+/// Narrowest the command entry (Smartchat) is drawn at. It is never left out:
+/// the menus scroll before it or the search give way.
+const COMMAND_MIN_W: f32 = 108.0;
 
 /// Formats offered by **File -> Open as...** and **View -> Reopen as...**:
 /// `(i18n label key, reader name as registered in `FormatRegistry::new`)`.
@@ -22,17 +37,6 @@ pub use types::{AskControls, FullScanKind, ParseScope, SearchControls, ToolbarAc
 /// These are the text-shaped readers, the ones worth forcing a file through when
 /// its extension is misleading. Kept in step with the registry by
 /// `open_as_tests::every_open_as_reader_name_resolves`.
-/// Thickness of the toolbar's horizontal scrollbar, and the strip it lives in.
-/// Same treatment as the tab bar (`app::tabs`): egui's default *floating*
-/// scrollbar is painted **over** the content, which lays it across the bottom of
-/// the File / Edit / ... buttons. A solid bar in its own strip below the row
-/// keeps the buttons clean, at the cost of `SCROLL_BAR_STRIP` panel height.
-const SCROLL_BAR_WIDTH: f32 = 6.0;
-const SCROLL_BAR_INNER_MARGIN: f32 = 2.0;
-/// Height the toolbar's scrollbar strip claims. Callers add this to the toolbar
-/// panel height (see `app::toolbar_handler`).
-pub const SCROLL_BAR_STRIP: f32 = SCROLL_BAR_WIDTH + SCROLL_BAR_INNER_MARGIN;
-
 const OPEN_AS_FORMATS: &[(&str, &str)] = &[
     ("open_as.json", "JSON"),
     ("open_as.jsonl", "JSON Lines"),
@@ -76,27 +80,9 @@ pub fn draw_toolbar_with_command(
         logo_texture,
         show_window_controls,
         // The bar itself is hidden without a table; the menus stay visible.
-        has_data,
+        ribbon_open,
         ..
     } = cx;
-    let SearchControls {
-        text: search_text,
-        mode: search_mode,
-        case_sensitive: search_case_sensitive,
-        whole_word: search_whole_word,
-        scope_col: search_scope_col,
-        column_names,
-        ask,
-        history: search_history,
-        result_mode: search_result_mode,
-        highlight_active: search_highlight_active,
-        match_count: search_match_count,
-        match_current: search_match_current,
-        focus_requested: search_focus_requested,
-        bookmarks,
-        partial: search_partial,
-        full_scan,
-    } = search;
 
     // Custom title bar: the toolbar background doubles as the window's drag
     // handle. Without system decorations this is the only way to move the
@@ -122,470 +108,133 @@ pub fn draw_toolbar_with_command(
         }
     }
 
-    // Top-level menus go through `top_menu_button` (defined above), which
-    // brings back the hover-switch behaviour egui 0.31's MenuRoot used to
-    // provide and that egui 0.34's MenuButton dropped. Plain `ui.horizontal`
-    // is enough here - we do *not* wrap in `egui::MenuBar`, because the
-    // helper handles the menu/submenu plumbing itself.
+    // Row 1, left to right: logo, menus, search (field + one options menu +
+    // match stepper), command entry, ribbon toggle, window buttons. Menus get
+    // their measured width first, the search takes what is left, and only a
+    // window too narrow for both scrolls the menus (wheel only, no bar).
     ui.horizontal(|ui| {
-        // Pin a uniform row height for the whole toolbar. egui centres each
-        // item against `interact_size.y` (default 18); the search ComboBoxes /
-        // TextEdit are taller, so without this the short menu buttons and the
-        // search widgets sit on different baselines and the search row looks
-        // dropped. A 24px band matches the ComboBox height so menus, the mode
-        // combo, Recent, Filter and the rest all share one centre line.
+        // Pin a uniform row height for the whole toolbar so menus, field and
+        // buttons share one centre line.
         ui.spacing_mut().interact_size.y = 24.0;
         // A plain (vertical) mouse wheel only reaches a horizontal-only scroll
-        // area when this is set - egui defaults it to false, which would force
-        // the user to hold Shift. Same override the tab bar needs.
+        // area when this is set; only the narrow-window fallback needs it.
         ui.style_mut().always_scroll_the_only_direction = true;
-        // Solid (not floating) scrollbar, so it gets its own strip under the row
-        // instead of being painted across the menu buttons.
-        let mut scroll_style = egui::style::ScrollStyle::solid();
-        scroll_style.bar_inner_margin = SCROLL_BAR_INNER_MARGIN;
-        scroll_style.bar_outer_margin = 0.0;
-        scroll_style.bar_width = SCROLL_BAR_WIDTH;
-        ui.style_mut().spacing.scroll = scroll_style;
 
-        // Reserve the window buttons' width up front so they stay pinned to the
-        // right edge; everything else scrolls inside what is left. Without this
-        // a narrow window (small laptop, or a locale with long menu labels)
-        // pushes the close button off-screen with no way to reach it.
+        if let Some(tex) = logo_texture {
+            let img = egui::Image::new(egui::load::SizedTexture::new(tex.id(), [20.0, 20.0]))
+                .sense(egui::Sense::click());
+            let resp = ui.add(img);
+            if resp.clicked() {
+                action.logo_clicked = true;
+            }
+        }
+        ui.label(
+            RichText::new("DBviewy")
+                .strong()
+                .size(15.0)
+                .color(colors.accent),
+        );
+        ui.add_space(4.0);
+
+        let sp = ui.spacing().item_spacing.x;
+        // Window buttons plus the ribbon toggle stay pinned to the right edge.
         let reserved = if show_window_controls {
-            3.0 * 28.0 + 3.0 * ui.spacing().item_spacing.x
+            3.0 * 28.0 + 3.0 * sp
+        } else {
+            0.0
+        } + TOGGLE_W
+            + sp;
+        let total = (ui.available_width() - reserved - sp).max(0.0);
+        let menus_id = ui.id().with("toolbar_menus_w");
+        let menus_w: f32 = ui.data(|d| d.get_temp(menus_id)).unwrap_or(380.0);
+        // Smartchat and the search keep their minimum; only the menus give way.
+        let command_min = if command_width > 0.0 { COMMAND_MIN_W } else { 0.0 };
+        let menus_fit = menus_w + SEARCH_MIN_W + command_min + 2.0 * sp <= total;
+        let lane_w = if menus_fit {
+            menus_w
+        } else {
+            (total - SEARCH_MIN_W - command_min - 2.0 * sp).max(60.0)
+        };
+        let room = (total - lane_w - sp).max(0.0);
+        let command_w = if command_width > 0.0 {
+            command_width
+                .min(room - SEARCH_MIN_W - sp)
+                .max(command_min)
+                .min(room)
         } else {
             0.0
         };
-        let available =
-            (ui.available_width() - reserved - 2.0 * ui.spacing().item_spacing.x).max(0.0);
-        let command_width = command_width.min(available * 0.65);
-        let scroll_width = (available - command_width).max(20.0);
-        egui::ScrollArea::horizontal()
-            .id_salt("toolbar_scroll")
-            .max_width(scroll_width)
-            .auto_shrink([false, false])
-            // Wheel and scrollbar only: the empty toolbar background is the
-            // window's drag handle (see above), and drag-to-scroll would
-            // swallow that gesture.
-            .scroll_source(egui::scroll_area::ScrollSource {
-                drag: egui::scroll_area::DragScroll::Never,
-                ..egui::scroll_area::ScrollSource::ALL
-            })
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.add_space(4.0);
+        let search_block_w = (room - command_w - if command_w > 0.0 { sp } else { 0.0 }).max(0.0);
 
-                    // App logo + title. The logo is wrapped as a clickable widget so the
-                    // hidden easter-egg counter (seven clicks within ~1.5 s) can trigger.
-                    if let Some(tex) = logo_texture {
-                        let img =
-                            egui::Image::new(egui::load::SizedTexture::new(tex.id(), [20.0, 20.0]))
-                                .sense(egui::Sense::click());
-                        let resp = ui.add(img);
-                        if resp.clicked() {
-                            action.logo_clicked = true;
-                        }
-                    }
-                    ui.label(
-                        RichText::new("DBviewy")
-                            .strong()
-                            .size(15.0)
-                            .color(colors.accent),
-                    );
+        // The eight top-level menus, in bar order. Each takes the same
+        // `ToolbarCtx` and writes into the same `ToolbarAction`. Every menu
+        // stays visible even before a table is open.
+        let draw_menus = |ui: &mut Ui, action: &mut ToolbarAction| {
+            let measured = ui
+                .horizontal(|ui| {
+                    file_menu::file_menu(ui, cx, action);
+                    edit_menu::edit_menu(ui, cx, action);
+                    columns_menu::columns_menu(ui, cx, action);
+                    data_menu::data_menu(ui, cx, action);
+                    view_menu::view_menu(ui, cx, action);
+                    search_menu::search_menu(ui, cx, action);
+                    analyse_menu::analyse_menu(ui, cx, action);
+                    help_menu::help_menu(ui, cx, action);
+                })
+                .response
+                .rect
+                .width();
+            ui.data_mut(|d| d.insert_temp(menus_id, measured));
+        };
+        if menus_fit {
+            draw_menus(ui, &mut action);
+        } else {
+            egui::ScrollArea::horizontal()
+                .id_salt("toolbar_scroll")
+                .max_width(lane_w)
+                .auto_shrink([false, false])
+                .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden)
+                // Wheel only: the empty toolbar background is the window's
+                // drag handle, and drag-to-scroll would swallow that gesture.
+                .scroll_source(egui::scroll_area::ScrollSource {
+                    drag: egui::scroll_area::DragScroll::Never,
+                    ..egui::scroll_area::ScrollSource::ALL
+                })
+                .show(ui, |ui| draw_menus(ui, &mut action));
+        }
 
-                    ui.add_space(8.0);
-
-                    // The eight top-level menus, one file each. Each takes the same
-                    // `ToolbarCtx` and writes into the same `ToolbarAction`; the order of
-                    // these calls is the order they appear on the bar.
-
-                    file_menu::file_menu(ui, cx, &mut action);
-
-                    // Every menu stays visible even before a table is open (the SQL panel
-                    // and the Assistant work with attached servers alone); menus whose
-                    // entries all need a table show a short note instead.
-                    edit_menu::edit_menu(ui, cx, &mut action);
-                    columns_menu::columns_menu(ui, cx, &mut action);
-                    data_menu::data_menu(ui, cx, &mut action);
-                    view_menu::view_menu(ui, cx, &mut action);
-                    search_menu::search_menu(ui, cx, &mut action);
-                    analyse_menu::analyse_menu(ui, cx, &mut action);
-                    help_menu::help_menu(ui, cx, &mut action);
-
-                    if has_data {
-                        ui.add_space(4.0);
-                        ui.separator();
-                        ui.add_space(4.0);
-
-                        // Search box with mode selector
-                        ui.label(
-                            RichText::new(crate::i18n::t("gui.search_label"))
-                                .color(colors.text_secondary),
-                        );
-                        let old_mode = *search_mode;
-                        egui::ComboBox::from_id_salt("search_mode")
-                            .width(75.0)
-                            .selected_text(search_mode.label_t())
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(
-                                    search_mode,
-                                    SearchMode::Plain,
-                                    SearchMode::Plain.label_t(),
-                                );
-                                ui.selectable_value(
-                                    search_mode,
-                                    SearchMode::Wildcard,
-                                    SearchMode::Wildcard.label_t(),
-                                );
-                                ui.selectable_value(
-                                    search_mode,
-                                    SearchMode::Regex,
-                                    SearchMode::Regex.label_t(),
-                                );
-                            });
-                        if *search_mode != old_mode {
-                            action.search_changed = true;
-                        }
-                        // In Ask mode this same box is the question box, so it
-                        // says so and gets room for a sentence.
-                        let asking = *ask.mode && ask.enabled;
-                        let hint = if asking {
-                            crate::i18n::t("search.ask_placeholder")
-                        } else {
-                            match *search_mode {
-                                SearchMode::Plain => crate::i18n::t("gui.search_hint_plain"),
-                                SearchMode::Wildcard => crate::i18n::t("gui.search_hint_wildcard"),
-                                SearchMode::Regex => crate::i18n::t("gui.search_hint_regex"),
-                            }
-                        };
-                        let search_id = ui.id().with("toolbar_search");
-                        let response = ui.add(
-                            egui::TextEdit::singleline(search_text)
-                                .id(search_id)
-                                .desired_width(if asking { 340.0 } else { 200.0 })
-                                .hint_text(hint.as_str()),
-                        );
-                        // A half-typed question is not a filter: while asking,
-                        // typing must not narrow the table to nothing.
-                        if response.changed() && !asking {
-                            action.search_changed = true;
-                        }
-                        // Record a completed query when the box loses focus.
-                        if response.lost_focus() && !search_text.is_empty() {
-                            action.commit_search_history = true;
-                        }
-                        if search_focus_requested {
-                            response.request_focus();
-                        }
-
-                        // Case-sensitive (`Aa`) and whole-word toggles.
-                        if ui
-                            .selectable_label(*search_case_sensitive, "Aa")
-                            .on_hover_text(crate::i18n::t("search.case_sensitive"))
-                            .clicked()
-                        {
-                            *search_case_sensitive = !*search_case_sensitive;
-                            action.search_changed = true;
-                        }
-                        if ui
-                            .selectable_label(*search_whole_word, "W")
-                            .on_hover_text(crate::i18n::t("search.whole_word"))
-                            .clicked()
-                        {
-                            *search_whole_word = !*search_whole_word;
-                            action.search_changed = true;
-                        }
-
-                        // Scope selector: whole table or a single column. A visible chip so
-                        // the user always knows what the search covers.
-                        let scope_label = match *search_scope_col {
-                            None => crate::i18n::t("search.scope_all"),
-                            Some(c) => column_names
-                                .get(c)
-                                .cloned()
-                                .unwrap_or_else(|| crate::i18n::t("search.scope_all")),
-                        };
-                        egui::ComboBox::from_id_salt("search_scope")
-                            .width(110.0)
-                            .selected_text(scope_label)
-                            .show_ui(ui, |ui| {
-                                if ui
-                                    .selectable_label(
-                                        search_scope_col.is_none(),
-                                        crate::i18n::t("search.scope_all"),
-                                    )
-                                    .clicked()
-                                {
-                                    *search_scope_col = None;
-                                    action.search_changed = true;
-                                }
-                                for (c, name) in column_names.iter().enumerate() {
-                                    if ui
-                                        .selectable_label(*search_scope_col == Some(c), name)
-                                        .clicked()
-                                    {
-                                        *search_scope_col = Some(c);
-                                        action.search_changed = true;
-                                    }
-                                }
-                            })
-                            .response
-                            .on_hover_text(crate::i18n::t("search.scope_hint"));
-
-                        // Ask: turn a plain-language sentence into filters via
-                        // the chosen assistant. Which profile answers is always
-                        // visible, never implicit.
-                        let ask = ask;
-                        let ask_resp = ui
-                            .add_enabled_ui(ask.enabled, |ui| {
-                                ui.selectable_label(*ask.mode, crate::i18n::t("search.ask"))
-                            })
-                            .inner;
-                        let ask_resp = if ask.enabled {
-                            let profile_name = ask
-                                .profiles
-                                .iter()
-                                .find(|(id, _)| id == ask.profile_id)
-                                .map(|(_, name)| name.clone())
-                                .unwrap_or_default();
-                            ask_resp.on_hover_text(
-                                crate::i18n::t("search.ask_hint")
-                                    .replace("{profile}", &profile_name),
-                            )
-                        } else {
-                            // A disabled control must say why, not repeat its label.
-                            ask_resp
-                                .on_disabled_hover_text(crate::i18n::t("search.ask_needs_profile"))
-                        };
-                        if ask_resp.clicked() {
-                            *ask.mode = !*ask.mode;
-                            // Switching modes changes what the box means, so it
-                            // starts empty either way, and any filter the old
-                            // text was applying is dropped. Focus jumps to the
-                            // box so there is somewhere obvious to type.
-                            if !search_text.is_empty() {
-                                search_text.clear();
-                                action.search_changed = true;
-                            }
-                            if *ask.mode {
-                                response.request_focus();
-                            }
-                        }
-                        if *ask.mode && ask.enabled {
-                            let selected = ask
-                                .profiles
-                                .iter()
-                                .find(|(id, _)| id == ask.profile_id)
-                                .map(|(_, name)| name.clone())
-                                .unwrap_or_default();
-                            egui::ComboBox::from_id_salt("search_ask_profile")
-                                .width(130.0)
-                                .selected_text(selected)
-                                .show_ui(ui, |ui| {
-                                    for (id, name) in ask.profiles {
-                                        ui.selectable_value(ask.profile_id, id.clone(), name);
-                                    }
-                                })
-                                .response
-                                .on_hover_text(crate::i18n::t("search.ask_profile_hint"));
-                        }
-
-                        // Recent-queries dropdown. Picking one fills the search box.
-                        ui.menu_button(crate::i18n::t("search.history_btn"), |ui| {
-                            ui.set_min_width(160.0);
-                            ui.label(
-                                RichText::new(crate::i18n::t("search.history"))
-                                    .size(10.0)
-                                    .color(colors.text_secondary),
-                            );
-                            if search_history.is_empty() {
-                                ui.add_enabled(
-                                    false,
-                                    egui::Button::new(crate::i18n::t("greyed.none")),
-                                );
-                            }
-                            for entry in search_history {
-                                if ui.button(entry).clicked() {
-                                    *search_text = entry.clone();
-                                    action.search_changed = true;
-                                    ui.close();
-                                }
-                            }
-                        })
-                        .response
-                        .on_hover_text(crate::i18n::t("search.history_hint"));
-
-                        // Bookmarks dropdown: jump to a named row/cell, delete one, or add a
-                        // bookmark at the current selection. Session-only per tab.
-                        ui.menu_button(crate::i18n::t("bookmarks.title"), |ui| {
-                            ui.set_min_width(180.0);
-                            if bookmarks.is_empty() {
-                                ui.add_enabled(
-                                    false,
-                                    egui::Button::new(crate::i18n::t("greyed.none")),
-                                );
-                            } else {
-                                for (i, (name, row, col)) in bookmarks.iter().enumerate() {
-                                    ui.horizontal(|ui| {
-                                        let pos = match col {
-                                            Some(c) => format!("R{}:C{}", row + 1, c + 1),
-                                            None => format!("R{}", row + 1),
-                                        };
-                                        if ui.button(format!("{name}  ({pos})")).clicked() {
-                                            action.jump_bookmark = Some(i);
-                                            ui.close();
-                                        }
-                                        if ui
-                                            .small_button("x")
-                                            .on_hover_text(crate::i18n::t("bookmarks.delete"))
-                                            .clicked()
-                                        {
-                                            action.delete_bookmark = Some(i);
-                                            ui.close();
-                                        }
-                                    });
-                                }
-                            }
-                            ui.separator();
-                            if ui
-                                .button(crate::i18n::t("bookmarks.add"))
-                                .on_hover_text(crate::i18n::t("bookmarks.add_hint"))
-                                .clicked()
-                            {
-                                action.add_bookmark = true;
-                                ui.close();
-                            }
-                        })
-                        .response
-                        .on_hover_text(crate::i18n::t("bookmarks.title"));
-
-                        // With Ask on, Enter sends the sentence to the assistant
-                        // rather than stepping through matches.
-                        if *ask.mode && ask.enabled && !search_text.is_empty() {
-                            let enter = ui.input(|i| i.key_pressed(egui::Key::Enter));
-                            if enter && (response.lost_focus() || response.has_focus()) {
-                                action.ask_submitted = true;
-                                response.request_focus();
-                            }
-                        }
-                        // Enter / Shift+Enter while the search box is focused step through
-                        // matches (highlight mode only). Re-grab focus so repeated presses
-                        // keep navigating instead of dropping focus after the first Enter.
-                        if !*ask.mode && search_highlight_active && !search_text.is_empty() {
-                            let enter = ui.input(|i| i.key_pressed(egui::Key::Enter));
-                            if enter && (response.lost_focus() || response.has_focus()) {
-                                if ui.input(|i| i.modifiers.shift) {
-                                    action.find_prev = true;
-                                } else {
-                                    action.find_next = true;
-                                }
-                                response.request_focus();
-                            }
-                        }
-
-                        // Filter / Highlight behaviour toggle. Switches the active search
-                        // display mode for the session; the table honours it, text/tree
-                        // views always highlight regardless.
-                        if ui
-                            .button(search_result_mode.label_t())
-                            .on_hover_text(crate::i18n::t("search.mode_toggle_hint"))
-                            .clicked()
-                        {
-                            *search_result_mode = match *search_result_mode {
-                                crate::data::SearchResultMode::Filter => {
-                                    crate::data::SearchResultMode::Highlight
-                                }
-                                crate::data::SearchResultMode::Highlight => {
-                                    crate::data::SearchResultMode::Filter
-                                }
-                            };
-                            action.search_result_mode_changed = true;
-                        }
-
-                        // Match count + next/previous controls, shown only when matches are
-                        // highlighted in place (so the user can step through them).
-                        if search_highlight_active && !search_text.is_empty() {
-                            let count_label = if search_match_count == 0 {
-                                crate::i18n::t("search.no_matches")
-                            } else {
-                                format!("{} / {}", search_match_current, search_match_count)
-                            };
-                            ui.label(RichText::new(count_label).color(colors.text_secondary));
-                            let has_matches = search_match_count > 0;
-                            if ui
-                                .add_enabled(has_matches, egui::Button::new("<"))
-                                .on_hover_text(crate::i18n::t("search.prev_match"))
-                                .clicked()
-                            {
-                                action.find_prev = true;
-                            }
-                            if ui
-                                .add_enabled(has_matches, egui::Button::new(">"))
-                                .on_hover_text(crate::i18n::t("search.next_match"))
-                                .clicked()
-                            {
-                                action.find_next = true;
-                            }
-                        }
-
-                        // Say what the search actually covered. A table
-                        // holding a window of its source searched that window
-                        // and reported the hits as if they were all of them.
-                        if let Some((loaded, known_total)) = search_partial
-                            && !search_text.is_empty()
-                        {
-                            ui.add_space(6.0);
-                            ui.label(
-                                RichText::new(crate::ui::message::partial_note_text(
-                                    loaded,
-                                    known_total,
-                                ))
-                                .small()
-                                .color(crate::ui::message::PARTIAL_NOTE_COLOR),
-                            );
-                            match full_scan {
-                                Some(kind) => {
-                                    let usable = kind != FullScanKind::Unsupported;
-                                    let hint = crate::i18n::t(kind.hint_key());
-                                    if ui
-                                        .add_enabled(
-                                            usable,
-                                            egui::Button::new(crate::i18n::t(kind.label_key())),
-                                        )
-                                        .on_hover_text(&hint)
-                                        .on_disabled_hover_text(&hint)
-                                        .clicked()
-                                    {
-                                        action.search_whole_source = true;
-                                    }
-                                }
-                                // A scan is already running.
-                                None => {
-                                    ui.add(egui::Spinner::new().size(12.0));
-                                }
-                            }
-                        }
-                    }
-                });
-            });
-
-        if command_width > 0.0 {
+        if search_block_w > 0.0 {
+            ui.separator();
             ui.allocate_ui_with_layout(
-                egui::vec2(command_width, 24.0),
+                egui::vec2((search_block_w - sp).max(0.0), 24.0),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    draw_search(
+                        ui,
+                        cx,
+                        search,
+                        search_block_w,
+                        &mut action,
+                    );
+                },
+            );
+        }
+        ui.add_space(
+            (ui.max_rect().right() - reserved - command_w - ui.cursor().left() - sp).max(0.0),
+        );
+        if command_w > 0.0 {
+            ui.allocate_ui_with_layout(
+                egui::vec2(command_w, 24.0),
                 egui::Layout::left_to_right(egui::Align::Center),
                 command,
             );
         }
 
-        // Window controls - pinned to the far right of the same toolbar.
-        // Only rendered when the user opted into a custom title bar
-        // (Settings -> Appearance -> "Window controls in toolbar"); `main.rs`
-        // strips system decorations in that case so these buttons are
-        // the only way to close / minimize / maximize the window.
-        // `right_to_left` lays them out in visual order `[_] [□] [x]`
-        // matching the desktop convention.
-        if show_window_controls {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        // Pinned to the far right: window buttons (custom title bar only, see
+        // Settings -> Appearance) and, left of them, the ribbon fold button.
+        // `right_to_left` lays them out in visual order `[_] [□] [x]`.
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if show_window_controls {
                 use crate::ui::dialog_chrome::{Caption, caption_button};
                 let btn_size = egui::vec2(28.0, 24.0);
                 let ctx = ui.ctx().clone();
@@ -612,9 +261,386 @@ pub fn draw_toolbar_with_command(
                 {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
                 }
-            });
-        }
+            }
+            let (icon, tip) = if ribbon_open {
+                (crate::ui::icons::Icon::ArrowUp, "ribbon.hide")
+            } else {
+                (crate::ui::icons::Icon::ArrowDown, "ribbon.show")
+            };
+            if crate::ui::icons::icon_button(ui, true, icon, crate::i18n::t(tip)) {
+                action.toggle_ribbon = true;
+            }
+        });
     });
 
+    if ribbon_open {
+        ribbon::draw(ui, cx, &mut action);
+    }
+
     action
+}
+
+/// The search group of row 1: the instant-search field, one options menu that
+/// holds everything that used to sit beside it (mode, case, whole word, column,
+/// Ask, recent searches, bookmarks, filter or highlight), the match stepper and
+/// the "searched only part of the table" note.
+fn draw_search(
+    ui: &mut Ui,
+    cx: ToolbarCtx<'_>,
+    search: SearchControls<'_>,
+    width: f32,
+    action: &mut ToolbarAction,
+) {
+    let ToolbarCtx {
+        colors, has_data, ..
+    } = cx;
+    let SearchControls {
+        text: search_text,
+        mode: search_mode,
+        case_sensitive: search_case_sensitive,
+        whole_word: search_whole_word,
+        scope_col: search_scope_col,
+        column_names,
+        ask,
+        history: search_history,
+        result_mode: search_result_mode,
+        highlight_active: search_highlight_active,
+        match_count: search_match_count,
+        match_current: search_match_current,
+        focus_requested: search_focus_requested,
+        bookmarks,
+        partial: search_partial,
+        full_scan,
+    } = search;
+
+    // Field + clear button take about half the block, the rest is for the
+    // options button, the stepper and the partial-search note.
+    let field_w = (width * 0.55).clamp(150.0, 340.0).min(width);
+    let response = instant_search::draw(
+        ui,
+        search_text,
+        instant_search::Entry {
+            asking: *ask.mode && ask.enabled,
+            has_data,
+            focus_requested: search_focus_requested,
+            width: field_w,
+        },
+        action,
+    );
+
+    // One options menu instead of eight loose controls. The button is tinted
+    // when anything differs from the plain default, so a narrowed search is
+    // never invisible.
+    let narrowed = *search_mode != SearchMode::Plain
+        || *search_case_sensitive
+        || *search_whole_word
+        || search_scope_col.is_some()
+        || (*ask.mode && ask.enabled);
+    let mut options_button = egui::Button::image(crate::ui::icons::icon_image(
+        ui,
+        crate::ui::icons::Icon::Filter,
+    ));
+    if narrowed {
+        options_button = options_button.fill(colors.accent.gamma_multiply(0.25));
+    }
+    let options = egui::containers::menu::MenuButton::from_button(options_button).ui(ui, |ui| {
+        ui.set_min_width(190.0);
+        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+        ui.add_enabled_ui(has_data, |ui| {
+            // Mode: how the text is read.
+            ui.horizontal(|ui| {
+                let old_mode = *search_mode;
+                for m in [SearchMode::Plain, SearchMode::Wildcard, SearchMode::Regex] {
+                    ui.selectable_value(search_mode, m, m.label_t());
+                }
+                if *search_mode != old_mode {
+                    action.search_changed = true;
+                }
+            });
+            // Case-sensitive (`Aa`) and whole-word toggles.
+            ui.horizontal(|ui| {
+                if ui
+                    .selectable_label(*search_case_sensitive, "Aa")
+                    .on_hover_text(crate::i18n::t("search.case_sensitive"))
+                    .clicked()
+                {
+                    *search_case_sensitive = !*search_case_sensitive;
+                    action.search_changed = true;
+                }
+                if ui
+                    .selectable_label(*search_whole_word, "W")
+                    .on_hover_text(crate::i18n::t("search.whole_word"))
+                    .clicked()
+                {
+                    *search_whole_word = !*search_whole_word;
+                    action.search_changed = true;
+                }
+            });
+            // Scope: whole table or one column.
+            let scope_label = match *search_scope_col {
+                None => crate::i18n::t("search.scope_all"),
+                Some(c) => column_names
+                    .get(c)
+                    .cloned()
+                    .unwrap_or_else(|| crate::i18n::t("search.scope_all")),
+            };
+            ui.menu_button(scope_label, |ui| {
+                ui.set_max_height(320.0);
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    if ui
+                        .selectable_label(
+                            search_scope_col.is_none(),
+                            crate::i18n::t("search.scope_all"),
+                        )
+                        .clicked()
+                    {
+                        *search_scope_col = None;
+                        action.search_changed = true;
+                        ui.close();
+                    }
+                    for (c, name) in column_names.iter().enumerate() {
+                        if ui
+                            .selectable_label(*search_scope_col == Some(c), name)
+                            .clicked()
+                        {
+                            *search_scope_col = Some(c);
+                            action.search_changed = true;
+                            ui.close();
+                        }
+                    }
+                });
+            })
+            .response
+            .on_hover_text(crate::i18n::t("search.scope_hint"));
+
+            // Filter / Highlight behaviour for the session; the table honours
+            // it, text/tree views always highlight regardless.
+            if ui
+                .button(search_result_mode.label_t())
+                .on_hover_text(crate::i18n::t("search.mode_toggle_hint"))
+                .clicked()
+            {
+                *search_result_mode = match *search_result_mode {
+                    crate::data::SearchResultMode::Filter => {
+                        crate::data::SearchResultMode::Highlight
+                    }
+                    crate::data::SearchResultMode::Highlight => {
+                        crate::data::SearchResultMode::Filter
+                    }
+                };
+                action.search_result_mode_changed = true;
+            }
+        });
+        ui.separator();
+
+        // Ask: turn a plain-language sentence into filters via the chosen
+        // assistant. Which profile answers is always visible, never implicit.
+        let ask_resp = ui
+            .add_enabled_ui(ask.enabled && has_data, |ui| {
+                ui.selectable_label(*ask.mode, crate::i18n::t("search.ask"))
+            })
+            .inner;
+        let ask_resp = if ask.enabled {
+            let profile_name = ask
+                .profiles
+                .iter()
+                .find(|(id, _)| id == ask.profile_id)
+                .map(|(_, name)| name.clone())
+                .unwrap_or_default();
+            ask_resp.on_hover_text(
+                crate::i18n::t("search.ask_hint").replace("{profile}", &profile_name),
+            )
+        } else {
+            // A disabled control must say why, not repeat its label.
+            ask_resp.on_disabled_hover_text(crate::i18n::t("search.ask_needs_profile"))
+        };
+        if ask_resp.clicked() {
+            *ask.mode = !*ask.mode;
+            // Switching modes changes what the box means, so it starts empty
+            // either way, and any filter the old text was applying is dropped.
+            // Focus jumps to the box so there is somewhere obvious to type.
+            if !search_text.is_empty() {
+                search_text.clear();
+                action.search_changed = true;
+            }
+            if *ask.mode {
+                response.request_focus();
+            }
+            ui.close();
+        }
+        if *ask.mode && ask.enabled {
+            let selected = ask
+                .profiles
+                .iter()
+                .find(|(id, _)| id == ask.profile_id)
+                .map(|(_, name)| name.clone())
+                .unwrap_or_default();
+            ui.menu_button(selected, |ui| {
+                for (id, name) in ask.profiles {
+                    if ui
+                        .selectable_value(ask.profile_id, id.clone(), name)
+                        .clicked()
+                    {
+                        ui.close();
+                    }
+                }
+            })
+            .response
+            .on_hover_text(crate::i18n::t("search.ask_profile_hint"));
+        }
+        ui.separator();
+
+        // Recent queries: picking one fills the search box.
+        ui.add_enabled_ui(has_data, |ui| {
+            ui.menu_button(crate::i18n::t("search.history_btn"), |ui| {
+                ui.set_min_width(160.0);
+                ui.label(
+                    RichText::new(crate::i18n::t("search.history"))
+                        .size(10.0)
+                        .color(colors.text_secondary),
+                );
+                if search_history.is_empty() {
+                    ui.add_enabled(false, egui::Button::new(crate::i18n::t("greyed.none")));
+                }
+                for entry in search_history {
+                    if ui.button(entry).clicked() {
+                        *search_text = entry.clone();
+                        action.search_changed = true;
+                        ui.close();
+                    }
+                }
+            })
+            .response
+            .on_hover_text(crate::i18n::t("search.history_hint"));
+
+            // Bookmarks: jump to a named row/cell, delete one, or add one at
+            // the current selection. Session-only per tab.
+            ui.menu_button(crate::i18n::t("bookmarks.title"), |ui| {
+                ui.set_min_width(180.0);
+                if bookmarks.is_empty() {
+                    ui.add_enabled(false, egui::Button::new(crate::i18n::t("greyed.none")));
+                } else {
+                    for (i, (name, row, col)) in bookmarks.iter().enumerate() {
+                        ui.horizontal(|ui| {
+                            let pos = match col {
+                                Some(c) => format!("R{}:C{}", row + 1, c + 1),
+                                None => format!("R{}", row + 1),
+                            };
+                            if ui.button(format!("{name}  ({pos})")).clicked() {
+                                action.jump_bookmark = Some(i);
+                                ui.close();
+                            }
+                            if ui
+                                .small_button("x")
+                                .on_hover_text(crate::i18n::t("bookmarks.delete"))
+                                .clicked()
+                            {
+                                action.delete_bookmark = Some(i);
+                                ui.close();
+                            }
+                        });
+                    }
+                }
+                ui.separator();
+                if ui
+                    .button(crate::i18n::t("bookmarks.add"))
+                    .on_hover_text(crate::i18n::t("bookmarks.add_hint"))
+                    .clicked()
+                {
+                    action.add_bookmark = true;
+                    ui.close();
+                }
+            })
+            .response
+            .on_hover_text(crate::i18n::t("bookmarks.title"));
+        });
+    });
+    options
+        .0
+        .on_hover_text(crate::i18n::t("menu.search"));
+
+    // With Ask on, Enter sends the sentence to the assistant rather than
+    // stepping through matches.
+    if *ask.mode && ask.enabled && !search_text.is_empty() {
+        let enter = ui.input(|i| i.key_pressed(egui::Key::Enter));
+        if enter && (response.lost_focus() || response.has_focus()) {
+            action.ask_submitted = true;
+            response.request_focus();
+        }
+    }
+    // Enter / Shift+Enter while the search box is focused step through matches
+    // (highlight mode only). Re-grab focus so repeated presses keep navigating
+    // instead of dropping focus after the first Enter.
+    if !*ask.mode && search_highlight_active && !search_text.is_empty() {
+        let enter = ui.input(|i| i.key_pressed(egui::Key::Enter));
+        if enter && (response.lost_focus() || response.has_focus()) {
+            if ui.input(|i| i.modifiers.shift) {
+                action.find_prev = true;
+            } else {
+                action.find_next = true;
+            }
+            response.request_focus();
+        }
+    }
+
+    // Match count + previous/next, shown only when matches are highlighted in
+    // place (so the user can step through them).
+    if search_highlight_active && !search_text.is_empty() {
+        let count_label = if search_match_count == 0 {
+            crate::i18n::t("search.no_matches")
+        } else {
+            format!("{} / {}", search_match_current, search_match_count)
+        };
+        ui.label(RichText::new(count_label).color(colors.text_secondary));
+        let has_matches = search_match_count > 0;
+        if ui
+            .add_enabled(has_matches, egui::Button::new("<"))
+            .on_hover_text(crate::i18n::t("search.prev_match"))
+            .clicked()
+        {
+            action.find_prev = true;
+        }
+        if ui
+            .add_enabled(has_matches, egui::Button::new(">"))
+            .on_hover_text(crate::i18n::t("search.next_match"))
+            .clicked()
+        {
+            action.find_next = true;
+        }
+    }
+
+    // Say what the search actually covered. A table holding a window of its
+    // source searched that window and reported the hits as if they were all of
+    // them. Truncated to the room left, with the full text on hover.
+    if let Some((loaded, known_total)) = search_partial
+        && !search_text.is_empty()
+    {
+        if let Some(kind) = full_scan {
+            let usable = kind != FullScanKind::Unsupported;
+            let hint = crate::i18n::t(kind.hint_key());
+            if ui.available_width() > 120.0
+                && ui
+                    .add_enabled(usable, egui::Button::new(crate::i18n::t(kind.label_key())))
+                    .on_hover_text(&hint)
+                    .on_disabled_hover_text(&hint)
+                    .clicked()
+            {
+                action.search_whole_source = true;
+            }
+        } else {
+            ui.add(egui::Spinner::new().size(12.0));
+        }
+        let note = crate::ui::message::partial_note_text(loaded, known_total);
+        if ui.available_width() > 40.0 {
+            ui.add(
+                egui::Label::new(
+                    RichText::new(&note)
+                        .small()
+                        .color(crate::ui::message::PARTIAL_NOTE_COLOR),
+                )
+                .truncate(),
+            )
+            .on_hover_text(note);
+        }
+    }
 }

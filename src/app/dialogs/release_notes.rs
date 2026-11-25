@@ -54,7 +54,9 @@ pub(crate) fn render_release_notes_dialog(app: &mut OctaApp, ctx: &egui::Context
     let size = egui::vec2(600.0, 460.0);
     let default_pos = ctx.viewport_rect().center() - size * 0.5;
 
-    let title = octa::i18n::t("release.whats_new").replace("{version}", VERSION);
+    let title = octa::i18n::t("release.whats_new")
+        .replace("Octa", "DBviewy")
+        .replace("{version}", VERSION);
 
     egui::Window::new(title)
         .collapsible(false)

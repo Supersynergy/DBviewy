@@ -347,6 +347,17 @@ impl OctaApp {
             self.open_image_viewer(row, col);
         }
 
+        // --- Cell file actions (right-click Open / Show / Open in new tab) ---
+        if let Some(path) = interaction.ctx_open_file {
+            self.open_cell_file(&path);
+        }
+        if let Some(path) = interaction.ctx_reveal_file {
+            self.reveal_cell_file(&path);
+        }
+        if let Some(path) = interaction.ctx_open_file_in_tab {
+            self.enqueue_open_files(vec![path]);
+        }
+
         // --- Use as header row (cell / row-number right-click) ---
         if let Some((first, last)) = interaction.ctx_use_header_rows {
             self.apply_header_rows(first, last);
@@ -692,6 +703,35 @@ impl OctaApp {
                     });
                 }
             }
+        }
+    }
+
+    /// Right-click **Open** on a file-path cell: the OS handler (Preview,
+    /// QuickTime, the file manager for a folder) takes over from here.
+    fn open_cell_file(&mut self, path: &std::path::Path) {
+        if let Err(e) = octa::platform::open_with_default_app(path) {
+            self.status_message = Some((
+                format!(
+                    "{}: {e:#}",
+                    octa::i18n::t("context_menu.file_open_failed")
+                        .replace("{path}", &path.display().to_string())
+                ),
+                std::time::Instant::now(),
+            ));
+        }
+    }
+
+    /// Right-click **Show in file manager**: Finder/Explorer select the file.
+    fn reveal_cell_file(&mut self, path: &std::path::Path) {
+        if let Err(e) = octa::platform::reveal_in_file_manager(path) {
+            self.status_message = Some((
+                format!(
+                    "{}: {e:#}",
+                    octa::i18n::t("context_menu.file_open_failed")
+                        .replace("{path}", &path.display().to_string())
+                ),
+                std::time::Instant::now(),
+            ));
         }
     }
 }

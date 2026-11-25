@@ -132,6 +132,9 @@ pub struct ToolbarCtx<'a> {
     /// `AppSettings.use_custom_title_bar`, which also strips the system
     /// decorations in `main.rs`.
     pub show_window_controls: bool,
+    /// The Excel-style editing ribbon (formula bar + quick actions) under the
+    /// menu row is shown.
+    pub ribbon_open: bool,
 }
 
 /// The search bar's state: the one part of the toolbar that edits what it is
@@ -244,6 +247,16 @@ pub enum ParseScope {
 
 #[derive(Default)]
 pub struct ToolbarAction {
+    /// Ribbon: show or hide the second, collapsible bar.
+    pub toggle_ribbon: bool,
+    /// Ribbon name box: select this cell and scroll it into view.
+    pub goto_cell: Option<(usize, usize)>,
+    /// Ribbon formula bar: write this text into the cell (`row`, `col`), the
+    /// same way finishing an in-cell edit does.
+    pub commit_cell_text: Option<(usize, usize, String)>,
+    /// Ribbon: copy / paste the current selection.
+    pub copy_cells: bool,
+    pub paste_cells: bool,
     /// User asked for the search to cover the whole source, not just the
     /// rows in memory.
     pub search_whole_source: bool,

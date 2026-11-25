@@ -5,6 +5,7 @@
 mod banners;
 mod chips;
 mod interaction;
+mod start_screen;
 mod status;
 mod tiles;
 mod views;
@@ -53,6 +54,14 @@ impl OctaApp {
     /// its view and the find box. A tile draws it with `active_tab` pointed
     /// at its own tab (see `tiles::render_tiles`).
     pub(super) fn render_tab_body(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) {
+        let tab = &self.tabs[self.active_tab];
+        if tab.table.columns.is_empty()
+            && tab.table.source_path.is_none()
+            && tab.raw_content.as_deref().unwrap_or_default().is_empty()
+        {
+            self.render_start_screen(ui);
+            return;
+        }
         self.render_load_banners(ui);
         self.render_filter_chips(ui);
 

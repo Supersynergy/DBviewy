@@ -38,6 +38,8 @@ concurrency:
 
 jobs:
   build:
+    # Forks without a Pages site still publish their source, not a Pages build.
+    if: github.event.repository.has_pages == true
     runs-on: ubuntu-latest
     # Suppress Material for MkDocs' MkDocs-2.0 advisory banner. We've pinned
     # mkdocs<2.0 in pyproject.toml; the banner adds nothing actionable for

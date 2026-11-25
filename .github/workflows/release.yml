@@ -63,11 +63,8 @@ jobs:
     # every newer system. Move it forward only when 22.04 leaves GitHub.
     runs-on: ubuntu-22.04
     steps:
-      # lfs: true is mandatory: assets/ (octa.png, the .ttf/.otf fonts that
-      # src/ui/theme embeds via include_bytes!) is tracked in git LFS. Without
-      # it checkout fetches only the LFS pointer stubs: the binary compiles but
-      # ships tofu fonts, and the Windows magick step errors "improper image
-      # header".
+      # lfs: true is mandatory: the embedded fonts and data assets in assets/ use Git LFS. Without
+      # it checkout fetches pointer stubs and the binary ships broken fonts.
       - uses: actions/checkout@v7
         with:
           lfs: true
@@ -129,8 +126,8 @@ jobs:
           cp install.sh "$DIR/"
           cp uninstall.sh "$DIR/"
           cp pkg/linux/octa.desktop "$DIR/"
-          cp assets/octa.svg "$DIR/assets/"
-          cp assets/octa.png "$DIR/assets/"
+          cp assets/dbviewy.svg "$DIR/assets/octa.svg"
+          cp assets/dbviewy.png "$DIR/assets/octa.png"
           cp pkg/README-linux.md "$DIR/README.md"
           # The attribution bundle is a redistribution condition of nearly
           # every dependency, so copy it unconditionally: install.sh skips
@@ -212,12 +209,13 @@ jobs:
           # the AppImage catalogue's test caught. libxkbcommon.so.0 already
           # comes in through GTK. The binary's $ORIGIN/../lib RUNPATH is what
           # lets the dlopen() find the bundled copy.
+          cp assets/dbviewy.png "$RUNNER_TEMP/octa.png"
           APPIMAGE_EXTRACT_AND_RUN=1 linuxdeploy \
             --appdir AppDir \
             --executable target/release/octa \
             --library /usr/lib/x86_64-linux-gnu/libxkbcommon-x11.so.0 \
             --desktop-file pkg/linux/octa.desktop \
-            --icon-file assets/octa.png \
+            --icon-file "$RUNNER_TEMP/octa.png" \
             --plugin gtk \
             --output appimage
           # Current linuxdeploy-plugin-appimage honours $OUTPUT and writes
@@ -275,8 +273,7 @@ jobs:
     # outputs:
     #   unsigned-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
     steps:
-      # lfs: true: see build-linux. The Generate ICO step below feeds
-      # assets/octa.png (an LFS object) to magick.
+      # lfs: true: the embedded fonts and data still use LFS.
       - uses: actions/checkout@v7
         with:
           lfs: true
@@ -290,7 +287,7 @@ jobs:
           (Get-Content Cargo.toml) -replace '^version = .*', "version = `"$env:VERSION`"" | Set-Content Cargo.toml
 
       - name: Generate ICO from PNG
-        run: magick assets/octa.png -define icon:auto-resize=256,128,64,48,32,16 assets/octa.ico
+        run: magick assets/dbviewy.png -define icon:auto-resize=256,128,64,48,32,16 assets/octa.ico
 
       # The Store package's taskbar icon. Without unplated sizes plus the
       # resources.pri that indexes them, Windows draws the 44x44 logo on an
@@ -308,11 +305,11 @@ jobs:
           $logos = @{ "Square44x44Logo" = 44; "Square71x71Logo" = 71; "Square150x150Logo" = 150; "Square310x310Logo" = 310; "StoreLogo" = 50 }
           foreach ($name in $logos.Keys) {
             $s = $logos[$name]
-            magick assets/octa.png -resize "${s}x${s}" "$stage\Images\$name.png"
+            magick assets/dbviewy.png -resize "${s}x${s}" "$stage\Images\$name.png"
           }
-          magick assets/octa.png -resize 150x150 -background none -gravity center -extent 310x150 "$stage\Images\Wide310x150Logo.png"
+          magick assets/dbviewy.png -resize 150x150 -background none -gravity center -extent 310x150 "$stage\Images\Wide310x150Logo.png"
           foreach ($s in 16, 24, 32, 48, 256) {
-            magick assets/octa.png -resize "${s}x${s}" "$stage\Images\Square44x44Logo.targetsize-${s}_altform-unplated.png"
+            magick assets/dbviewy.png -resize "${s}x${s}" "$stage\Images\Square44x44Logo.targetsize-${s}_altform-unplated.png"
           }
           # Every language the manifest declares, or the Store could read the
           # package as English-only.
@@ -346,8 +343,8 @@ jobs:
           New-Item -ItemType Directory -Path "$dir\assets" -Force
           Copy-Item "target\release\octa.exe","target\release\octa-xlsx.exe" "$dir\"
           Copy-Item "install.bat" "$dir\"
-          Copy-Item "assets\octa.svg" "$dir\assets\"
-          Copy-Item "assets\octa.png" "$dir\assets\"
+          Copy-Item "assets\dbviewy.svg" "$dir\assets\octa.svg"
+          Copy-Item "assets\dbviewy.png" "$dir\assets\octa.png"
           if (Test-Path "assets\octa.ico") { Copy-Item "assets\octa.ico" "$dir\assets\" }
           Copy-Item "pkg\README-windows.md" "$dir\README.md"
           # See the Linux step: the attribution bundle must always ship.
@@ -367,7 +364,7 @@ jobs:
     needs: preflight
     runs-on: macos-latest
     steps:
-      # lfs: true: see build-linux. sips/iconutil below consume assets/octa.png.
+      # lfs: true: see build-linux for the embedded fonts and data.
       - uses: actions/checkout@v7
         with:
           lfs: true
@@ -394,9 +391,9 @@ jobs:
           ICONSET="assets/octa.iconset"
           mkdir -p "$ICONSET"
           for size in 16 32 64 128 256 512; do
-            sips -z $size $size assets/octa.png --out "$ICONSET/icon_${size}x${size}.png"
+            sips -z $size $size assets/dbviewy.png --out "$ICONSET/icon_${size}x${size}.png"
             double=$((size * 2))
-            sips -z $double $double assets/octa.png --out "$ICONSET/icon_${size}x${size}@2x.png"
+            sips -z $double $double assets/dbviewy.png --out "$ICONSET/icon_${size}x${size}@2x.png"
           done
           iconutil -c icns "$ICONSET" -o assets/octa.icns
 
@@ -409,7 +406,7 @@ jobs:
           cp target/aarch64-apple-darwin/release/octa-csv "$APP/Contents/MacOS/octa-csv"
           cp target/aarch64-apple-darwin/release/octa-xlsx "$APP/Contents/MacOS/octa-xlsx"
           chmod +x "$APP/Contents/MacOS/octa"
-          cp assets/octa.icns "$APP/Contents/Resources/octa.icns"
+          cp assets/octa.icns "$APP/Contents/Resources/dbviewy.icns"
           # Inside the bundle, not just beside it: users drag DBviewy.app out of
           # the archive and discard the rest, so this is the only copy that
           # keeps travelling with the binary. Must happen before the ad-hoc
@@ -510,14 +507,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ inputs.version }}
         run: |
-          NOTES_ARGS="--generate-notes"
+          notes_args=(--generate-notes)
           if [ -s release_notes.md ]; then
-            NOTES_ARGS="--notes-file release_notes.md"
+            notes_args=(--notes-file release_notes.md)
           fi
           gh release create "$VERSION" \
             --repo "$GITHUB_REPOSITORY" \
-            --title "Octa $VERSION" \
-            $NOTES_ARGS \
+            --title "DBviewy $VERSION" \
+            "${notes_args[@]}" \
             dist/*
 
   aur-publish:

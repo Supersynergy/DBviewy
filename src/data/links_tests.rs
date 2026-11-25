@@ -134,3 +134,60 @@ fn pictures_accept_explicit_local_and_query_references() {
         assert_eq!(detect_image_url(v), None, "{v}");
     }
 }
+
+#[test]
+fn file_path_absolute_home_and_uri() {
+    let base = Some(Path::new("/data/tables"));
+    assert_eq!(
+        resolve_file_path("/tmp/pics/art.png", base),
+        Some(PathBuf::from("/tmp/pics/art.png"))
+    );
+    assert_eq!(
+        resolve_file_path("file:///tmp/My%20Photo.webp", base),
+        Some(PathBuf::from("/tmp/My Photo.webp"))
+    );
+    if let Some(home) = std::env::home_dir() {
+        assert_eq!(
+            resolve_file_path("~/Downloads/report.pdf", base),
+            Some(home.join("Downloads/report.pdf"))
+        );
+    }
+}
+
+#[test]
+fn file_path_relative_needs_base_and_looks_like_a_path() {
+    let base = Some(Path::new("/data/tables"));
+    assert_eq!(
+        resolve_file_path("report.pdf", base),
+        Some(PathBuf::from("/data/tables/report.pdf"))
+    );
+    assert_eq!(
+        resolve_file_path("images/photo.jpeg", base),
+        Some(PathBuf::from("/data/tables/images/photo.jpeg"))
+    );
+    assert_eq!(
+        resolve_file_path("../shared/data.csv", base),
+        Some(PathBuf::from("/data/tables/../shared/data.csv"))
+    );
+    // Without a base a relative path means nothing.
+    assert_eq!(resolve_file_path("report.pdf", None), None);
+}
+
+#[test]
+fn file_path_rejects_links_prose_and_numbers() {
+    let base = Some(Path::new("/data"));
+    for v in [
+        "https://example.com/x.png", // a link, handled elsewhere
+        "ftp://host/file.bin",
+        "//cdn.example.com/x.png",
+        "3.14",
+        "version 2",
+        "and/or",
+        "hello world",
+        "see report.pdf for details", // not the whole cell
+        "",
+        "   ",
+    ] {
+        assert_eq!(resolve_file_path(v, base), None, "{v}");
+    }
+}

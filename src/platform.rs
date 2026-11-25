@@ -167,6 +167,72 @@ pub fn set_taskbar_icon(
     }
 }
 
+/// Hand `path` to the OS: a file goes to its associated app, a folder to the
+/// file manager. Spawn-and-forget like the URL opener - the handler outlives
+/// this process, so a slow launch never blocks the UI.
+pub fn open_with_default_app(path: &Path) -> std::io::Result<()> {
+    open_command(path).spawn().map(|_| ())
+}
+
+/// Select `path` in the OS file manager (Finder / Explorer / the desktop's
+/// file manager). A folder is simply opened.
+pub fn reveal_in_file_manager(path: &Path) -> std::io::Result<()> {
+    reveal_command(path).spawn().map(|_| ())
+}
+
+#[cfg(target_os = "macos")]
+fn open_command(path: &Path) -> std::process::Command {
+    let mut cmd = std::process::Command::new("open");
+    cmd.arg(path);
+    cmd
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn open_command(path: &Path) -> std::process::Command {
+    let mut cmd = std::process::Command::new("xdg-open");
+    cmd.arg(path);
+    cmd
+}
+
+#[cfg(windows)]
+fn open_command(path: &Path) -> std::process::Command {
+    // `start` hands the path to the registered handler; explorer.exe would
+    // only open the containing folder for a file.
+    let mut cmd = std::process::Command::new("cmd");
+    cmd.args(["/c", "start", "", &path.to_string_lossy()]);
+    cmd
+}
+
+#[cfg(target_os = "macos")]
+fn reveal_command(path: &Path) -> std::process::Command {
+    let mut cmd = std::process::Command::new("open");
+    cmd.args(["-R"]).arg(path);
+    cmd
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn reveal_command(path: &Path) -> std::process::Command {
+    // No freedesktop "reveal" verb; the containing folder is the closest
+    // honest equivalent.
+    let dir = if path.is_dir() {
+        path.to_path_buf()
+    } else {
+        path.parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+    };
+    let mut cmd = std::process::Command::new("xdg-open");
+    cmd.arg(dir);
+    cmd
+}
+
+#[cfg(windows)]
+fn reveal_command(path: &Path) -> std::process::Command {
+    let mut cmd = std::process::Command::new("explorer");
+    cmd.arg(format!("/select,{}", path.display()));
+    cmd
+}
+
 #[cfg(test)]
 #[path = "platform_tests.rs"]
 mod tests;

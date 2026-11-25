@@ -9,12 +9,17 @@ static REPAINT: OnceLock<eframe::egui::Context> = OnceLock::new();
 
 unsafe extern "C" {
     fn octa_listen_for_documents();
+    fn octa_set_identity(version: *const c_char);
     fn octa_add_workbook_menu(titles: *const *const c_char) -> bool;
 }
 
 pub fn listen() {
     // Called on the GUI main thread before winit starts AppKit.
-    unsafe { octa_listen_for_documents() };
+    let version = std::ffi::CString::new(env!("CARGO_PKG_VERSION")).unwrap();
+    unsafe {
+        octa_set_identity(version.as_ptr());
+        octa_listen_for_documents();
+    };
 }
 
 pub fn attach(ctx: &eframe::egui::Context) {

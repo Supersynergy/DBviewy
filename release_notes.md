@@ -1,3 +1,27 @@
+# DBviewy 0.22.1-dbviewy.1
+
+This local DBviewy update keeps the existing Octa table editor and adds:
+
+- A database/search logo with consistent macOS menu and About branding.
+- Instant search stays visible beside the menus, even in narrow windows.
+  The options menu holds the search mode, column scope, history, bookmarks
+  and Filter or Highlight.
+- A fold-away editing bar (arrow at the right end of the menu row) with undo,
+  redo, copy, paste, row and column insert/delete, sort, filter, find, marks,
+  number format, fit columns and zoom, plus a name box (type `B12` to jump) and
+  a formula bar that edits the selected cell, including `=` formulas.
+- A compact start screen with recent files, paths, sizes and open actions.
+- Open all tables for local SQLite and DuckDB databases. This reads full
+  tables into memory; select one table for very large databases.
+- Source-bound bundle versioning and a dedicated icon resource for updates.
+
+Existing settings and session identifiers are preserved. This DBviewy
+update is separate from the upstream Octa release.
+
+## Inherited Octa release notes
+
+The following features were inherited from Octa, not introduced by this update.
+
 Mostly fixes. Octa no longer crashes on a few kinds of damaged file, on a
 very large step in Fill series or on a custom font that is not a font, and
 it no longer offers a crash report for a crash that never happened.

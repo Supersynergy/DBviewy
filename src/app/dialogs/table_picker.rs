@@ -14,6 +14,18 @@ pub(crate) fn render_table_picker(app: &mut OctaApp, ctx: &egui::Context) {
     let action = ui::table_picker::render_table_picker(ctx, state);
     match action {
         ui::table_picker::TablePickerAction::None => {}
+        ui::table_picker::TablePickerAction::OpenAll => {
+            let state = app.pending_table_picker.take().expect("picker is open");
+            app.gallery_table_picker = false;
+            for table in &state.tables {
+                app.load_table(
+                    state.path.clone(),
+                    table.qualified_name(),
+                    Some(&state.format_name),
+                );
+            }
+        }
+
         ui::table_picker::TablePickerAction::Cancel => {
             app.gallery_table_picker = false;
             app.pending_table_picker = None;
@@ -35,3 +47,7 @@ pub(crate) fn render_table_picker(app: &mut OctaApp, ctx: &egui::Context) {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "table_picker_tests.rs"]
+mod tests;

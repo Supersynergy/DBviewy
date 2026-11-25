@@ -10,6 +10,17 @@
 
 pub const GETTING_STARTED: &str = r#"# Getting Started
 
+## DBviewy start screen
+
+Open a file, create a table or choose one of the twelve recent files on the
+start screen. Paths and sizes distinguish similarly named files. Missing files
+are disabled. Shortcuts and the build version appear below the list.
+
+For local SQLite and DuckDB files, Open all tables (Ctrl+Enter) in the picker
+opens every table in its own tab. Open still selects just one table. Full
+tables are read into memory, so choose one table for very large databases.
+Opening does not write to the source database.
+
 > **Full documentation online:** <https://thorstenfoltz.github.io/octa/>
 >
 > This dialog is the short version, always matching the build you are
@@ -1301,4 +1312,14 @@ column names to snake_case. A single Undo reverts the whole thing.
 as an underlined link. **Ctrl+click** opens it in your browser; a plain click
 still selects the cell. Turn this off with **Settings > Table View > Clickable
 web links**.
+
+**File paths in cells.** When a cell's whole text is a local file path - an
+absolute path, a `~/` home path, a `file://` address, or a name relative to
+the folder of the file you opened (like `images/photo.png` in a CSV) - its
+right-click menu gains a **File** section: **Open** hands the file to its
+default app (Preview, QuickTime, the file manager for a folder), **Show in
+file manager** selects it there, **Open in new tab...** loads it as a table
+when a reader claims it, and **Copy path** puts the resolved path on the
+clipboard. Entries grey out with the reason when the file is gone or no
+table reader applies.
 "#;

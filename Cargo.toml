@@ -1,6 +1,6 @@
 [package]
 name = "octa"
-version = "0.0.0-dev"
+version = "0.22.1-dbviewy.1"
 edition = "2024"
 default-run = "octa"
 rust-version = "1.100"

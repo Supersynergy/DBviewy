@@ -16,6 +16,7 @@ use super::theme::{ThemeColors, ThemeMode};
 use crate::data::{BinaryDisplayMode, DataTable, MarkColor, MarkKey};
 
 use layout::*;
+pub use rows::commit_cell_text;
 pub use split::draw_table_split;
 
 /// Count only live column indices, since a structural edit can leave stale
@@ -881,6 +882,13 @@ pub struct TableInteraction {
     pub ctx_view_image: Option<(usize, usize)>,
     /// Import a file or URL into the active SQLite database.
     pub ctx_import_image: Option<(usize, usize)>,
+    /// Cell right-click file actions on a path the cell text resolved to
+    /// (absolute, `~/`, `file://` or relative to the table's source file):
+    /// open with the OS default app, reveal in the file manager, or open as
+    /// a new tab when a table reader claims it.
+    pub ctx_open_file: Option<std::path::PathBuf>,
+    pub ctx_reveal_file: Option<std::path::PathBuf>,
+    pub ctx_open_file_in_tab: Option<std::path::PathBuf>,
     /// **Use as header row** from a row menu: table rows `(first, last)`,
     /// 0-based, the clicked row or the selected block around it.
     pub ctx_use_header_rows: Option<(usize, usize)>,

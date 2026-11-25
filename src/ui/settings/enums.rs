@@ -798,7 +798,7 @@ impl IconVariant {
     pub fn label(self) -> &'static str {
         match self {
             Self::Random => "Random",
-            Self::Rose => "Rose",
+            Self::Rose => "DBviewy",
             Self::Amber => "Amber",
             Self::Blue => "Blue",
             Self::Cyan => "Cyan",
@@ -844,7 +844,7 @@ impl IconVariant {
     pub fn svg_source(self) -> &'static str {
         match self {
             Self::Random => include_str!("../../../assets/octa-random.svg"),
-            Self::Rose => include_str!("../../../assets/octa-rose.svg"),
+            Self::Rose => include_str!("../../../assets/dbviewy.svg"),
             Self::Amber => include_str!("../../../assets/octa-amber.svg"),
             Self::Blue => include_str!("../../../assets/octa-blue.svg"),
             Self::Cyan => include_str!("../../../assets/octa-cyan.svg"),

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">DBviewy: a database with a turquoise search lens</title>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#193957"/>
+      <stop offset="1" stop-color="#0B1425"/>
+    </linearGradient>
+    <linearGradient id="disk" x1="0" y1="0" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#D1EBFF"/>
+      <stop offset="1" stop-color="#79ABE1"/>
+    </linearGradient>
+    <linearGradient id="lens" x1="0" y1="0" x2="1" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#AAFFF1"/>
+      <stop offset="1" stop-color="#2EE4C1"/>
+    </linearGradient>
+  </defs>
+  <rect x="52" y="52" width="920" height="920" rx="218" fill="url(#tile)"/>
+  <rect x="60" y="60" width="904" height="904" rx="210" fill="none" stroke="#7FB3E5" stroke-opacity=".21" stroke-width="12"/>
+  <path d="M213 322v340c0 65 103 115 239 115s239-50 239-115V322Z" fill="#204C79" stroke="#92BEEB" stroke-width="31"/>
+  <path d="M213 428c0 58 103 106 239 106s239-48 239-106M213 540c0 58 103 106 239 106s239-48 239-106" fill="none" stroke="#8CB7E3" stroke-width="30"/>
+  <ellipse cx="452" cy="322" rx="239" ry="106" fill="url(#disk)" stroke="#D5EAFC" stroke-width="27"/>
+  <path d="m754 744 98 98" stroke="#0C1F36" stroke-width="114" stroke-linecap="round"/>
+  <path d="m754 744 98 98" stroke="url(#lens)" stroke-width="67" stroke-linecap="round"/>
+  <circle cx="650" cy="640" r="154" fill="#0D253E" stroke="url(#lens)" stroke-width="58"/>
+  <path d="M595 623h109m-109 57h64" fill="none" stroke="#8FF3E1" stroke-width="22" stroke-linecap="round"/>
+</svg>

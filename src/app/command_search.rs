@@ -42,6 +42,7 @@ pub(crate) struct CommandSearchState {
 /// command lists each under its own name. A new kind, method or option inside
 /// a dialog gets a line here (CLAUDE.md, "Findable by name").
 pub(crate) const INSIDE: &[(&str, SA)] = &[
+    ("instant_search.placeholder", SA::FocusSearch),
     ("chart.seasonality_to_table", SA::OpenChart),
     ("gui.kind_pareto", SA::OpenChart),
     ("dialog.tc_kind_working_days", SA::OpenTimeCalc),
@@ -59,6 +60,11 @@ pub(crate) const INSIDE: &[(&str, SA)] = &[
     ("refdata.key_postcode", SA::OpenReferenceData),
     ("refdata.key_kreis", SA::OpenReferenceData),
     ("refdata.key_nuts", SA::OpenReferenceData),
+    // Cell right-click file actions on a path the cell text points at.
+    ("context_menu.open_file", SA::OpenFile),
+    ("context_menu.reveal_file", SA::OpenFile),
+    ("context_menu.open_file_in_tab", SA::OpenFile),
+    ("context_menu.copy_file_path", SA::OpenFile),
 ];
 
 /// One listed command, in rank order.
