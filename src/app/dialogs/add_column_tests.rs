@@ -753,3 +753,35 @@ fn scientific_formula_fill_moves_cell_addresses_but_not_exponents() {
     assert_eq!(tab.table.col_count(), 5);
     assert_eq!(tab.table.get(2, 0), Some(&data::CellValue::Int(300)));
 }
+
+#[test]
+fn ifs_formula_column_combines_tests_and_keeps_threshold_anchored() {
+    use data::CellValue::{Int, Null, String as Text};
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table.columns = ["order amount", "status", "minimum"]
+        .map(|name| data::ColumnInfo {
+            name: name.into(),
+            data_type: "Utf8".into(),
+        })
+        .to_vec();
+    tab.table.rows = vec![
+        vec![Int(120), Text("Paid".into()), Int(100)],
+        vec![Int(400), Text("Pending".into()), Null],
+        vec![Int(50), Text("Refunded".into()), Null],
+        vec![Int(80), Text("Paid".into()), Null],
+    ];
+    tab.insert_col_at = Some(0);
+    tab.new_col_name = "commission tiers".into();
+    tab.new_col_formula =
+        r#"=WENNS(UND(A1>=$C$1;B1="Paid");A1*10%;B1="Refunded";-A1;WAHR;0)"#.into();
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    for (row, expected) in [12, 0, -50, 0].into_iter().enumerate() {
+        assert_eq!(tab.table.get(row, 0), Some(&Int(expected)));
+    }
+    assert!(tab.parse_error_banner.is_none());
+    assert!(tab.table.undo());
+    assert_eq!(tab.table.col_count(), 3);
+    assert_eq!(tab.table.get(0, 0), Some(&Int(120)));
+}

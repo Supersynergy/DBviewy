@@ -1404,3 +1404,149 @@ fn discount_and_growth_formula_survives_numeric_xlsx_round_trip() {
     assert!(reloaded.formulas.is_empty());
     assert_eq!(std::fs::read_to_string(input).unwrap(), csv);
 }
+
+#[test]
+fn logic_functions_combine_predicates_and_named_booleans() {
+    let table = formula_table();
+    for (formula, expected) in [
+        (r#"AND(A1>0,C1="hello",NOT(FALSE))"#, 1.0),
+        (r#"OR(A1<0,C1="world")"#, 0.0),
+        (r#"XOR(TRUE,FALSE,TRUE,TRUE)"#, 1.0),
+        (r#"XODER(WAHR;A1<=10;WAHR;FALSCH)"#, 1.0),
+        (r#"NOT(A1>=10)"#, 0.0),
+        (r#"ODER(NICHT(FALSCH);A1<0)"#, 1.0),
+        (r#"WENN(UND(A1>=10;C1="HELLO");9;0)"#, 9.0),
+        (r#"IF(OR(C1="hello",C1="world"),WAHR,FALSCH)"#, 1.0),
+        (r#"SUM(AND(A1=10,C1="hello"),2)"#, 3.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn logic_ranges_skip_text_and_blanks_but_read_booleans_edits_and_zero() {
+    let mut table = formula_table();
+    table.set(1, 2, CellValue::Bool(true));
+    table.set(1, 1, CellValue::Int(0));
+    for (formula, expected) in [
+        ("AND(C1:C3)", Some(1.0)),
+        ("AND(A1:B3)", Some(0.0)),
+        ("OR(A1:B3)", Some(1.0)),
+        ("XOR(C1:C3,B1:B3)", Some(1.0)),
+        ("AND(B1:B1,C2)", Some(1.0)),
+        ("AND(C1,C3)", None),
+        ("AND(C3,WAHR)", Some(1.0)),
+        ("OR(ZZ1:ZZ99999999,FALSCH)", Some(0.0)),
+        ("OR((C1:C99999999))", Some(1.0)),
+        ("NOT(C3)", Some(1.0)),
+        ("NOT(C1:C3)", None),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+}
+
+#[test]
+fn logic_does_not_mask_active_errors_or_malformed_arguments() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("AND(FALSE,1/0)", None),
+        ("OR(TRUE,1/0)", None),
+        ("IFERROR(AND(FALSE,1/0),8)", Some(8.0)),
+        ("IF(TRUE,3,OR(TRUE,1/0))", Some(3.0)),
+        ("IFERROR(OR(TRUE,1/0+),8)", None),
+        ("AND(,TRUE)", None),
+        ("OR()", None),
+        ("NOT(TRUE,FALSE)", None),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+    let and_max = format!("AND(TRUE{})", ",TRUE".repeat(254));
+    let xor_max = format!("XOR(TRUE{})", ",TRUE".repeat(253));
+    let xor_excess = format!("XOR(TRUE{})", ",TRUE".repeat(254));
+    assert_eq!(evaluate_formula(&and_max, &table), Some(1.0));
+    assert_eq!(evaluate_formula(&xor_max, &table), Some(0.0));
+    assert_eq!(evaluate_formula(&xor_excess, &table), None);
+}
+
+#[test]
+fn ifs_prefers_first_match_and_avoids_unused_work() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("IFS(A1>0,42,A1>5,1/0)", Some(42.0)),
+        ("IFS(FALSE,1/0,AND(A1>=10,NOT(FALSE)),2,1/0,99)", Some(2.0)),
+        (r#"WENNS(UND(C1="hello";B1>0);12;WAHR;0)"#, Some(12.0)),
+        ("IFS(FALSE,2,TRUE,)", Some(0.0)),
+        ("IFS(FALSE,2)", None),
+        ("IFERROR(IFS(FALSE,2),7)", Some(7.0)),
+        ("IFERROR(IFS(TRUE,1/0,TRUE,2),7)", Some(7.0)),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+    let outcome = evaluate_formula_with_diagnostics("IFS(TRUE,C2,TRUE,C1)", &table);
+    assert_eq!(outcome.value, None);
+    let bad = outcome.bad_cell.unwrap();
+    assert_eq!((bad.row, bad.col, bad.content.as_str()), (1, 2, "world"));
+}
+
+#[test]
+fn ifs_validates_every_pair_and_enforces_argument_limits() {
+    let table = formula_table();
+    for malformed in [
+        "IFS()",
+        "IFS(,8)",
+        "IFS(TRUE,8,FALSE)",
+        "IFS(TRUE,8,A1>B1>C1,2)",
+        "IFS(TRUE,8,FALSE,1+)",
+        "IFS(TRUE,8,)",
+        "IFS(FALSE,,)",
+    ] {
+        assert_eq!(evaluate_formula(malformed, &table), None, "{malformed}");
+        assert_eq!(
+            evaluate_formula(&format!("IFERROR({malformed},7)"), &table),
+            None
+        );
+        assert_eq!(
+            evaluate_formula(&format!("IF(TRUE,7,{malformed})"), &table),
+            None
+        );
+    }
+    let maximum = format!("IFS({}TRUE,8)", "FALSE,0,".repeat(126));
+    let maximum_exceeded = format!("IFS({}TRUE,8)", "FALSE,0,".repeat(127));
+    assert_eq!(evaluate_formula(&maximum, &table), Some(8.0));
+    assert_eq!(evaluate_formula(&maximum_exceeded, &table), None);
+}
+
+#[test]
+fn logic_eligibility_and_tiers_survive_xlsx_round_trip() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("eligible.csv");
+    let csv = "amount,status,region,result\n120,Paid,West,0\n80,Paid,West,0\n120,Paid,East,0\n450,Refunded,West,0\n";
+    std::fs::write(&input, csv).unwrap();
+    let mut table = CsvReader.read_file(&input).unwrap();
+    for (offset, row) in (1..=4).enumerate() {
+        let formula = format!(
+            r#"=IFS(AND(A{row}>=100,B{row}="Paid",C{row}="West"),ROUND(A{row}*10%,2),AND(B{row}="Paid",OR(C{row}="West",C{row}="East")),5,TRUE,0)"#
+        );
+        let _ = commit_cell_text(&mut table, offset, 3, formula, BinaryDisplayMode::default());
+    }
+    let output = dir.path().join("eligibility.xlsx");
+    ExcelReader.write_file(&output, &table).unwrap();
+    let reloaded = ExcelReader.read_file(&output).unwrap();
+    for (row, expected) in [12, 5, 5, 0].into_iter().enumerate() {
+        assert!(
+            matches!(reloaded.get(row,3), Some(CellValue::Int(value)) if *value==expected)
+                || matches!(reloaded.get(row,3), Some(CellValue::Float(value)) if *value==expected as f64),
+            "row {}: {:?}",
+            row + 1,
+            reloaded.get(row, 3)
+        );
+    }
+    assert!(reloaded.formulas.is_empty());
+    assert_eq!(std::fs::read_to_string(input).unwrap(), csv);
+}

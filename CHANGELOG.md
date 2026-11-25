@@ -33,6 +33,8 @@
 - Calculate weighted totals from corresponding cells with `SUMPRODUCT`.
 - Support percent, powers and scientific notation in formulas. Keep
   exponents such as the one in `1E-3` fixed when filling a column.
+- Combine tests with `AND`, `OR`, `NOT` and `XOR`, and select the first
+  matching result with `IFS`.
 - Build the macOS bundle without a Homebrew runtime dependency and check
   all three bundled executables before signing.
 

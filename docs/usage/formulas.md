@@ -148,6 +148,28 @@ fallback only if the first calculation fails. Every expression must
 still be syntactically valid. Results are numeric; use **Conditional
 column** to assign text labels based on rules.
 
+### Combine tests and choose a tier
+
+- `=IF(AND(A1>=100,B1="Paid"),A1*10%,0)` calculates commission only
+  for paid orders of at least 100.
+- `OR` succeeds when at least one test is true, and `NOT` reverses one
+  test. `XOR` succeeds when an odd number of tests are true.
+- `=IFS(A1>=500,20,A1>=100,10,TRUE,0)` takes the result for the first
+  true test. Use a final `TRUE` pair for a default. Without a match
+  there is no numeric result.
+
+`AND`, `OR`, `NOT` and `XOR` return 1 for true or 0 for false, and
+evaluate every supplied test. For example, `AND(FALSE,1/0)` still
+reports an error. `AND`, `OR` and `XOR` can also take cell ranges:
+numbers and booleans count, but text and blank cells are ignored.
+If there are no usable inputs, they return no number.
+
+In DBviewy `IFS` does not calculate later tests or unused results.
+Their syntax still has to be valid. Give each test a result; an
+explicitly empty result, as in `IFS(TRUE,)`, is zero. The German
+names are `UND`, `ODER`, `NICHT`, `XODER` and `WENNS`. Use
+`WAHR` or `FALSCH` in place of `TRUE` or `FALSE`.
+
 ## Look up a value or position
 
 - `=XLOOKUP(D1,$A$1:$A$100,$B$1:$B$100,-1)` finds the ID in D1 and

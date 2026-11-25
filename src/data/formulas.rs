@@ -182,6 +182,8 @@ enum Function {
     Round,
     If,
     IfError,
+    Ifs,
+    Logical(control::Logical),
     Lookup(lookup::ResultKind),
     SumProduct,
     Power,
@@ -263,6 +265,16 @@ fn function_named(name: &str) -> Option<Function> {
         ("SUMMENPRODUKT", Function::SumProduct),
         ("POWER", Function::Power),
         ("POTENZ", Function::Power),
+        ("IFS", Function::Ifs),
+        ("WENNS", Function::Ifs),
+        ("AND", Function::Logical(control::Logical::And)),
+        ("UND", Function::Logical(control::Logical::And)),
+        ("OR", Function::Logical(control::Logical::Or)),
+        ("ODER", Function::Logical(control::Logical::Or)),
+        ("XOR", Function::Logical(control::Logical::Xor)),
+        ("XODER", Function::Logical(control::Logical::Xor)),
+        ("NOT", Function::Logical(control::Logical::Not)),
+        ("NICHT", Function::Logical(control::Logical::Not)),
         (
             "COUNTIFS",
             Function::ConditionalMany(ConditionalAggregate::Count),
@@ -396,8 +408,12 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                 }
                 if !column_fixed && !row_fixed && row_start == i {
                     let name = &expr[col_start..col_end];
-                    if name.eq_ignore_ascii_case("TRUE") || name.eq_ignore_ascii_case("FALSE") {
-                        tokens.push(FormulaToken::Boolean(name.eq_ignore_ascii_case("TRUE")));
+                    if name.eq_ignore_ascii_case("TRUE") || name.eq_ignore_ascii_case("WAHR") {
+                        tokens.push(FormulaToken::Boolean(true));
+                    } else if name.eq_ignore_ascii_case("FALSE")
+                        || name.eq_ignore_ascii_case("FALSCH")
+                    {
+                        tokens.push(FormulaToken::Boolean(false));
                     } else {
                         tokens.push(FormulaToken::Function(function_named(name)?));
                     }
@@ -584,6 +600,8 @@ fn eval_function(
         Function::SumProduct => return product::evaluate(tokens, pos, context),
         Function::If => return control::evaluate_if(tokens, pos, context),
         Function::IfError => return control::evaluate_if_error(tokens, pos, context),
+        Function::Ifs => return control::evaluate_ifs(tokens, pos, context),
+        Function::Logical(op) => return control::evaluate_logical(op, tokens, pos, context),
         _ => {}
     }
     if !matches!(tokens.get(pos), Some(FormulaToken::LParen)) {

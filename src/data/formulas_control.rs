@@ -1,38 +1,47 @@
-//! Lazy control functions for the numeric formula evaluator.
+//! Logical and lazy control functions for the numeric formula evaluator.
 
 use std::cmp::Ordering;
 
+use super::criteria::rectangle;
 use super::{CellValue, Comparison, Evaluation, FormulaToken as Token, eval_complete};
 
 type Arguments<'a, const N: usize> = [Option<&'a [Token]>; N];
 
-/// Split a call at its own separators, not those of nested calls.
-pub(super) fn arguments<const N: usize>(
-    tokens: &[Token],
-    open: usize,
-) -> Option<(Arguments<'_, N>, usize)> {
-    if !matches!(tokens.get(open), Some(Token::LParen)) {
-        return None;
-    }
-    let mut args = [None; N];
-    let mut start = open + 1;
-    let mut slot = 0;
+/// Take one argument and advance beyond its separator or final parenthesis.
+/// Nested calls stay together, and even an empty argument has a position.
+fn next_argument(tokens: &[Token], start: usize) -> Option<(&[Token], usize, bool)> {
     let mut depth = 0usize;
     for (offset, token) in tokens.get(start..)?.iter().enumerate() {
-        let pos = open + 1 + offset;
+        let pos = start + offset;
         match token {
             Token::LParen => depth += 1,
             Token::RParen if depth > 0 => depth -= 1,
             Token::Separator | Token::RParen if depth == 0 => {
-                *args.get_mut(slot)? = Some(&tokens[start..pos]);
-                if matches!(token, Token::RParen) {
-                    return Some((args, pos + 1));
-                }
-                start = pos + 1;
-                slot += 1;
+                return Some((&tokens[start..pos], pos + 1, matches!(token, Token::RParen)));
             }
             _ => {}
         }
+    }
+    None
+}
+
+fn argument_start(tokens: &[Token], open: usize) -> Option<usize> {
+    matches!(tokens.get(open), Some(Token::LParen)).then_some(open + 1)
+}
+
+pub(super) fn arguments<const N: usize>(
+    tokens: &[Token],
+    open: usize,
+) -> Option<(Arguments<'_, N>, usize)> {
+    let mut start = argument_start(tokens, open)?;
+    let mut args = [None; N];
+    for slot in &mut args {
+        let (arg, next, last) = next_argument(tokens, start)?;
+        *slot = Some(arg);
+        if last {
+            return Some((args, next));
+        }
+        start = next;
     }
     None
 }
@@ -103,6 +112,137 @@ pub(super) fn evaluate_if_error(
     check(primary)?;
     let value = eval_complete(fallback, context)?;
     value.is_finite().then_some((value, next))
+}
+
+pub(super) fn evaluate_ifs(
+    tokens: &[Token],
+    open: usize,
+    context: &mut Evaluation<'_>,
+) -> Option<(f64, usize)> {
+    const MAX_PAIRS: usize = 127;
+    let mut result = None;
+    let mut start = argument_start(tokens, open)?;
+    for _ in 0..MAX_PAIRS {
+        let (test, next, no_value) = next_argument(tokens, start)?;
+        if no_value {
+            return None;
+        }
+        let (value, end, last) = next_argument(tokens, next)?;
+        let selected = if context.table.is_some() && result.is_none() {
+            condition(test, context)?
+        } else {
+            condition(test, &mut Evaluation::default())?;
+            false
+        };
+        if selected {
+            let value = if value.is_empty() {
+                0.0
+            } else {
+                eval_complete(value, context)?
+            };
+            if !value.is_finite() {
+                return None;
+            }
+            result = Some(value);
+        } else if !value.is_empty() {
+            check(value)?;
+        }
+
+        if last {
+            return if context.table.is_none() {
+                Some((0.0, end))
+            } else {
+                Some((result?, end))
+            };
+        }
+        start = end;
+    }
+    None
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(super) enum Logical {
+    And,
+    Or,
+    Xor,
+    Not,
+}
+
+impl Logical {
+    fn max_args(self) -> usize {
+        match self {
+            Self::Not => 1,
+            Self::Xor => 254,
+            Self::And | Self::Or => 255,
+        }
+    }
+
+    fn combine(self, previous: bool, next: bool) -> bool {
+        match self {
+            Self::And => previous & next,
+            Self::Or => previous | next,
+            Self::Xor => previous ^ next,
+            Self::Not => !next,
+        }
+    }
+}
+
+pub(super) fn evaluate_logical(
+    op: Logical,
+    tokens: &[Token],
+    open: usize,
+    context: &mut Evaluation<'_>,
+) -> Option<(f64, usize)> {
+    let mut seen = false;
+    let mut result = matches!(op, Logical::And);
+    let mut start = argument_start(tokens, open)?;
+    for _ in 0..op.max_args() {
+        let (part, end, last) = next_argument(tokens, start)?;
+        let part = unparen(part);
+        if !matches!(op, Logical::Not)
+            && let Some((range, consumed)) = rectangle(part, 0)
+            && consumed == part.len()
+        {
+            if let Some(table) = context.table {
+                let (rows, cols) = range.loaded_shape(table);
+                // References ignore blanks and text; expressions use the
+                // regular predicate rules. Never scan unloaded rows or fill
+                // the entire rectangle with synthetic missing values.
+                if cols > 0 {
+                    for r in 0..rows {
+                        for c in 0..cols {
+                            let (row, col) = range.at(r, c);
+                            let truth = match table.get(row, col) {
+                                Some(CellValue::Bool(value)) => *value,
+                                Some(CellValue::Int(value)) => *value != 0,
+                                Some(CellValue::Float(value)) => {
+                                    if !value.is_finite() {
+                                        return None;
+                                    }
+                                    *value != 0.0
+                                }
+                                _ => continue,
+                            };
+                            result = op.combine(result, truth);
+                            seen = true;
+                        }
+                    }
+                }
+            }
+        } else {
+            result = op.combine(result, condition(part, context)?);
+            seen = true;
+        }
+        if last {
+            return if context.table.is_none() {
+                Some((0.0, end))
+            } else {
+                seen.then_some((f64::from(u8::from(result)), end))
+            };
+        }
+        start = end;
+    }
+    None
 }
 
 /// Peel parentheses only when they wrap the whole expression.

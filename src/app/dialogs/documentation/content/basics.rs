@@ -647,6 +647,12 @@ division fails. The German names are WENN and WENNFEHLER. IF evaluates
 only the chosen result; IFERROR evaluates the fallback only on error.
 All expressions must be syntactically valid.
 
+**Combined tests**: `=IF(AND(A1>=100,B1="Paid"),A1*10%,0)` calculates
+commission only for paid orders of at least 100. AND, OR, NOT and
+XOR return 1 or 0. `=IFS(A1>=500,20,A1>=100,10,TRUE,0)` takes the
+first matching tier; TRUE supplies the default. German names: UND,
+ODER, NICHT, XODER and WENNS, with WAHR or FALSCH as constants.
+
 **Lookups**: `=XLOOKUP(D1,A1:A20,B1:B20,-1)` finds D1 in A and returns
 the matching number from B; it uses -1 only if no key matches.
 `=XMATCH(D1,A1:A20)` returns the position starting at 1. Exact matching
