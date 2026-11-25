@@ -1138,6 +1138,146 @@ fn formula_lookup_price_survives_xlsx_round_trip() {
 }
 
 #[test]
+fn classic_vlookup_matches_first_exact_key_and_wildcards() {
+    let mut table = lookup_catalog();
+    table.set(0, 2, CellValue::Bool(false));
+    for (formula, expected) in [
+        (r#"VLOOKUP("ax-01",A1:B7,2,FALSE)"#, Some(10.0)),
+        (r#"SVERWEIS("AX-02";$B$7:$A$1;2;FALSCH)"#, Some(19.5)),
+        (r#"VLOOKUP("a?-0*",A1:B7,2,0)"#, Some(10.0)),
+        (r#"VLOOKUP("AX-~*",A1:B7,2,C1)"#, Some(99.0)),
+        (r#"VLOOKUP("ÖKO",A1:B7,2,FALSE)"#, Some(7.0)),
+        (r#"VLOOKUP("missing",A1:B7,2,FALSE)"#, None),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+    table.set(0, 0, CellValue::String("1".into()));
+    table.set(1, 0, CellValue::Int(1));
+    assert_eq!(
+        evaluate_formula(r#"VLOOKUP("1",A1:B7,2,0)"#, &table),
+        Some(10.0)
+    );
+    assert_eq!(evaluate_formula("VLOOKUP(1,A1:B7,2,0)", &table), Some(14.0));
+}
+
+#[test]
+fn classic_hlookup_pairs_with_the_requested_row() {
+    let mut table = formula_table();
+    assert_eq!(
+        evaluate_formula("HLOOKUP(2.5,A1:C3,3,FALSE)", &table),
+        Some(0.5)
+    );
+    assert_eq!(
+        evaluate_formula("WVERWEIS(10;$A$1:$C$3;3;FALSCH)", &table),
+        Some(30.0)
+    );
+    table.set(0, 2, CellValue::Int(100));
+    table.set(1, 2, CellValue::Int(25));
+    assert_eq!(
+        evaluate_formula("HLOOKUP(90,B1:C2,2,TRUE)", &table),
+        Some(3.0)
+    );
+    assert_eq!(
+        evaluate_formula("HLOOKUP(100,B1:C2,2,TRUE)", &table),
+        Some(25.0)
+    );
+}
+
+#[test]
+fn classic_lookup_uses_sorted_numeric_thresholds_by_default() {
+    let mut table = formula_table();
+    for (formula, expected) in [
+        ("VLOOKUP(23,A1:B3,2)", Some(3.0)),
+        ("VLOOKUP(23,A1:B3,2,1)", Some(3.0)),
+        ("VLOOKUP(20,A1:B99,2,WAHR)", Some(3.0)),
+        ("VLOOKUP(300,A1:B3,2,TRUE)", Some(0.5)),
+        ("VLOOKUP(5,A1:B3,2,TRUE)", None),
+        ("VLOOKUP(23,A1:B3,2,FALSE)", None),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+    table.set(0, 0, CellValue::Float(-1.5));
+    table.set(1, 0, CellValue::Int(-1));
+    assert_eq!(
+        evaluate_formula("VLOOKUP(-1.25,A1:B3,2)", &table),
+        Some(2.5)
+    );
+    table.set(0, 0, CellValue::Int(-1));
+    assert_eq!(
+        evaluate_formula("VLOOKUP(-1,A1:B3,2)", &table),
+        Some(3.0),
+        "use the last row at a numeric threshold with duplicates"
+    );
+    table.set(2, 0, CellValue::Int(-2));
+    assert_eq!(evaluate_formula("VLOOKUP(-1,A1:B3,2)", &table), None);
+    table.set(2, 0, CellValue::String("30".into()));
+    assert_eq!(evaluate_formula("VLOOKUP(-1,A1:B3,2)", &table), None);
+}
+
+#[test]
+fn classic_lookup_keeps_distinct_large_numeric_thresholds() {
+    let mut table = formula_table();
+    table.set(0, 0, CellValue::Float(9_007_199_254_740_992.0));
+    table.set(1, 0, CellValue::Int(9_007_199_254_740_993));
+    table.set(2, 0, CellValue::Int(9_007_199_254_740_994));
+    table.set(0, 2, CellValue::Int(9_007_199_254_740_992));
+    table.set(1, 2, CellValue::Int(9_007_199_254_740_993));
+    assert_eq!(evaluate_formula("VLOOKUP(C1,A1:B3,2)", &table), Some(2.5));
+    assert_eq!(evaluate_formula("VLOOKUP(C2,A1:B3,2)", &table), Some(3.0));
+}
+
+#[test]
+fn classic_lookup_rejects_invalid_indices_and_keeps_iferror_lazy() {
+    let table = lookup_catalog();
+    for formula in [
+        r#"VLOOKUP("ax-01",A1:B7,0,FALSE)"#,
+        r#"VLOOKUP("ax-01",A1:B7,1.5,FALSE)"#,
+        r#"VLOOKUP("ax-01",A1:B7,3,FALSE)"#,
+        r#"VLOOKUP("ax-01",A1:F7,5,FALSE)"#,
+        r#"VLOOKUP("ax-01",A1:B7,2,2)"#,
+        r#"VLOOKUP("ax-01",A1:B7,2,TRUE)"#,
+        r#"VLOOKUP("ax-01",A1:B7,2,FALSE,0)"#,
+        r#"IFERROR(VLOOKUP("ax-01",A1:B7,1+,FALSE),8)"#,
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+    let bad = evaluate_formula_with_diagnostics(r#"VLOOKUP("broken",A1:B7,2,FALSE)"#, &table);
+    let bad = bad.bad_cell.unwrap();
+    assert_eq!((bad.row, bad.col), (6, 1));
+    assert_eq!(
+        evaluate_formula(r#"IFERROR(VLOOKUP("broken",A1:B7,2,FALSE),8)"#, &table),
+        Some(8.0)
+    );
+}
+
+#[test]
+fn classic_lookup_result_survives_inline_xlsx_export() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+
+    let dir = tempfile::tempdir().unwrap();
+    let csv = dir.path().join("prices.csv");
+    std::fs::write(
+        &csv,
+        "sku,price,order,amount\nnut,12.5,bolt,0\nbolt,19.5,missing,0\n",
+    )
+    .unwrap();
+    let mut table = CsvReader.read_file(&csv).unwrap();
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        3,
+        "=IFERROR(VLOOKUP(C1,$A$1:$B$2,2,FALSE)*3,0)".into(),
+        BinaryDisplayMode::default(),
+    ));
+    let path = dir.path().join("order.xlsx");
+    ExcelReader.write_file(&path, &table).unwrap();
+    let reopened = ExcelReader.read_file(&path).unwrap();
+    assert_eq!(reopened.get(0, 3), Some(&CellValue::Float(58.5)));
+    assert!(reopened.formulas.is_empty());
+}
+
+#[test]
 fn sumproduct_pairs_cells_and_nested_weighted_calculation() {
     let mut table = formula_table();
     for (row, (price, units)) in [(20, 500), (25, 750), (35, 200)].into_iter().enumerate() {

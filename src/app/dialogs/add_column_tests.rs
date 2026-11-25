@@ -491,6 +491,9 @@ fn lookup_fill_cache_only_admits_a_single_relative_lookup_key() {
     for (source, expected) in [
         ("XLOOKUP($AA002; $A$1:$A$6; $B$1:$B$6; -1)", Some((2, 26))),
         ("xvergleich(b1,$A$1:$A$6,, -1)", Some((1, 1))),
+        ("SVERWEIS(C1;$A$1:$B$9;2;FALSCH)", Some((1, 2))),
+        ("HLOOKUP(D1,$A$1:$C$2,2,FALSE)", Some((1, 3))),
+        ("WVERWEIS(A1,B$1:$D2,2)", None),
         (
             r#"XLOOKUP(D1,$A$1:$A$6,$B$1:$B$6,IF("A1""(test)"="x",5,-1))"#,
             Some((1, 3)),
@@ -520,6 +523,28 @@ fn lookup_fill_cache_only_admits_a_single_relative_lookup_key() {
     let formula = format!("XLOOKUP(A{},$A$1:$A$2,$A$1:$A$2,-1)", usize::MAX);
     let values = fill_formula_template(&formula, &table).0;
     assert_eq!(values, vec![(0, 0.0)]);
+}
+
+#[test]
+fn classic_lookup_fill_reuses_fixed_catalogs_without_moving_them() {
+    use data::CellValue::{Int, String as Text};
+    let table = data::DataTable {
+        columns: ["sku", "price", "order"]
+            .map(|name| data::ColumnInfo {
+                name: name.into(),
+                data_type: "Utf8".into(),
+            })
+            .to_vec(),
+        rows: vec![
+            vec![Text("nuts".into()), Int(25), Text("bolt".into())],
+            vec![Text("bolt".into()), Int(40), Text("nuts".into())],
+            vec![Text("bolt".into()), Int(65), Text("bolt".into())],
+            vec![Text("nut".into()), Int(90), Text("missing".into())],
+        ],
+        ..data::DataTable::empty()
+    };
+    let (values, _) = fill_formula_template("VLOOKUP(C1,$A$1:$B$4,2,FALSE)", &table);
+    assert_eq!(values, vec![(0, 40.0), (1, 25.0), (2, 40.0)]);
 }
 
 #[test]

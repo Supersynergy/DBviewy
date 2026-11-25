@@ -660,6 +660,13 @@ ignores text case and takes the first result by default. Use a single
 row or column and the same shape for the return range. The German
 names are XVERWEIS and XVERGLEICH.
 
+Use `=VLOOKUP(D1,$A$1:$C$100,3,FALSE)` to match an ID in column A and
+return the number from column C. `=HLOOKUP(D5,$A$1:$F$3,3,FALSE)`
+searches the first row and returns the number from the third row.
+FALSE takes the first exact match and supports text wildcards. TRUE
+or an omitted mode uses ascending numeric thresholds and takes the last
+threshold at or below the key. German names: SVERWEIS and WVERWEIS.
+
 When inserting a column via **Columns > Insert column**, you can type a formula
 into the **Formula** field. The formula is treated as a row-1 template and
 applied to every row (e.g. `=SUM(A1:C1)` becomes `=SUM(A3:C3)` on row 3).

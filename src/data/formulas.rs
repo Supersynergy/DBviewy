@@ -185,6 +185,7 @@ enum Function {
     Ifs,
     Logical(control::Logical),
     Lookup(lookup::ResultKind),
+    TableLookup(lookup::Axis),
     SumProduct,
     Power,
 }
@@ -261,6 +262,10 @@ fn function_named(name: &str) -> Option<Function> {
         ("XVERWEIS", Function::Lookup(lookup::ResultKind::Value)),
         ("XMATCH", Function::Lookup(lookup::ResultKind::Position)),
         ("XVERGLEICH", Function::Lookup(lookup::ResultKind::Position)),
+        ("VLOOKUP", Function::TableLookup(lookup::Axis::Column)),
+        ("SVERWEIS", Function::TableLookup(lookup::Axis::Column)),
+        ("HLOOKUP", Function::TableLookup(lookup::Axis::Row)),
+        ("WVERWEIS", Function::TableLookup(lookup::Axis::Row)),
         ("SUMPRODUCT", Function::SumProduct),
         ("SUMMENPRODUKT", Function::SumProduct),
         ("POWER", Function::Power),
@@ -597,6 +602,7 @@ fn eval_function(
             return criteria::evaluate_many(aggregate, tokens, pos, context);
         }
         Function::Lookup(kind) => return lookup::evaluate(kind, tokens, pos, context),
+        Function::TableLookup(axis) => return lookup::evaluate_table(axis, tokens, pos, context),
         Function::SumProduct => return product::evaluate(tokens, pos, context),
         Function::If => return control::evaluate_if(tokens, pos, context),
         Function::IfError => return control::evaluate_if_error(tokens, pos, context),

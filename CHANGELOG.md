@@ -5,6 +5,8 @@
 - Share one vector logo between the README, desktop app and package icons.
 - Document DBviewy workflows and the limits of in-place workbook saves.
 - Fill blank cells in existing XLSX rows without exporting a new workbook.
+- Find prices or numeric tiers with `VLOOKUP` and `HLOOKUP` (German:
+  `SVERWEIS` and `WVERWEIS`).
 
 - Integrate Octa 0.22.1, keeping DBviewy's workbook preservation, per-session
   crash markers, assistant integrations, and local table interface.

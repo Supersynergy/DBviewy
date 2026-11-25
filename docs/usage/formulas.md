@@ -192,6 +192,21 @@ Match mode `0` is exact. Mode `2` enables text wildcards `*` and `?`
 with `~` to escape them. Approximate and binary search modes are not
 supported. The German names are `XVERWEIS` and `XVERGLEICH`.
 
+### Look up a price or tier in a rectangular range
+
+- `=VLOOKUP(D1,$A$1:$C$100,3,FALSE)` searches column A for the ID in D1
+  and returns the number from column C, the third column of the range.
+- `=HLOOKUP(B4,$A$1:$F$3,3,FALSE)` searches the top row and returns the
+  number from the third row of the range, in the same column.
+
+Use `FALSE` or `0` for IDs. It takes the first match and supports `*` and
+`?` in text keys; prefix a wildcard with `~` to match it literally.
+`TRUE`, `1` or an omitted mode uses ascending numeric thresholds instead.
+It chooses the largest threshold not above the key, taking the last entry
+if that threshold repeats. Unsorted keys, gaps and non-numeric keys are
+not supported in threshold mode. The result is still a single number.
+The German names are `SVERWEIS` and `WVERWEIS`.
+
 ## What gets evaluated
 
 In arithmetic expressions, the engine converts each referenced cell to a number:

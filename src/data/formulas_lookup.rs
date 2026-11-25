@@ -1,15 +1,40 @@
-//! Exact and wildcard lookup in one row or column.
+//! Exact, wildcard and numeric threshold lookups.
+
+use std::cmp::Ordering;
 
 use regex::Regex;
 
 use super::control::{arguments, check, unparen};
 use super::criteria::{Rectangle, rectangle, wildcard};
-use super::{CellValue, Evaluation, FormulaToken as Token, cell_as_f64, eval_complete};
+use super::{CellValue, DataTable, Evaluation, FormulaToken as Token, cell_as_f64, eval_complete};
 
 #[derive(Clone, Copy, Debug)]
 pub(super) enum ResultKind {
     Value,
     Position,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub(super) enum Axis {
+    Column,
+    Row,
+}
+
+impl Axis {
+    fn at(self, range: Rectangle, offset: usize, index: usize) -> (usize, usize) {
+        match self {
+            Self::Column => range.at(offset, index),
+            Self::Row => range.at(index, offset),
+        }
+    }
+
+    fn loaded_size(self, range: Rectangle, table: &DataTable) -> (usize, usize) {
+        let (rows, cols) = range.loaded_shape(table);
+        match self {
+            Self::Column => (rows, cols),
+            Self::Row => (cols, rows),
+        }
+    }
 }
 
 fn range(tokens: &[Token]) -> Option<Rectangle> {
@@ -91,23 +116,90 @@ pub(super) fn evaluate(
     let value = match (found, output) {
         (Some(offset), Some(output)) => {
             let (r, c) = at(output, offset);
-            if r >= table.row_count() || c >= table.col_count() {
-                return None;
-            }
-            match cell_as_f64(table, r, c) {
-                Ok(value) => value?,
-                Err(bad) => {
-                    if context.bad.is_none() {
-                        context.bad = Some(bad);
-                    }
-                    return None;
-                }
-            }
+            read_number(context, r, c)?
         }
         (Some(offset), None) => (offset + 1) as f64,
         (None, _) => eval_complete(fallback?, context)?,
     };
     value.is_finite().then_some((value, end))
+}
+
+pub(super) fn evaluate_table(
+    axis: Axis,
+    tokens: &[Token],
+    pos: usize,
+    context: &mut Evaluation<'_>,
+) -> Option<(f64, usize)> {
+    let ([key, array, index, mode], end) = arguments(tokens, pos)?;
+    let key = key_value(key?, context)?;
+    let array = range(array?)?;
+    let index = eval_complete(index?, context)?;
+    let mode = match optional(mode) {
+        Some(part) => Some(key_value(part, context)?),
+        None => None,
+    };
+    let Some(table) = context.table else {
+        return Some((0.0, end));
+    };
+    let (len, width) = axis.loaded_size(array, table);
+    if index.fract() != 0.0 || index < 1.0 || index > width as f64 {
+        return None;
+    }
+    let key_at = |offset| {
+        let (r, c) = axis.at(array, offset, 0);
+        Key::from_cell(table.get(r, c))
+    };
+    let offset = match mode {
+        Some(Key::Boolean(false) | Key::Integer(0) | Key::Number(0.0)) => {
+            let matcher = match key {
+                Key::Text(text) if text.contains(['*', '?', '~']) => {
+                    Matcher::Wildcard(wildcard(text)?)
+                }
+                _ => Matcher::Exact(key),
+            };
+            (0..len).find(|&offset| key_at(offset).is_some_and(|value| matcher.matches(value)))?
+        }
+        None | Some(Key::Boolean(true) | Key::Integer(1) | Key::Number(1.0)) => {
+            // Check monotonicity and choose the greatest threshold <= key
+            // in a single pass, without allocating a sorted copy or
+            // accepting an incorrect result for an unsorted catalogue.
+            let mut previous = None;
+            let mut found = None;
+            for offset in 0..len {
+                let current = key_at(offset)?;
+                if let Some(prev) = previous
+                    && current.numeric_cmp(prev)?.is_lt()
+                {
+                    return None;
+                }
+                if !current.numeric_cmp(key)?.is_gt() {
+                    found = Some(offset);
+                }
+                previous = Some(current);
+            }
+            found?
+        }
+        _ => return None,
+    };
+    let (r, c) = axis.at(array, offset, index as usize - 1);
+    let value = read_number(context, r, c)?;
+    value.is_finite().then_some((value, end))
+}
+
+fn read_number(context: &mut Evaluation<'_>, row: usize, col: usize) -> Option<f64> {
+    let table = context.table?;
+    if row >= table.row_count() || col >= table.col_count() {
+        return None;
+    }
+    match cell_as_f64(table, row, col) {
+        Ok(value) => value,
+        Err(bad) => {
+            if context.bad.is_none() {
+                context.bad = Some(bad);
+            }
+            None
+        }
+    }
 }
 
 fn optional(tokens: Option<&[Token]>) -> Option<&[Token]> {
@@ -164,6 +256,31 @@ impl<'a> Key<'a> {
             (Self::Boolean(a), Self::Boolean(b)) => a == b,
             (Self::Blank, Self::Blank) => true,
             _ => false,
+        }
+    }
+
+    fn numeric_cmp(self, other: Self) -> Option<Ordering> {
+        // Compare integer identifiers without converting them to f64.
+        // All Number keys are finite by the time a table is evaluated.
+        fn integer_to_float(integer: i64, float: f64) -> Ordering {
+            if float >= i64::MAX as f64 {
+                return Ordering::Less;
+            }
+            if float < i64::MIN as f64 {
+                return Ordering::Greater;
+            }
+            integer.cmp(&(float as i64)).then_with(|| {
+                0.0f64
+                    .partial_cmp(&float.fract())
+                    .unwrap_or(Ordering::Equal)
+            })
+        }
+        match (self, other) {
+            (Self::Integer(a), Self::Integer(b)) => Some(a.cmp(&b)),
+            (Self::Number(a), Self::Number(b)) => a.partial_cmp(&b),
+            (Self::Integer(a), Self::Number(b)) => Some(integer_to_float(a, b)),
+            (Self::Number(a), Self::Integer(b)) => Some(integer_to_float(b, a).reverse()),
+            _ => None,
         }
     }
 }

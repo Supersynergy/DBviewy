@@ -267,9 +267,18 @@ impl<'a> FormulaRows<'a> {
             return None;
         };
         let (function, args) = self.source.split_once('(')?;
-        if !["XLOOKUP", "XVERWEIS", "XMATCH", "XVERGLEICH"]
-            .iter()
-            .any(|name| name.eq_ignore_ascii_case(function.trim_ascii()))
+        if ![
+            "XLOOKUP",
+            "XVERWEIS",
+            "XMATCH",
+            "XVERGLEICH",
+            "VLOOKUP",
+            "SVERWEIS",
+            "HLOOKUP",
+            "WVERWEIS",
+        ]
+        .iter()
+        .any(|name| name.eq_ignore_ascii_case(function.trim_ascii()))
         {
             return None;
         }
