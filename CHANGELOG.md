@@ -20,6 +20,8 @@
   negative rounding precision and decimal ties away from zero.
 - Keep fixed Excel-style references such as `$B$1` when filling a calculated
   column. Evaluate against the original table regardless of insertion position.
+- Fill single-column running sums such as `SUM(A$1:A1)` in one pass instead
+  of rescanning the full range for each row.
 
 - Fix the native macOS About, Hide and Quit labels without moving settings
   or session storage. Load the current DBviewy icon directly in native About.

@@ -50,6 +50,11 @@ fixed, so the row still advances. Insert Column fills down and never changes
 column letters. It looks up all references in the table **before** inserting
 the result, even when you place the new column first.
 
+For a running sum such as `SUM(A$1:A1)`, DBviewy keeps the previous total
+and reads only the newly included cells. The range must stay in one column
+and start at a fixed row. To order or restart totals by another column, use
+**Columns > Calculated column > Running total** instead.
+
 ## Aggregate functions
 
 `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` and `MEDIAN` accept rectangular ranges, single cells and arithmetic expressions. You can nest functions and separate arguments with commas or semicolons. The German names `SUMME`, `MITTELWERT` and `ANZAHL` also work.

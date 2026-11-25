@@ -192,3 +192,152 @@ fn calculated_column_does_not_write_if_read_only_changes_while_dialog_is_open() 
     assert_eq!(app.tabs[0].table.col_count(), before);
     assert!(app.tabs[0].table.undo_stack.is_empty());
 }
+
+fn numeric_grid(cells: impl IntoIterator<Item = CellValue>) -> data::DataTable {
+    data::DataTable {
+        columns: vec![ColumnInfo {
+            name: "amount".into(),
+            data_type: "Float64".into(),
+        }],
+        rows: cells.into_iter().map(|cell| vec![cell]).collect(),
+        ..data::DataTable::empty()
+    }
+}
+
+#[test]
+fn prefix_sum_matches_original_order_and_coercion() {
+    let mut table = numeric_grid([
+        CellValue::Float(1e16),
+        CellValue::Float(1.0),
+        CellValue::Float(-1e16),
+        CellValue::String(" 12.5 ".into()),
+        CellValue::Null,
+        CellValue::Bool(true),
+        CellValue::String("not a number".into()),
+        CellValue::Float(-2.5),
+        CellValue::Float(f64::INFINITY),
+        CellValue::Float(f64::NEG_INFINITY),
+        CellValue::Int(20),
+    ]);
+    table.set(6, 0, CellValue::String(" -4.25 ".into()));
+    for formula in [
+        "SUM(A$1:A1)",
+        "summe ( $a4 : $A$2 )",
+        "SUM(A$2:A100)",
+        "SUM(A$20:A20)",
+        "SUM(AAA$1:AAA1)",
+        &format!("SUM(A$1:A{})", usize::MAX),
+    ] {
+        let actual = fill_running_sum(formula, &table).unwrap();
+        let (baseline, bad) = fill_formula_template(formula, &table);
+        assert!(bad.is_none());
+        assert_eq!(actual.len(), baseline.len(), "{formula}");
+        for ((row, value), (baseline_row, expected)) in actual.into_iter().zip(baseline) {
+            assert_eq!(row, baseline_row);
+            assert!(
+                value.to_bits() == expected.to_bits() || value.is_nan() && expected.is_nan(),
+                "{formula} at row {row}: {value:?}, expected {expected:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn prefix_sum_falls_back_for_unrelated_or_malformed_formulas() {
+    let table = numeric_grid([CellValue::Int(1), CellValue::Int(2), CellValue::Int(3)]);
+    for formula in [
+        "SUM(A1:A2)",
+        "SUM(A$1:A$3)",
+        "SUM(A$2:A1)",
+        "SUM(A$1:B1)",
+        "SUM(A$1:A1,5)",
+        "SUM(A$1:A1)+1",
+        "COUNT(A$1:A1)",
+        "SUM(A$0:A1)",
+        "SUM(A$$1:A1)",
+        "SUM(A$1:A 1)",
+        "SUM(\u{00a0}A$1:A1)",
+        "SUM(XXXXXXXXXXXXXXXXXXXXXX$1:XXXXXXXXXXXXXXXXXXXXXX1)",
+    ] {
+        assert!(fill_running_sum(formula, &table).is_none(), "{formula}");
+    }
+
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = table;
+    tab.new_col_name = "sum plus one".into();
+    tab.new_col_formula = "=SUM(A$1:A1)+1".into();
+    add_formula_column(&mut app);
+    for (row, expected) in [2, 4, 7].into_iter().enumerate() {
+        assert_eq!(
+            app.tabs[0].table.get(row, 1),
+            Some(&CellValue::Int(expected))
+        );
+    }
+}
+
+#[test]
+fn prefix_sum_fills_fifty_thousand_rows_as_one_undo_step() {
+    const ROWS: usize = 50_000;
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = numeric_grid((1..=ROWS as i64).map(CellValue::Int));
+    tab.new_col_name = "running sum".into();
+    tab.new_col_formula = "=SUM(A$1:A1)".into();
+    tab.insert_col_at = Some(0);
+    let start = std::time::Instant::now();
+    add_formula_column(&mut app);
+    println!(
+        "actual_fill_rows={ROWS} elapsed_us={}",
+        start.elapsed().as_micros()
+    );
+    let table = &mut app.tabs[0].table;
+    for row in [0, 1, 99, 999, ROWS - 1] {
+        let n = row as i64 + 1;
+        assert_eq!(table.get(row, 0), Some(&CellValue::Int(n * (n + 1) / 2)));
+        assert_eq!(table.get(row, 1), Some(&CellValue::Int(n)));
+    }
+    assert_eq!(table.undo_stack.len(), 1);
+    assert!(table.undo());
+    assert_eq!(table.col_count(), 1);
+    assert_eq!(table.get(ROWS - 1, 0), Some(&CellValue::Int(ROWS as i64)));
+}
+
+#[test]
+fn prefix_sum_performance_fixture_matches_every_baseline_row() {
+    const ROWS: usize = 4_000;
+    let table = numeric_grid((0..ROWS as i64).map(|n| CellValue::Int(n % 23 - 11)));
+    let formula = "SUM(A$1:A1)";
+    // Alternating runs on the exact same input. Timings are observations,
+    // not machine-dependent assertions; correctness is checked on every row.
+    let mut old_times = [0; 3];
+    let mut new_times = [0; 3];
+    for i in 0..3 {
+        let baseline = || {
+            let start = std::time::Instant::now();
+            let result = fill_formula_template(formula, &table).0;
+            (result, start.elapsed().as_nanos())
+        };
+        let optimized = || {
+            let start = std::time::Instant::now();
+            let result = fill_running_sum(formula, &table).unwrap();
+            (result, start.elapsed().as_nanos())
+        };
+        let ((old, old_ns), (new, new_ns)) = if i % 2 == 0 {
+            (baseline(), optimized())
+        } else {
+            let candidate = optimized();
+            (baseline(), candidate)
+        };
+        assert_eq!(new, old);
+        assert_eq!(new.len(), ROWS);
+        old_times[i] = old_ns;
+        new_times[i] = new_ns;
+    }
+    old_times.sort_unstable();
+    new_times.sort_unstable();
+    println!(
+        "running_sum_bench rows={ROWS} baseline_ns={} incremental_ns={} samples=3",
+        old_times[1], new_times[1]
+    );
+}

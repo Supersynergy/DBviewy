@@ -246,6 +246,98 @@ impl<'a> FormulaRows<'a> {
     }
 }
 
+/// Find an exact single-column SUM whose lower endpoint is fixed and whose
+/// upper endpoint advances one row per result. Subexpressions, different
+/// columns, and ranges that cross over the fixed endpoint use the evaluator.
+fn running_sum_range(formula: &str) -> Option<(&str, usize)> {
+    fn endpoint(s: &str) -> Option<(&str, usize, bool)> {
+        let s = s.trim_ascii();
+        let s = s.strip_prefix('$').unwrap_or(s);
+        let letters = s.bytes().take_while(u8::is_ascii_alphabetic).count();
+        let (col, row) = s.split_at(letters);
+        let fixed = row.starts_with('$');
+        let digits = row.strip_prefix('$').unwrap_or(row);
+        if col.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        let number = digits.parse::<usize>().ok()?;
+        (number > 0).then_some((col, number, fixed))
+    }
+
+    let (name, range) = formula.trim().split_once('(')?;
+    let name = name.trim_ascii_end();
+    if !(name.eq_ignore_ascii_case("SUM") || name.eq_ignore_ascii_case("SUMME")) {
+        return None;
+    }
+    let (a, b) = range.strip_suffix(')')?.split_once(':')?;
+    let a = endpoint(a)?;
+    let b = endpoint(b)?;
+    let (fixed, advancing) = match (a.2, b.2) {
+        (true, false) => (a, b),
+        (false, true) => (b, a),
+        _ => return None,
+    };
+    (fixed.0.eq_ignore_ascii_case(advancing.0) && fixed.1 <= advancing.1)
+        .then_some((advancing.0, advancing.1))
+}
+
+type FormulaResults = Vec<(usize, f64)>;
+
+fn fill_running_sum(formula: &str, table: &data::DataTable) -> Option<FormulaResults> {
+    let (column, first_end) = running_sum_range(formula)?;
+    let rows = table.row_count();
+    if rows == 0 {
+        return Some(Vec::new());
+    }
+
+    // The normal evaluator validates the first range and sums it in source
+    // order. Then read just the newly included cells. SUM(cell) deliberately
+    // keeps the same coercion as the full range (numeric text, blanks and
+    // non-numeric types), without using differences of rounded prefix sums.
+    let mut sum = data::evaluate_formula(formula, table)?;
+    let fill_rows = rows.min(usize::MAX - first_end + 1);
+    let mut results = Vec::with_capacity(fill_rows);
+    results.push((0, sum));
+    let mut next = first_end.min(rows);
+    let mut term = format!("SUM({column}");
+    let prefix = term.len();
+
+    for offset in 1..fill_rows {
+        let end = (first_end + offset).min(rows);
+        for source in next..end {
+            term.truncate(prefix);
+            write!(term, "{})", source + 1).ok()?;
+            sum += data::evaluate_formula(&term, table)?;
+        }
+        next = end;
+        results.push((offset, sum));
+    }
+    Some(results)
+}
+
+fn fill_formula_template(
+    formula: &str,
+    table: &data::DataTable,
+) -> (FormulaResults, Option<data::FormulaBadCell>) {
+    let template = FormulaRows::new(formula);
+    let mut shifted = String::with_capacity(formula.len());
+    let mut results = Vec::new();
+    let mut first_bad = None;
+    for row in 0..table.row_count() {
+        let Some(formula) = template.at(row, &mut shifted) else {
+            continue;
+        };
+        let outcome = data::evaluate_formula_with_diagnostics(formula, table);
+        if first_bad.is_none() {
+            first_bad = outcome.bad_cell;
+        }
+        if let Some(value) = outcome.value {
+            results.push((row, value));
+        }
+    }
+    (results, first_bad)
+}
+
 /// Add the formula column the dialog describes, as ONE undo step.
 fn add_formula_column(app: &mut OctaApp) {
     if app.is_readonly() {
@@ -257,24 +349,14 @@ fn add_formula_column(app: &mut OctaApp) {
     let idx = tab.insert_col_at.unwrap_or(col_count).min(col_count);
     let mut results = Vec::new();
     if let Some(formula) = tab.new_col_formula.trim().strip_prefix('=') {
-        let template = FormulaRows::new(formula);
-        let mut shifted = String::with_capacity(formula.len());
         let row_count = tab.table.row_count();
-        let mut first_bad = None;
         // Read the pre-insertion table, including existing edits. A formula
         // must see the same original columns regardless of output position.
-        for row in 0..row_count {
-            let Some(formula) = template.at(row, &mut shifted) else {
-                continue;
-            };
-            let outcome = data::evaluate_formula_with_diagnostics(formula, &tab.table);
-            if first_bad.is_none() {
-                first_bad = outcome.bad_cell;
-            }
-            if let Some(value) = outcome.value {
-                results.push((row, value));
-            }
-        }
+        let first_bad;
+        (results, first_bad) = match fill_running_sum(formula, &tab.table) {
+            Some(values) => (values, None),
+            None => fill_formula_template(formula, &tab.table),
+        };
         let skipped = row_count - results.len();
         if skipped > 0 {
             let mut banner = format!(

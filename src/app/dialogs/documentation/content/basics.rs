@@ -627,6 +627,8 @@ B1 on every row, and `=SUM(A$1:A1)` creates a running total. A dollar
 sign before a column letter alone does not fix the row. References use
 the original columns even if you insert the result in the first position.
 The calculated values do not automatically update when you edit an input later.
+For a single-column running sum with a fixed start such as `SUM(A$1:A1)`,
+each row builds on the previous total instead of scanning the range again.
 
 Division by zero yields no numeric result. Inline editing keeps the input
 as text; Insert Column leaves that result empty.
