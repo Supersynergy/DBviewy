@@ -466,10 +466,23 @@ jobs:
       # The signed bundle has to run, not just compile: a broken seal or a
       # missing dylib shows up here instead of on a user's Mac.
       - name: Smoke-test the signed bundle
+        shell: bash
         run: |
-          DBviewy.app/Contents/MacOS/octa-csv slice samples/features/customers.csv 0 3
-          DBviewy.app/Contents/MacOS/octa --version
-          DBviewy.app/Contents/MacOS/octa --head samples/features/customers.csv -n 3
+          set -euo pipefail
+          scratch=$(mktemp -d)
+          trap 'rm -rf "$scratch"' EXIT
+          export OCTA_CONFIG_DIR="$scratch/config"
+          bin=DBviewy.app/Contents/MacOS
+          printf '%s\n' 'depot,units' '"Depot, West",7' 'München,5' > "$scratch/input.csv"
+
+          "$bin/octa" --version
+          "$bin/octa" --head "$scratch/input.csv" -n 2
+          "$bin/octa-csv" slice "$scratch/input.csv" 0 2 > "$scratch/preview.csv"
+          diff -u "$scratch/input.csv" "$scratch/preview.csv"
+          "$bin/octa" --convert "$scratch/input.csv" "$scratch/roundtrip.xlsx"
+          "$bin/octa-xlsx" "$scratch/roundtrip.xlsx" 2 > "$scratch/roundtrip.csv"
+          diff -u "$scratch/input.csv" "$scratch/roundtrip.csv"
+          printf '%s\n' 'CSV -> XLSX -> CSV: signed macOS bundle smoke passed'
 
       - name: Package macOS release
         run: |
