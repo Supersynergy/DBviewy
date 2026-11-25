@@ -365,3 +365,154 @@ fn filtered_edit_saves_the_underlying_row_and_filtered_export_stays_a_table() {
     assert_eq!(exported.row_count(), 1);
     assert!(same_value(&exported.rows[0][0], &CellValue::Int(1700)));
 }
+
+#[test]
+fn clear_existing_literal_keeps_style_and_all_other_workbook_parts() {
+    let (_dir, path, mut table) = fixture();
+    let part = "xl/worksheets/sheet2.xml";
+    let mut before = members(&path);
+    table.set(0, 0, CellValue::Null);
+    save(&path, Some("Costs & sales"), &table).unwrap();
+    let mut after = members(&path);
+    let old = String::from_utf8(before.remove(part).unwrap()).unwrap();
+    let cleared = String::from_utf8(after.remove(part).unwrap()).unwrap();
+    let expected = old.replace(r#"<c r="D4" s="1"><v>12</v></c>"#, r#"<c r="D4" s="1"/>"#);
+    assert_ne!(old, expected);
+    assert_eq!(cleared, expected);
+    assert_eq!(before, after);
+    let mut reloaded = ExcelReader.read_table(&path, "Costs & sales").unwrap();
+    assert_eq!(reloaded.get(0, 0), Some(&CellValue::Null));
+    assert_eq!(reloaded.formulas, table.formulas);
+    assert!(same_value(reloaded.get(0, 1).unwrap(), &CellValue::Int(24)));
+
+    reloaded.set(0, 0, CellValue::Int(33));
+    save(&path, Some("Costs & sales"), &reloaded).unwrap();
+    let parts = members(&path);
+    assert!(
+        std::str::from_utf8(&parts[part])
+            .unwrap()
+            .contains(r#"<c r="D4" s="1" t="n"><v>33</v></c>"#)
+    );
+    let reloaded = ExcelReader.read_table(&path, "Costs & sales").unwrap();
+    assert!(same_value(reloaded.get(0, 0).unwrap(), &CellValue::Int(33)));
+}
+
+#[test]
+fn clear_last_row_through_cut_then_refill_in_the_same_tab() {
+    use crate::app::state::OctaApp;
+    use octa::ui::settings::{AppSettings, IconVariant};
+    let (_dir, path, _) = fixture();
+    let mut app = OctaApp::new(vec![], AppSettings::default(), IconVariant::Rose);
+    app.load_file(path.clone());
+    let tab = app
+        .tabs
+        .iter()
+        .position(|tab| tab.sheet_name.as_deref() == Some("Costs & sales"))
+        .unwrap();
+    app.active_tab = tab;
+    app.tabs[tab].table_state.selected_cell = Some((1, 0));
+    // The context retains the clipboard output locally; it doesn't reach
+    // an OS clipboard when there is no windowing integration.
+    let ctx = eframe::egui::Context::default();
+    app.do_cut(&ctx);
+    assert_eq!(app.tabs[tab].table.get(1, 0), Some(&CellValue::Null));
+    app.save_tab(tab);
+    assert!(
+        !app.tabs[tab].table.is_modified(),
+        "{:?}",
+        app.status_message
+    );
+    let cleared = ExcelReader.read_table(&path, "Costs & sales").unwrap();
+    assert_eq!(cleared.row_count(), 1, "the reader trims the blank row");
+    assert_eq!(
+        app.tabs[tab].table.row_count(),
+        2,
+        "the open tab retains its layout"
+    );
+    let parts = members(&path);
+    assert!(
+        std::str::from_utf8(&parts["xl/worksheets/sheet2.xml"])
+            .unwrap()
+            .contains(r#"<c r="D5"/>"#)
+    );
+
+    app.tabs[tab].table.set(1, 0, CellValue::Int(19));
+    app.save_tab(tab);
+    assert!(
+        !app.tabs[tab].table.is_modified(),
+        "{:?}",
+        app.status_message
+    );
+    let reloaded = ExcelReader.read_table(&path, "Costs & sales").unwrap();
+    assert_eq!(reloaded.row_count(), 2);
+    assert!(same_value(reloaded.get(1, 0).unwrap(), &CellValue::Int(19)));
+    assert_eq!(reloaded.formulas, cleared.formulas);
+}
+
+#[test]
+fn clear_shared_string_and_boolean_keeps_archive_references_intact() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("scalars.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet().set_name("Scalars").unwrap();
+    for (col, name) in ["label", "done", "amount"].into_iter().enumerate() {
+        sheet.write_string(0, col as u16, name).unwrap();
+    }
+    sheet
+        .write_string(1, 0, "Label that was stored in shared strings")
+        .unwrap();
+    sheet.write_boolean(1, 1, true).unwrap();
+    sheet.write_number(1, 2, 777).unwrap();
+    book.save(&path).unwrap();
+
+    let mut before = members(&path);
+    let part = "xl/worksheets/sheet1.xml";
+    let old = String::from_utf8(before.remove(part).unwrap()).unwrap();
+    let mut table = ExcelReader.read_table(&path, "Scalars").unwrap();
+    table.set(0, 0, CellValue::Null);
+    table.set(0, 1, CellValue::Null);
+    save(&path, Some("Scalars"), &table).unwrap();
+    let mut after = members(&path);
+    let new = String::from_utf8(after.remove(part).unwrap()).unwrap();
+    let expected = old
+        .replace(r#"<c r="A2" t="s"><v>3</v></c>"#, r#"<c r="A2"/>"#)
+        .replace(r#"<c r="B2" t="b"><v>1</v></c>"#, r#"<c r="B2"/>"#);
+    assert_ne!(expected, old);
+    assert_eq!(new, expected);
+    assert_eq!(after, before);
+    let reloaded = ExcelReader.read_table(&path, "Scalars").unwrap();
+    assert_eq!(reloaded.get(0, 0), Some(&CellValue::Null));
+    assert_eq!(reloaded.get(0, 1), Some(&CellValue::Null));
+    assert!(same_value(
+        reloaded.get(0, 2).unwrap(),
+        &CellValue::Int(777)
+    ));
+}
+
+#[test]
+fn clear_formula_rejects_entire_batch_without_writing_any_cell() {
+    let (_dir, path, mut table) = fixture();
+    let before = std::fs::read(&path).unwrap();
+    table.set(0, 0, CellValue::Null);
+    table.set(0, 1, CellValue::Null);
+    let error = save(&path, Some("Costs & sales"), &table).unwrap_err();
+    assert!(error.to_string().contains("Formula cells"), "{error:#}");
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+    assert_eq!(table.edits.get(&(0, 0)), Some(&CellValue::Null));
+    assert_eq!(table.edits.get(&(0, 1)), Some(&CellValue::Null));
+}
+
+#[test]
+fn stale_nonblank_trailing_row_is_not_accepted_after_another_edit() {
+    let (_dir, path, mut old) = fixture();
+    let mut other = ExcelReader.read_table(&path, "Costs & sales").unwrap();
+    other.set(1, 0, CellValue::Null);
+    save(&path, Some("Costs & sales"), &other).unwrap();
+    let externally_saved = std::fs::read(&path).unwrap();
+
+    old.set(0, 0, CellValue::Int(66));
+    let error = save(&path, Some("Costs & sales"), &old).unwrap_err();
+    assert!(error.to_string().contains("Reopen it"), "{error:#}");
+    assert_eq!(std::fs::read(&path).unwrap(), externally_saved);
+    assert_eq!(old.edits.get(&(0, 0)), Some(&CellValue::Int(66)));
+}

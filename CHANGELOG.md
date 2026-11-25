@@ -35,6 +35,8 @@
   exponents such as the one in `1E-3` fixed when filling a column.
 - Combine tests with `AND`, `OR`, `NOT` and `XOR`, and select the first
   matching result with `IFS`.
+- Clear existing XLSX cell values without losing their style or changing
+  other workbook parts. Refill a cleared final row from the same tab.
 - Build the macOS bundle without a Homebrew runtime dependency and check
   all three bundled executables before signing.
 

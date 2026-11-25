@@ -148,13 +148,19 @@ fn replace_cell(
         body.is_empty() || scalar || inline,
         "Formula or unsupported cell contents at {address}"
     );
-    let (kind, contents) = cell_value(value)?;
     let mut out = format!("<c r=\"{address}\"");
     if let Some(style) = attr(tag, "s")? {
         let id: u32 = style.parse()?;
         out.push_str(&format!(" s=\"{id}\""));
     }
-    out.push_str(&format!(" t=\"{kind}\">{contents}</c>"));
+    if matches!(value, CellValue::Null) {
+        // Keep the address and its style so the cleared cell can be typed
+        // into again, without retaining its old value or scalar type.
+        out.push_str("/>");
+    } else {
+        let (kind, contents) = cell_value(value)?;
+        out.push_str(&format!(" t=\"{kind}\">{contents}</c>"));
+    }
     Ok(out)
 }
 
@@ -397,12 +403,20 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
     let origin = book.worksheet_range(name)?.start();
     drop(book);
     let base = ExcelReader.read_table(source, name)?;
+    // The reader trims trailing rows containing no values. A previous
+    // clear leaves those rows in the live tab and their styled cell
+    // addresses in the XML; only a missing, wholly blank suffix can match.
+    let missing_rows_are_blank = table.rows.get(base.rows.len()..).is_some_and(|rows| {
+        rows.iter().all(|row| {
+            row.len() == table.col_count() && row.iter().all(|cell| matches!(cell, CellValue::Null))
+        })
+    });
     ensure!(
         base.columns
             .iter()
             .map(|c| &c.name)
             .eq(table.columns.iter().map(|c| &c.name))
-            && base.rows.len() == table.rows.len()
+            && missing_rows_are_blank
             && base
                 .rows
                 .iter()
@@ -417,9 +431,12 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
             r < table.row_count() && c < table.col_count(),
             "Edit outside the worksheet"
         );
+        let original = table
+            .original_value(r, c)
+            .context("Edit outside the worksheet")?;
         ensure!(
             matches!(
-                base.rows[r][c],
+                original,
                 CellValue::Null
                     | CellValue::Bool(_)
                     | CellValue::Int(_)
@@ -432,7 +449,7 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
             !base.formulas.contains_key(&(r, c)),
             "Formula cells require a separate export"
         );
-        if same_value(value, &base.rows[r][c]) {
+        if same_value(value, original) {
             continue;
         }
         let (row, col) = origin.context("Empty worksheet")?;

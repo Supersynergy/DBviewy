@@ -332,17 +332,24 @@ Parquet's compression and encoding choices use the defaults of the
 
 ### Excel (`.xlsx`)
 
-Whole-workbook rewrite via `rust_xlsxwriter`. The current table
-becomes the first (and only) worksheet.
+For an opened `.xlsx`, **Save** updates existing text, number or
+boolean cells in the selected worksheet. Clearing a value keeps the
+cell address and style. **Save As** to another `.xlsx` with **All rows**
+copies the workbook and applies those same edits. The other worksheets,
+formulas and filters remain intact.
 
-Excel **read** supports `.xlsx`, `.xls`, `.xlsm`, `.xlsb`, `.xlm`
-(via `calamine`) and opens **every sheet** of a multi-sheet workbook
-(see [Supported Formats](../getting-started/supported-formats.md#excel-multi-sheet-workbooks)).
-Excel **write** only emits `.xlsx` structure, since `rust_xlsxwriter`
-can't write the older formats. Save and Save as write the **active tab** as
-one sheet; to put several open tabs into one workbook, one sheet each, use
-**File > Export workbook...**. Save legacy workbooks as `.xlsx` to
-round-trip them through Octa.
+Formula cells, protected worksheets and structural edits are not
+changed by this save path. Use **File > Export workbook...** to write
+the tabs you select as new worksheets. Exporting **Only the rows you
+see** writes the filtered table, not a copy of the original workbook.
+
+Clearing a cell is not secure redaction. Shared strings and cached
+formula results can retain old values elsewhere in the file.
+
+Excel **read** supports `.xlsx`, `.xls`, `.xlsm`, `.xlsb` and `.xlm`
+via `calamine` (see [Supported Formats](../getting-started/supported-formats.md#excel-multi-sheet-workbooks)).
+New workbook exports use `rust_xlsxwriter` and only write `.xlsx`.
+To export a legacy workbook, choose a new filename.
 
 `.xlsx` is the one format that can carry the table's on-screen formatting;
 see [Formatting in Excel files](#formatting-in-excel-files).

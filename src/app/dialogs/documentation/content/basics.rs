@@ -1227,11 +1227,13 @@ plain `TIMESTAMP` has no zone and is never shifted. This covers DuckDB files,
 Delta, Iceberg and Lance tables, large-file mode and the SQL panel's results, which
 all read through DuckDB.
 
-**Saving an opened workbook.** Save updates existing text, number and boolean
-cells in the active worksheet of an `.xlsx`. Save As to another `.xlsx` with
-**All rows** copies the workbook with those edits, its other worksheets,
-formulas and styles. A spreadsheet application recalculates formulas on open.
-On macOS the file keeps its Finder tags.
+**Saving an opened workbook.** Save updates or clears existing text, number
+and boolean cells in the active worksheet of an `.xlsx`. Clearing a cell
+keeps its style and position. Save As to another `.xlsx` with **All rows**
+copies the workbook with those edits, its other worksheets, formulas and
+styles. A spreadsheet application recalculates formulas on open. On macOS
+the file keeps its Finder tags. Clearing a value is not secure redaction:
+shared strings and formula caches can retain old values.
 
 **Only the rows you see** exports the filtered table. **File > Export workbook**
 exports the tabs you select, including structural changes and Octa formatting.
