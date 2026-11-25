@@ -9,6 +9,8 @@
   `SVERWEIS` and `WVERWEIS`).
 - Find the next smaller or larger numeric key with `XLOOKUP` and `XMATCH`.
   Use binary search when the numeric keys are sorted.
+- Calculate invoice ages and weekday groups with spreadsheet date functions.
+  Preserve imported XLSX dates as dates when exporting the report.
 
 - Integrate Octa 0.22.1, keeping DBviewy's workbook preservation, per-session
   crash markers, assistant integrations, and local table interface.

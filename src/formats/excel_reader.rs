@@ -227,7 +227,7 @@ fn read_sheet(
                 Data::DateTime(dt) if (0.0..1.0).contains(&dt.as_f64()) => {
                     CellValue::Time(day_fraction_to_nanos(dt.as_f64()))
                 }
-                Data::DateTime(dt) => CellValue::DateTime(format!("{}", dt)),
+                Data::DateTime(dt) => CellValue::DateTime(datetime_text(*dt)),
                 Data::DateTimeIso(s) => CellValue::DateTime(std::mem::take(s)),
                 Data::DurationIso(s) => crate::data::times::parse_duration(s)
                     .map_or_else(|| CellValue::String(std::mem::take(s)), CellValue::Duration),
@@ -652,6 +652,41 @@ const DURATION_FORMAT: &str = "[h]:mm:ss";
 /// millisecond because a double cannot hold finer than that reliably.
 fn day_fraction_to_nanos(f: f64) -> i64 {
     ((f * 86_400_000.0).round() as i64) * 1_000_000
+}
+
+/// Calamine's Display yields the raw serial, not a date string. Decode both
+/// workbook epochs before passing the value into the shared ISO date paths.
+fn datetime_text(value: calamine::ExcelDateTime) -> String {
+    let serial = value.as_f64();
+    // Reject invalid inputs instead of accepting the component conversion's
+    // clamping, including the shorter range of the 1904 date system.
+    if !(1.0..2_958_466.0).contains(&serial)
+        || (serial >= 2_957_004.0
+            && value
+                == calamine::ExcelDateTime::new(
+                    serial,
+                    calamine::ExcelDateTimeType::DateTime,
+                    true,
+                ))
+    {
+        return value.to_string();
+    }
+    let (y, m, d, hour, minute, second, millis) = value.to_ymd_hms_milli();
+    let date =
+        chrono::NaiveDate::from_ymd_opt(i32::from(y), u32::from(m), u32::from(d)).and_then(|day| {
+            day.and_hms_milli_opt(
+                u32::from(hour),
+                u32::from(minute),
+                u32::from(second),
+                u32::from(millis),
+            )
+        });
+    // Preserve the raw representation of the nonexistent 1900 leap day
+    // rather than coercing it to a different date.
+    date.map_or_else(
+        || value.to_string(),
+        |date| date.format("%Y-%m-%d %H:%M:%S%.f").to_string(),
+    )
 }
 
 /// Excel's hard limit on hyperlinks in one worksheet. Past it Excel refuses to

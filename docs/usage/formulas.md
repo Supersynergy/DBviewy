@@ -133,6 +133,29 @@ inside the call. The German name is `SUMMENPRODUKT`.
   of the decimal point. For example, `ROUND(125, -1)` returns `130`.
   Halfway values round away from zero, so `ROUND(-1.475, 2)` returns `-1.48`.
 
+## Report by date
+
+- `=YEAR(A1)`, `=MONTH(A1)` and `=DAY(A1)` extract parts of an invoice date.
+- `=DAYS(DATE(2024,3,31),A1)` counts calendar days from the invoice date
+  to 31 March. It returns a negative number if the invoice comes after that date.
+- `=WEEKDAY(A1,2)` returns 1 for Monday through 7 for Sunday. Omit the
+  second argument for Sunday as 1; use `3` for Monday as 0. Modes
+  `11` to `17` number from 1 starting on Monday through Sunday, respectively.
+
+These functions accept date and timestamp cells, ISO date text
+(`YYYY-MM-DD`) and numeric Excel 1900 serials. They ignore time of day
+and use the displayed calendar date for a timestamp with an offset.
+`DATE` returns a number, not a formatted date. It normalises overflowing
+months and days: `DATE(2025,1,0)` refers to 31 December 2024.
+
+Use four-digit years. Values from 0 to 1899 have 1900 added to them.
+DBviewy uses the Gregorian calendar: it rejects numeric serial 60, the
+fictional 29 February 1900. Day differences crossing that boundary and
+weekdays before March 1900 follow the real calendar, not Excel's legacy
+behaviour. Raw serials from the 1904 system are not supported.
+
+German names: `DATUM`, `JAHR`, `MONAT`, `TAG`, `TAGE` and `WOCHENTAG`.
+
 ## Choose a result or handle a calculation error
 
 - `=IF(A1="West",B1*0.9,B1)` applies a discount to West only.

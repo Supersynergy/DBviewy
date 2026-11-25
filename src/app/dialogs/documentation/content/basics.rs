@@ -673,6 +673,13 @@ FALSE takes the first exact match and supports text wildcards. TRUE
 or an omitted mode uses ascending numeric thresholds and takes the last
 threshold at or below the key. German names: SVERWEIS and WVERWEIS.
 
+**Calendar dates.** Use `=YEAR(A1)`, `=MONTH(A1)` or `=DAY(A1)` to
+extract a date part. `=DAYS(DATE(2024,3,31),A1)` counts days from A1
+to 31 March; `=WEEKDAY(A1,2)` numbers Monday as 1. Use a date cell,
+ISO date text or a numeric 1900 serial. DATE returns a serial number.
+The Gregorian calendar has no 29 February 1900; serial 60 is refused.
+German names: DATUM, JAHR, MONAT, TAG, TAGE and WOCHENTAG.
+
 When inserting a column via **Columns > Insert column**, you can type a formula
 into the **Formula** field. The formula is treated as a row-1 template and
 applied to every row (e.g. `=SUM(A1:C1)` becomes `=SUM(A3:C3)` on row 3).

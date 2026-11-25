@@ -50,6 +50,185 @@ fn formula_subtraction() {
 }
 
 #[test]
+fn calendar_parts_accept_typed_dates_serials_and_iso_text() {
+    let mut table = formula_table();
+    table.set(0, 0, CellValue::Date("2024-02-29".into()));
+    table.set(0, 1, CellValue::Float(45_292.8));
+    table.set(
+        0,
+        2,
+        CellValue::DateTime("2024-03-01T00:15:00+02:00".into()),
+    );
+    table.set(1, 0, CellValue::String("2025-12-31".into()));
+    table.set(1, 1, CellValue::DateTime("2025-03-14 16:30:04.123".into()));
+    for (formula, want) in [
+        ("JAHR(A1)", 2024.0),
+        ("MONAT((A1))", 2.0),
+        ("TAG(A1)", 29.0),
+        ("DAY(B1)", 1.0),
+        ("MONTH(C1)", 3.0),
+        ("MONTH(A2)", 12.0),
+        ("DAY(B2)", 14.0),
+        (r#"YEAR("2024-01-20")"#, 2024.0),
+        ("MONTH(DATE(2024,2,29))+DAY(DATE(2024,2,29))", 31.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(want), "{formula}");
+    }
+}
+
+#[test]
+fn calendar_date_rolls_months_days_and_short_years() {
+    let table = formula_table();
+    for (formula, want) in [
+        ("DATUM(124;2;29)", 45_351.0),
+        ("DATE(2024,14,1)", 45_689.0),
+        ("DATE(2025,1,0)", 45_657.0),
+        ("DATE(2025,0,31)", 45_657.0),
+        ("DATE(2024,1.9,1)", 45_292.0),
+        ("DATE(2024,2,32)", 45_354.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(want), "{formula}");
+    }
+}
+
+#[test]
+fn calendar_serial_boundaries_skip_fictitious_excel_day() {
+    let table = formula_table();
+    for (formula, want) in [
+        ("DATE(1900,1,1)", Some(1.0)),
+        ("DATE(1900,2,28)", Some(59.0)),
+        ("DATE(1900,2,29)", Some(61.0)),
+        ("DATE(1900,3,1)", Some(61.0)),
+        ("DATE(9999,12,31)", Some(2_958_465.0)),
+        ("YEAR(2958465.75)", Some(9999.0)),
+        ("DAYS(61,59)", Some(1.0)),
+        ("WEEKDAY(1,2)", Some(1.0)),
+        ("YEAR(0)", None),
+        ("DAY(60.5)", None),
+        ("YEAR(2958466)", None),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), want, "{formula}");
+    }
+}
+
+#[test]
+fn calendar_weekday_numbering_and_day_differences() {
+    let mut table = formula_table();
+    table.set(0, 0, CellValue::Date("2024-02-29".into()));
+    for (mode, want) in [
+        (1, 5),
+        (2, 4),
+        (3, 3),
+        (11, 4),
+        (12, 3),
+        (13, 2),
+        (14, 1),
+        (15, 7),
+        (16, 6),
+        (17, 5),
+    ] {
+        let expr = format!("WEEKDAY(A1,{mode})");
+        assert_eq!(
+            evaluate_formula(&expr, &table),
+            Some(f64::from(want)),
+            "{expr}"
+        );
+    }
+    assert_eq!(evaluate_formula("WOCHENTAG(A1)", &table), Some(5.0));
+    assert_eq!(
+        evaluate_formula("TAGE(DATUM(2024;3;1);A1)", &table),
+        Some(1.0)
+    );
+    assert_eq!(
+        evaluate_formula(r#"DAYS("2024-02-28",A1)"#, &table),
+        Some(-1.0)
+    );
+}
+
+#[test]
+fn calendar_rejects_invalid_dates_and_preserves_lazy_control() {
+    let mut table = formula_table();
+    table.set(0, 0, CellValue::String("12/11/2024".into()));
+    table.set(0, 1, CellValue::Null);
+    table.set(0, 2, CellValue::Bool(true));
+    for formula in [
+        "YEAR(A1)",
+        "YEAR(B1)",
+        "YEAR(C1)",
+        "YEAR(TRUE)",
+        r#"DAY("2024-02-30")"#,
+        r#"DAY("2024-2-09")"#,
+        r#"DAY("12/11/2024")"#,
+        "YEAR(1,2)",
+        "DATE(2024,2,3,4)",
+        "DATE(2024,1E100,3)",
+        "DATE(2024,2,1E100)",
+        "DATE(-1,2,3)",
+        "DAYS(45292)",
+        "WEEKDAY(45292,9)",
+        "WEEKDAY(45292,12.5)",
+        "IF(TRUE,7,DATE(2024,2,))",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+    let bad = evaluate_formula_with_diagnostics("YEAR(A1)", &table)
+        .bad_cell
+        .unwrap();
+    assert_eq!(
+        (bad.row, bad.col, bad.content.as_str()),
+        (0, 0, "12/11/2024")
+    );
+    assert_eq!(
+        evaluate_formula(r#"IF(TRUE,7,YEAR("2024-02-30"))"#, &table),
+        Some(7.0)
+    );
+    assert_eq!(evaluate_formula("IFERROR(DAY(60),9)", &table), Some(9.0));
+    assert_eq!(evaluate_formula("IFERROR(YEAR(A1),9)", &table), Some(9.0));
+}
+
+#[test]
+fn calendar_invoice_xlsx_round_trip_keeps_dates_and_numeric_age() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::{ExcelDateTime, Format, Workbook};
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("invoices.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet().set_name("Invoices").unwrap();
+    sheet.write_string(0, 0, "Invoice date").unwrap();
+    sheet.write_string(0, 1, "Age on 31 March").unwrap();
+    let date = ExcelDateTime::parse_from_str("2024-02-29").unwrap();
+    sheet
+        .write_datetime_with_format(1, 0, &date, &Format::new().set_num_format("yyyy-mm-dd"))
+        .unwrap();
+    sheet.write_number(1, 1, 0).unwrap();
+    book.save(&source).unwrap();
+    let mut table = ExcelReader.read_file(&source).unwrap();
+    assert_eq!(
+        table.get(0, 0),
+        Some(&CellValue::DateTime("2024-02-29 00:00:00".into()))
+    );
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        1,
+        "=DAYS(DATE(2024,3,31),A1)".into(),
+        BinaryDisplayMode::default(),
+    ));
+    assert_eq!(evaluate_formula("B1", &table), Some(31.0));
+    let report = dir.path().join("invoice-age.xlsx");
+    ExcelReader.write_file(&report, &table).unwrap();
+    let reopened = ExcelReader.read_file(&report).unwrap();
+    assert!(matches!(
+        reopened.get(0, 0),
+        Some(CellValue::Date(_) | CellValue::DateTime(_))
+    ));
+    assert_eq!(evaluate_formula("DAY(A1)", &reopened), Some(29.0));
+    assert_eq!(evaluate_formula("B1", &reopened), Some(31.0));
+}
+
+#[test]
 fn formula_multiplication() {
     let table = formula_table();
     let result = evaluate_formula("A1*B1", &table);

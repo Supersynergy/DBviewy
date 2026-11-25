@@ -14,6 +14,8 @@ use super::{CellValue, DataTable};
 mod control;
 #[path = "formulas_criteria.rs"]
 mod criteria;
+#[path = "formulas_date.rs"]
+mod date;
 #[path = "formula_lex.rs"]
 mod lex;
 #[path = "formulas_lookup.rs"]
@@ -186,6 +188,7 @@ enum Function {
     Logical(control::Logical),
     Lookup(lookup::ResultKind),
     TableLookup(lookup::Axis),
+    Calendar(date::Calendar),
     SumProduct,
     Power,
 }
@@ -266,6 +269,18 @@ fn function_named(name: &str) -> Option<Function> {
         ("SVERWEIS", Function::TableLookup(lookup::Axis::Column)),
         ("HLOOKUP", Function::TableLookup(lookup::Axis::Row)),
         ("WVERWEIS", Function::TableLookup(lookup::Axis::Row)),
+        ("DATE", Function::Calendar(date::Calendar::Date)),
+        ("DATUM", Function::Calendar(date::Calendar::Date)),
+        ("YEAR", Function::Calendar(date::Calendar::Year)),
+        ("JAHR", Function::Calendar(date::Calendar::Year)),
+        ("MONTH", Function::Calendar(date::Calendar::Month)),
+        ("MONAT", Function::Calendar(date::Calendar::Month)),
+        ("DAY", Function::Calendar(date::Calendar::Day)),
+        ("TAG", Function::Calendar(date::Calendar::Day)),
+        ("DAYS", Function::Calendar(date::Calendar::Days)),
+        ("TAGE", Function::Calendar(date::Calendar::Days)),
+        ("WEEKDAY", Function::Calendar(date::Calendar::Weekday)),
+        ("WOCHENTAG", Function::Calendar(date::Calendar::Weekday)),
         ("SUMPRODUCT", Function::SumProduct),
         ("SUMMENPRODUKT", Function::SumProduct),
         ("POWER", Function::Power),
@@ -603,6 +618,7 @@ fn eval_function(
         }
         Function::Lookup(kind) => return lookup::evaluate(kind, tokens, pos, context),
         Function::TableLookup(axis) => return lookup::evaluate_table(axis, tokens, pos, context),
+        Function::Calendar(kind) => return date::evaluate(kind, tokens, pos, context),
         Function::SumProduct => return product::evaluate(tokens, pos, context),
         Function::If => return control::evaluate_if(tokens, pos, context),
         Function::IfError => return control::evaluate_if_error(tokens, pos, context),
