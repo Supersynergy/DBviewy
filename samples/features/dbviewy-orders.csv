@@ -1,0 +1,7 @@
+order_id,region,status,amount,result
+DV-101,West,Paid,89.50,
+DV-102,West,Pending,42.00,
+DV-103,East,Paid,120.00,
+DV-104,West,Paid,59.00,
+DV-105,North,Refunded,15.00,
+DV-106,East,Pending,35.50,

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title description">
+  <title id="title">DBviewy orders quickstart</title>
+  <desc id="description">Illustration of the six-order sample, not an application screenshot. Paid orders DV-101 and DV-104 in West add to 148.50. Looking up DV-104 gives 59.00.</desc>
+  <defs>
+    <linearGradient id="backdrop" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#193957"/>
+      <stop offset="1" stop-color="#0B1425"/>
+    </linearGradient>
+    <linearGradient id="answer" x1="0" x2="1" y1="0" y2="1">
+      <stop stop-color="#163651"/>
+      <stop offset="1" stop-color="#11243A"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="958" height="358" rx="26" fill="url(#backdrop)" stroke="#3A5873" stroke-width="2"/>
+  <g font-family="system-ui,-apple-system,Arial,sans-serif">
+    <circle cx="49" cy="39" r="5" fill="#65F1D7"/>
+    <text x="65" y="44" fill="#B7D0E8" font-size="13" font-weight="700" letter-spacing="2.4">DBVIEWY QUICKSTART</text>
+    <text x="43" y="84" fill="#F3FAFF" font-size="33" font-weight="700">Six orders, one answer</text>
+    <rect x="758" y="45" width="159" height="33" rx="16.5" fill="#17364B" stroke="#47768A"/>
+    <text x="837.5" y="66" text-anchor="middle" fill="#B3E3E5" font-size="13" font-weight="650">Sample illustration</text>
+
+    <rect x="43" y="106" width="537" height="216" rx="17" fill="#122439" stroke="#375670"/>
+    <path d="M60 106H563Q580 106 580 123V143H43V123Q43 106 60 106Z" fill="#1D3650"/>
+    <g fill="#B7D0E8" font-size="13" font-weight="700">
+      <text x="63" y="131">Order</text>
+      <text x="205" y="131">Region</text>
+      <text x="322" y="131">Status</text>
+      <text x="557" y="131" text-anchor="end">Amount</text>
+    </g>
+    <g fill="#193D48">
+      <rect x="49" y="148" width="525" height="25" rx="7"/>
+      <rect x="49" y="232" width="525" height="25" rx="7"/>
+    </g>
+    <path d="M56 155v11m0 73v11" fill="none" stroke="#65F1D7" stroke-width="3" stroke-linecap="round"/>
+    <path d="M65 202H558m-493 28H558m-493 56H558" fill="none" stroke="#304960" stroke-width="1"/>
+    <g font-size="16" fill="#E5F1FD">
+      <text x="68" y="166">DV-101</text><text x="205" y="166">West</text><text x="322" y="166" fill="#9BF9DF">Paid</text><text x="557" y="166" text-anchor="end">89.50</text>
+      <text x="68" y="194">DV-102</text><text x="205" y="194">West</text><text x="322" y="194">Pending</text><text x="557" y="194" text-anchor="end">42.00</text>
+      <text x="68" y="222">DV-103</text><text x="205" y="222">East</text><text x="322" y="222">Paid</text><text x="557" y="222" text-anchor="end">120.00</text>
+      <text x="68" y="250">DV-104</text><text x="205" y="250">West</text><text x="322" y="250" fill="#9BF9DF">Paid</text><text x="557" y="250" text-anchor="end">59.00</text>
+      <text x="68" y="278">DV-105</text><text x="205" y="278">North</text><text x="322" y="278">Refunded</text><text x="557" y="278" text-anchor="end">15.00</text>
+      <text x="68" y="306">DV-106</text><text x="205" y="306">East</text><text x="322" y="306">Pending</text><text x="557" y="306" text-anchor="end">35.50</text>
+    </g>
+
+    <rect x="601" y="106" width="316" height="216" rx="17" fill="url(#answer)" stroke="#43728A"/>
+    <text x="626" y="139" fill="#ADCDDF" font-size="14" font-weight="700" letter-spacing="1.6">WEST · PAID</text>
+    <text x="622" y="211" fill="#9BF9DF" font-size="60" font-weight="700">148.50</text>
+    <text x="626" y="240" fill="#E1EEF8" font-size="17">2 paid orders</text>
+    <path d="M625 260h268" fill="none" stroke="#40617A"/>
+    <text x="626" y="291" fill="#C9E0F0" font-size="16">DV-104 lookup</text>
+    <text x="891" y="291" fill="#F3FAFF" font-size="19" font-weight="650" text-anchor="end">59.00</text>
+  </g>
+</svg>

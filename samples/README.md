@@ -115,6 +115,7 @@ spreadsheet.
 
 | File | For | Worth looking at |
 |---|---|---|
+| [dbviewy-orders.csv](features/dbviewy-orders.csv) | Formula and SQL quickstart | Six orders; count paid orders, sum one region, look up a price, then save the results as XLSX. [Instructions](../README.md#try-it-with-six-orders). |
 | `customers.csv` + `orders.csv` | Semi / anti join, test data | Customers 2, 5, 7 and 8 never ordered (anti join finds them); order 107 names customer 9, who does not exist. The pair is also a linked parent and child for **Generate test data** |
 | `trades.csv` + `quotes.csv` | As-of join | Join on `ticker` `=` and `time` `>=`: each trade gets the last quote before it. The 08:59 trade is earlier than every quote and INITECH has no quotes, so both stay unmatched; the 09:05 trade hits a quote at exactly the same time |
 | `id_checks.csv` | ID checks, Tidy format | Rows C01, C03, C06, C07 are valid; C02 is valid but written untidily (spaces, lower case, dashes, stray blanks); C04 has the last check digit wrong in every column; C05 is one character short; C08 is not even the right shape. The `what_is_wrong` column says which |

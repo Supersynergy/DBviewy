@@ -7,6 +7,7 @@
 <p align="center"><strong>Open, search and edit tables on your desktop.</strong></p>
 
 <p align="center">
+  <a href="#try-it-with-six-orders">Quickstart</a> ·
   <a href="#build-from-source">Build from source</a> ·
   <a href="#workbook-safety">Workbook safety</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
@@ -17,6 +18,43 @@ DBviewy is a native fork of [Octa](https://github.com/thorstenfoltz/octa), based
 on Octa 0.22.1. Open an Excel workbook, CSV file, SQLite database or Parquet
 file and work with it in a tabbed grid. Run DuckDB SQL on open tables without
 moving them to another app.
+
+## Try it with six orders
+
+<img src="assets/dbviewy-quickstart.svg" alt="Illustrated orders sample. The two paid orders in West total 148.50, and the price of order DV-104 is 59.00." width="960">
+
+<!-- dbviewy-quickstart -->
+
+Open the [six-order CSV](samples/features/dbviewy-orders.csv). Double-click
+a cell in the **result** column, enter the formula and press **Enter**.
+Row numbers start below the header. The first result cell is `E1`.
+
+| Enter in | Formula | Expected number |
+| --- | --- | --- |
+| `E1` | `=SUMIFS(D1:D6,B1:B6,"West",C1:C6,"Paid")` | 148.50 |
+| `E2` | `=COUNTIFS(B1:B6,"West",C1:C6,"Paid")` | 2 |
+| `E3` | `=XLOOKUP("DV-104",A1:A6,D1:D6,-1)` | 59.00 |
+
+Choose **File → Save as…** and give the new file an `.xlsx` extension.
+The three results are saved as numbers. The original CSV stays unchanged.
+See the [formula guide](docs/usage/formulas.md) for range rules, fixed
+references and the German function names.
+
+You can get the same paid total from the original CSV without opening
+the desktop app. Run this from the repository root:
+
+```sh
+cargo run --release --locked --bin octa -- \
+  --sql samples/features/dbviewy-orders.csv -f json \
+  -q "SELECT CAST(SUM(amount) AS DOUBLE) AS paid_west FROM data WHERE region = 'West' AND status = 'Paid'"
+```
+
+<!-- /dbviewy-quickstart -->
+
+The query returns `[{"paid_west":148.5}]`. The quickstart is checked by
+[automated tests](tests/dbviewy_quickstart.rs); see the separate
+[50-workflow test catalog](tests/dbviewy_workflows/README.md) for local
+databases, file formats, formulas, SQL and CLI examples.
 
 ## What DBviewy adds
 
