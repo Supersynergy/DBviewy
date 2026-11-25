@@ -4,14 +4,17 @@ use std::cmp::Ordering;
 
 use super::{CellValue, Comparison, Evaluation, FormulaToken as Token, eval_complete};
 
-type Arguments<'a> = [Option<&'a [Token]>; 3];
+type Arguments<'a, const N: usize> = [Option<&'a [Token]>; N];
 
 /// Split a call at its own separators, not those of nested calls.
-fn arguments(tokens: &[Token], open: usize) -> Option<(Arguments<'_>, usize)> {
+pub(super) fn arguments<const N: usize>(
+    tokens: &[Token],
+    open: usize,
+) -> Option<(Arguments<'_, N>, usize)> {
     if !matches!(tokens.get(open), Some(Token::LParen)) {
         return None;
     }
-    let mut args = [None; 3];
+    let mut args = [None; N];
     let mut start = open + 1;
     let mut slot = 0;
     let mut depth = 0usize;
@@ -34,7 +37,7 @@ fn arguments(tokens: &[Token], open: usize) -> Option<(Arguments<'_>, usize)> {
     None
 }
 
-fn check(tokens: &[Token]) -> Option<()> {
+pub(super) fn check(tokens: &[Token]) -> Option<()> {
     eval_complete(tokens, &mut Evaluation::default()).map(|_| ())
 }
 
@@ -103,7 +106,7 @@ pub(super) fn evaluate_if_error(
 }
 
 /// Peel parentheses only when they wrap the whole expression.
-fn unparen(mut tokens: &[Token]) -> &[Token] {
+pub(super) fn unparen(mut tokens: &[Token]) -> &[Token] {
     while let [Token::LParen, .., Token::RParen] = tokens {
         let mut depth = 0usize;
         let end = tokens.iter().position(|token| {

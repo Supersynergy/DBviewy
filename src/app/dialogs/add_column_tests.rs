@@ -447,3 +447,41 @@ fn multi_criteria_column_respects_fixed_and_shifted_references() {
     assert_eq!(table.col_count(), 4);
     assert_eq!(table.get(0, 0), Some(&CellValue::String("West".into())));
 }
+
+#[test]
+fn lookup_column_keeps_catalog_fixed_and_shifts_the_requested_sku() {
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table.columns = ["sku", "price", "request"]
+        .map(|name| ColumnInfo {
+            name: name.into(),
+            data_type: "Utf8".into(),
+        })
+        .to_vec();
+    tab.table.rows = [
+        ("bolt", 10, "nut"),
+        ("bolt", 15, "BOLT"),
+        ("nut", 20, "missing"),
+    ]
+    .into_iter()
+    .map(|(sku, price, request)| {
+        vec![
+            CellValue::String(sku.into()),
+            CellValue::Int(price),
+            CellValue::String(request.into()),
+        ]
+    })
+    .collect();
+    tab.insert_col_at = Some(0);
+    tab.new_col_name = "price from catalog".into();
+    tab.new_col_formula = "=XLOOKUP(C1,$A$1:$A$3,$B$1:$B$3,-1,0,-1)".into();
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    for (row, expected) in [20, 15, -1].into_iter().enumerate() {
+        assert_eq!(tab.table.get(row, 0), Some(&CellValue::Int(expected)));
+    }
+    assert!(tab.parse_error_banner.is_none());
+    assert!(tab.table.undo());
+    assert_eq!(tab.table.col_count(), 3);
+    assert_eq!(tab.table.get(0, 0), Some(&CellValue::String("bolt".into())));
+}

@@ -17,7 +17,7 @@ pub(super) enum ConditionalAggregate {
 }
 
 #[derive(Clone, Copy)]
-struct Rectangle {
+pub(super) struct Rectangle {
     top: usize,
     left: usize,
     bottom: usize,
@@ -25,11 +25,15 @@ struct Rectangle {
 }
 
 impl Rectangle {
-    fn shape(self) -> (usize, usize) {
+    pub(super) fn at(self, row: usize, col: usize) -> (usize, usize) {
+        (self.top + row, self.left + col)
+    }
+
+    pub(super) fn shape(self) -> (usize, usize) {
         (self.bottom - self.top + 1, self.right - self.left + 1)
     }
 
-    fn loaded_shape(self, table: &DataTable) -> (usize, usize) {
+    pub(super) fn loaded_shape(self, table: &DataTable) -> (usize, usize) {
         let (rows, cols) = self.shape();
         (
             rows.min(table.row_count().saturating_sub(self.top)),
@@ -38,7 +42,7 @@ impl Rectangle {
     }
 }
 
-fn rectangle(tokens: &[Token], pos: usize) -> Option<(Rectangle, usize)> {
+pub(super) fn rectangle(tokens: &[Token], pos: usize) -> Option<(Rectangle, usize)> {
     let (a, b, next) = match tokens.get(pos..)? {
         [
             Token::CellRef(r1, c1),
@@ -399,7 +403,7 @@ impl Condition {
     }
 }
 
-fn wildcard(pattern: &str) -> Option<Regex> {
+pub(super) fn wildcard(pattern: &str) -> Option<Regex> {
     let mut regex = String::from(r"\A");
     let mut chars = pattern.chars().peekable();
     while let Some(ch) = chars.next() {

@@ -14,6 +14,8 @@ use super::{CellValue, DataTable};
 mod control;
 #[path = "formulas_criteria.rs"]
 mod criteria;
+#[path = "formulas_lookup.rs"]
+mod lookup;
 use criteria::ConditionalAggregate;
 
 /// Snapshot of one referenced cell that could not be coerced to a number
@@ -176,6 +178,7 @@ enum Function {
     Round,
     If,
     IfError,
+    Lookup(lookup::ResultKind),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -246,6 +249,10 @@ fn function_named(name: &str) -> Option<Function> {
         ("WENN", Function::If),
         ("IFERROR", Function::IfError),
         ("WENNFEHLER", Function::IfError),
+        ("XLOOKUP", Function::Lookup(lookup::ResultKind::Value)),
+        ("XVERWEIS", Function::Lookup(lookup::ResultKind::Value)),
+        ("XMATCH", Function::Lookup(lookup::ResultKind::Position)),
+        ("XVERGLEICH", Function::Lookup(lookup::ResultKind::Position)),
         (
             "COUNTIFS",
             Function::ConditionalMany(ConditionalAggregate::Count),
@@ -521,6 +528,7 @@ fn eval_function(
         Function::ConditionalMany(aggregate) => {
             return criteria::evaluate_many(aggregate, tokens, pos, context);
         }
+        Function::Lookup(kind) => return lookup::evaluate(kind, tokens, pos, context),
         Function::If => return control::evaluate_if(tokens, pos, context),
         Function::IfError => return control::evaluate_if_error(tokens, pos, context),
         _ => {}

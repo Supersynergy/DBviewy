@@ -123,6 +123,28 @@ fallback only if the first calculation fails. Every expression must
 still be syntactically valid. Results are numeric; use **Conditional
 column** to assign text labels based on rules.
 
+## Look up a value or position
+
+- `=XLOOKUP(D1,$A$1:$A$100,$B$1:$B$100,-1)` finds the ID in D1 and
+  returns its price from column B. It uses `-1` only if the ID is not
+  found. An omitted fallback returns no number when there is no match.
+- `=XMATCH(D1,$A$1:$A$100)` returns the ID's position from the start
+  of the search range, starting at 1. An absent match returns no number.
+
+Search one row or column at a time. For `XLOOKUP`, give the return range
+the same shape and length as the search range. The result and fallback
+are numeric, including numeric text from a matched cell. Non-numeric
+matched cells cause an error instead of using the fallback. Lookups do
+not spill into other cells.
+
+Text matches ignore case, but text IDs, numbers and booleans remain
+distinct. Search starts at the first loaded cell by default. To prefer
+the last match, pass `-1` as the last argument:
+`=XLOOKUP(D1,A1:A100,B1:B100,-1,0,-1)` or `=XMATCH(D1,A1:A100,0,-1)`.
+Match mode `0` is exact. Mode `2` enables text wildcards `*` and `?`
+with `~` to escape them. Approximate and binary search modes are not
+supported. The German names are `XVERWEIS` and `XVERGLEICH`.
+
 ## What gets evaluated
 
 In arithmetic expressions, the engine converts each referenced cell to a number:

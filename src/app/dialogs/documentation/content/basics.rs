@@ -638,6 +638,13 @@ division fails. The German names are WENN and WENNFEHLER. IF evaluates
 only the chosen result; IFERROR evaluates the fallback only on error.
 All expressions must be syntactically valid.
 
+**Lookups**: `=XLOOKUP(D1,A1:A20,B1:B20,-1)` finds D1 in A and returns
+the matching number from B; it uses -1 only if no key matches.
+`=XMATCH(D1,A1:A20)` returns the position starting at 1. Exact matching
+ignores text case and takes the first result by default. Use a single
+row or column and the same shape for the return range. The German
+names are XVERWEIS and XVERGLEICH.
+
 When inserting a column via **Columns > Insert column**, you can type a formula
 into the **Formula** field. The formula is treated as a row-1 template and
 applied to every row (e.g. `=SUM(A1:C1)` becomes `=SUM(A3:C3)` on row 3).

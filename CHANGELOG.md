@@ -28,6 +28,8 @@
   syntax errors without reading cells from the unused branch.
 - Add `COUNTIFS`, `SUMIFS` and `AVERAGEIFS` to count, sum or average
   cells that meet every criterion.
+- Look up a numeric value with `XLOOKUP` or find a position with `XMATCH`.
+  Use exact or wildcard matching and choose the first or last result.
 - Build the macOS bundle without a Homebrew runtime dependency and check
   all three bundled executables before signing.
 

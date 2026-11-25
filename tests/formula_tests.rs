@@ -945,3 +945,194 @@ fn multi_criteria_formula_survives_inline_save_and_reopen_xlsx() {
     );
     assert!(reopened.formulas.is_empty());
 }
+
+fn lookup_catalog() -> DataTable {
+    let mut table = DataTable {
+        columns: ["sku", "price", "request"]
+            .map(|name| ColumnInfo {
+                name: name.into(),
+                data_type: "Utf8".into(),
+            })
+            .to_vec(),
+        rows: [
+            (Some("AX-01"), CellValue::Int(10), Some("aX-01")),
+            (Some("ax-01"), CellValue::Int(12), None),
+            (Some("AX-02"), CellValue::String("19.5".into()), None),
+            (Some("AX-*"), CellValue::Int(99), None),
+            (Some("Öko"), CellValue::Int(7), None),
+            (None, CellValue::Int(5), None),
+            (
+                Some("broken"),
+                CellValue::String("missing price".into()),
+                None,
+            ),
+        ]
+        .into_iter()
+        .map(|(sku, price, request)| {
+            vec![
+                sku.map_or(CellValue::Null, |v| CellValue::String(v.into())),
+                price,
+                request.map_or(CellValue::Null, |v| CellValue::String(v.into())),
+            ]
+        })
+        .collect(),
+        ..DataTable::empty()
+    };
+    table.set(1, 1, CellValue::Int(14));
+    table
+}
+
+#[test]
+fn formula_lookup_uses_exact_match_and_search_order() {
+    let table = lookup_catalog();
+    for (formula, expected) in [
+        (r#"XLOOKUP("ax-01",A1:A7,B1:B7)"#, 10.0),
+        (r#"XLOOKUP("ax-01",A1:A7,B1:B7,,,-1)"#, 14.0),
+        (r#"XVERWEIS(C1;$A$1:$A$7;$B$1:$B$7;;0;-1)"#, 14.0),
+        (r#"XLOOKUP("AX-02",A7:A1,B7:B1)"#, 19.5),
+        (r#"XLOOKUP(,A1:A7,B1:B7)"#, 5.0),
+        (r#"XMATCH("ax-01",A2:A7)"#, 1.0),
+        (r#"XVERGLEICH("AX-01";A1:A7;0;-1)"#, 2.0),
+        (r#"XMATCH("ÖKO",A1:A7)"#, 5.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn formula_lookup_pairs_horizontal_ranges_by_offset() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("XLOOKUP(2.5,A1:B1,A3:B3)", 0.5),
+        ("XMATCH(2.5,A1:B1,0,-1)", 2.0),
+        ("XLOOKUP(30,A3,B2:B2,99)+1", 4.0),
+        ("XLOOKUP(1+2,A2:B2,A1:B1)", 2.5),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn formula_lookup_only_treats_wildcards_as_patterns_when_requested() {
+    let table = lookup_catalog();
+    for (formula, expected) in [
+        (r#"XMATCH("AX-*",A1:A7)"#, Some(4.0)),
+        (r#"XMATCH("AX-??",A1:A7)"#, None),
+        (r#"XMATCH("AX-??",A1:A7,2,-1)"#, Some(3.0)),
+        (r#"XMATCH("ax-~*",A1:A7,2)"#, Some(4.0)),
+        (r#"XLOOKUP("a?-0*",A1:A7,B1:B7,,2,-1)"#, Some(19.5)),
+        (r#"XLOOKUP("no-*",A1:A7,B1:B7,77,2)"#, Some(77.0)),
+        (r#"XMATCH("AX-01",A1:A7,1)"#, None),
+        (r#"XMATCH("AX-01",A1:A7,0,2)"#, None),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+}
+
+#[test]
+fn formula_lookup_keeps_numeric_text_booleans_and_large_ids_distinct() {
+    let mut table = lookup_catalog();
+    table.rows[0][0] = CellValue::String("1".into());
+    table.rows[1][0] = CellValue::Int(1);
+    table.rows[2][0] = CellValue::Bool(true);
+    table.rows[3][0] = CellValue::Int(9_007_199_254_740_992);
+    table.rows[4][0] = CellValue::Int(9_007_199_254_740_993);
+    table.rows[0][2] = CellValue::Int(9_007_199_254_740_993);
+    table.rows[1][2] = CellValue::Float(9_007_199_254_740_992.0);
+    for (formula, expected) in [
+        (r#"XMATCH("1",A1:A5)"#, 1.0),
+        (r#"XMATCH(1,A1:A5)"#, 2.0),
+        (r#"XMATCH(TRUE,A1:A5)"#, 3.0),
+        (r#"XMATCH(C1,A1:A5)"#, 5.0),
+        (r#"XMATCH(C2,A1:A5,0,-1)"#, 4.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn formula_lookup_fallback_is_lazy_and_only_for_misses() {
+    let table = lookup_catalog();
+    for (formula, expected) in [
+        (r#"XLOOKUP("AX-01",A1:A7,B1:B7,1/0)"#, Some(10.0)),
+        (r#"XLOOKUP("unknown",A1:A7,B1:B7,ROUND(7.25,1))"#, Some(7.3)),
+        (r#"XLOOKUP("unknown",A1:A7,B1:B7)"#, None),
+        (r#"XLOOKUP("AX-01",A1:A7,B1:B7,2+)"#, None),
+        (r#"IFERROR(XLOOKUP("unknown",A1:A7,B1:B7,1/0+),3)"#, None),
+        (r#"IFERROR(XMATCH("missing",A1:A7),3)"#, Some(3.0)),
+        (
+            r#"IFERROR(XLOOKUP("broken",A1:A7,B1:B7,99),-3)"#,
+            Some(-3.0),
+        ),
+        (
+            r#"IF(TRUE,4,XLOOKUP("unknown",A1:A7,B1:B7,1/0))"#,
+            Some(4.0),
+        ),
+        (r#"IF(TRUE,4,XMATCH("AX-01",A1:A7,0,1,2))"#, None),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+    let detailed = evaluate_formula_with_diagnostics(r#"XLOOKUP("broken",A1:A7,B1:B7,99)"#, &table);
+    assert_eq!(detailed.value, None);
+    let bad = detailed.bad_cell.unwrap();
+    assert_eq!(
+        (bad.row, bad.col, bad.content.as_str()),
+        (6, 1, "missing price")
+    );
+}
+
+#[test]
+fn formula_lookup_limits_search_to_loaded_cells_and_checks_range_shapes() {
+    let table = lookup_catalog();
+    for (formula, expected) in [
+        ("XLOOKUP(,Z1:Z100000000,B1:B100000000,77)", Some(77.0)),
+        ("XMATCH(C6,A1:A100000000,0,-1)", Some(6.0)),
+        (r#"XLOOKUP("AX-01",A1:A7,B2:B8,,0,-1)"#, Some(19.5)),
+        (r#"XLOOKUP("broken",A1:A7,B2:B8,99)"#, None),
+        (r#"XLOOKUP("AX-01",A1:A7,B1:B6,99)"#, None),
+        (r#"XMATCH("AX-01",A1:B7)"#, None),
+        (r#"IFERROR(XMATCH("AX-01",A1:B7),5)"#, Some(5.0)),
+        (r#"IFERROR(XMATCH("AX-01",A1:B7+1),5)"#, None),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+}
+
+#[test]
+fn formula_lookup_price_survives_xlsx_round_trip() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+
+    let dir = tempfile::tempdir().unwrap();
+    let csv = dir.path().join("catalog.csv");
+    std::fs::write(
+        &csv,
+        "sku,price,request,result\nAX-1,12.5,AX-2,0\nAX-2,19.5,AX-1,0\n",
+    )
+    .unwrap();
+    let mut table = CsvReader.read_file(&csv).unwrap();
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        3,
+        r#"=XLOOKUP(C1,$A$1:$A$2,$B$1:$B$2,0)"#.into(),
+        BinaryDisplayMode::default(),
+    ));
+    let output = dir.path().join("priced.xlsx");
+    ExcelReader.write_file(&output, &table).unwrap();
+    let reopened = ExcelReader.read_file(&output).unwrap();
+    assert_eq!(reopened.get(0, 3), Some(&CellValue::Float(19.5)));
+    assert!(reopened.formulas.is_empty());
+}
