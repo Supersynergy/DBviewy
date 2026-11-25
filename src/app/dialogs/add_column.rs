@@ -1,6 +1,7 @@
 //! "Insert Column" modal dialog: name + type + insert position + formula.
 //! On confirm, the formula (if any) is evaluated for every existing row.
 
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::ops::Range;
 
@@ -246,6 +247,56 @@ impl<'a> FormulaRows<'a> {
         Self { source, relative }
     }
 
+    /// Memoize only a whole lookup call whose first argument is itself
+    /// the sole moving reference. The other arguments cannot vary by row.
+    /// Row numbers are one-based to keep the same overflow check as `at`.
+    fn repeated_lookup_key(&self) -> Option<(usize, usize)> {
+        let [(_, row)] = self.relative.as_slice() else {
+            return None;
+        };
+        let (function, args) = self.source.split_once('(')?;
+        if !["XLOOKUP", "XVERWEIS", "XMATCH", "XVERGLEICH"]
+            .iter()
+            .any(|name| name.eq_ignore_ascii_case(function.trim_ascii()))
+        {
+            return None;
+        }
+        let body = args.trim_ascii_end().strip_suffix(')')?;
+        let (arg, _) = body.split_once([',', ';'])?;
+        let arg = arg.trim_ascii();
+        let cell = arg.strip_prefix('$').unwrap_or(arg);
+        let letters = cell.bytes().take_while(u8::is_ascii_alphabetic).count();
+        let (col, digits) = cell.split_at(letters);
+        if letters == 0
+            || !digits.bytes().all(|b| b.is_ascii_digit())
+            || digits.parse::<usize>().ok()? != *row
+        {
+            return None;
+        }
+        let col = col
+            .bytes()
+            .try_fold(0usize, |col, letter| {
+                col.checked_mul(26)?
+                    .checked_add(usize::from(letter.to_ascii_uppercase() - b'A' + 1))
+            })?
+            .checked_sub(1)?;
+
+        // Do not apply early reuse to an outer expression or an extra call
+        // after the lookup. Doubled quotes toggle twice without visiting
+        // any unquoted characters inside the literal.
+        let mut depth = 0usize;
+        let mut quoted = false;
+        for b in body.bytes() {
+            match b {
+                b'"' => quoted = !quoted,
+                b'(' if !quoted => depth += 1,
+                b')' if !quoted => depth = depth.checked_sub(1)?,
+                _ => {}
+            }
+        }
+        (depth == 0 && !quoted).then_some((*row, col))
+    }
+
     fn at<'b>(&'b self, offset: usize, buffer: &'b mut String) -> Option<&'b str> {
         if offset == 0 || self.relative.is_empty() {
             return Some(self.source);
@@ -346,19 +397,81 @@ fn fill_formula_template(
         };
         return (results, outcome.bad_cell);
     }
-    let mut shifted = String::with_capacity(formula.len());
+    fill_shifted_template(
+        &template,
+        table,
+        template.repeated_lookup_key(),
+        data::evaluate_formula_with_diagnostics,
+    )
+}
+
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
+enum LookupMemoKey<'a> {
+    Blank,
+    Boolean(bool),
+    Integer(i64),
+    Float(u64),
+    Text(&'a str),
+}
+
+impl<'a> LookupMemoKey<'a> {
+    fn from_cell(cell: Option<&'a data::CellValue>) -> Option<Self> {
+        use data::CellValue;
+        match cell {
+            None | Some(CellValue::Null) => Some(Self::Blank),
+            Some(CellValue::Bool(value)) => Some(Self::Boolean(*value)),
+            Some(CellValue::Int(value)) => Some(Self::Integer(*value)),
+            Some(CellValue::Float(value)) if value.is_finite() => {
+                Some(Self::Float(value.to_bits()))
+            }
+            Some(
+                CellValue::String(value) | CellValue::Date(value) | CellValue::DateTime(value),
+            ) if value.len() <= 256 => Some(Self::Text(value)),
+            _ => None,
+        }
+    }
+}
+
+fn fill_shifted_template(
+    template: &FormulaRows<'_>,
+    table: &data::DataTable,
+    lookup: Option<(usize, usize)>,
+    mut evaluate: impl FnMut(&str, &data::DataTable) -> data::FormulaOutcome,
+) -> (FormulaResults, Option<data::FormulaBadCell>) {
+    // Keep this per fill against the immutable pre-insertion table. Borrow
+    // short keys rather than copying them; unique-key workloads remain
+    // memory-bounded and fall back to the normal evaluator.
+    const MAX_MEMO_KEYS: usize = 4096;
+    let mut memo = HashMap::<LookupMemoKey<'_>, Option<f64>>::new();
+    let mut shifted = String::with_capacity(template.source.len());
     let mut results = Vec::new();
     let mut first_bad = None;
     for row in 0..table.row_count() {
+        let key = lookup.and_then(|(base, col)| {
+            LookupMemoKey::from_cell(table.get(base.checked_add(row)? - 1, col))
+        });
+        if let Some(value) = key.and_then(|key| memo.get(&key)) {
+            if let Some(value) = value {
+                results.push((row, *value));
+            }
+            continue;
+        }
         let Some(formula) = template.at(row, &mut shifted) else {
             continue;
         };
-        let outcome = data::evaluate_formula_with_diagnostics(formula, table);
+        let outcome = evaluate(formula, table);
         if first_bad.is_none() {
             first_bad = outcome.bad_cell;
         }
         if let Some(value) = outcome.value {
             results.push((row, value));
+        }
+        // A cached failure was already evaluated at an earlier output
+        // row, so it cannot change the first diagnostic in this fill.
+        if memo.len() < MAX_MEMO_KEYS
+            && let Some(key) = key
+        {
+            memo.insert(key, outcome.value);
         }
     }
     (results, first_bad)

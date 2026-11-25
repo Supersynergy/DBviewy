@@ -485,3 +485,197 @@ fn lookup_column_keeps_catalog_fixed_and_shifts_the_requested_sku() {
     assert_eq!(tab.table.col_count(), 3);
     assert_eq!(tab.table.get(0, 0), Some(&CellValue::String("bolt".into())));
 }
+
+#[test]
+fn lookup_fill_cache_only_admits_a_single_relative_lookup_key() {
+    for (source, expected) in [
+        ("XLOOKUP($AA002; $A$1:$A$6; $B$1:$B$6; -1)", Some((2, 26))),
+        ("xvergleich(b1,$A$1:$A$6,, -1)", Some((1, 1))),
+        (
+            r#"XLOOKUP(D1,$A$1:$A$6,$B$1:$B$6,IF("A1""(test)"="x",5,-1))"#,
+            Some((1, 3)),
+        ),
+        ("XLOOKUP(D1,$A$1:$A$6,$B$1:$B$6)+ABS(2)", None),
+        ("XLOOKUP(D1,$A$1:$A$6,$B$1:$B$6)+2", None),
+        ("XLOOKUP(D1,$A$1:$A$6,$B$1:$B$6,E1)", None),
+        ("XLOOKUP(D1,A$1:A6,$B$1:$B$6)", None),
+        ("XLOOKUP($D$1,$A$1:$A$6,$B$1:$B$6)", None),
+        ("XLOOKUP(D1+0,$A$1:$A$6,$B$1:$B$6)", None),
+        ("SUM(D1,$A$1,$B$1)", None),
+        ("XLOOKUP_FAKE(D1,$A$1:$A$6,$B$1:$B$6)", None),
+        ("IF(TRUE,XLOOKUP(D1,$A$1:$A$6,$B$1:$B$6),-1)", None),
+        (r#"XLOOKUP("D1",A1:$A$6,$B$1:$B$6)"#, None),
+    ] {
+        assert_eq!(
+            FormulaRows::new(source).repeated_lookup_key(),
+            expected,
+            "{source}"
+        );
+    }
+
+    // The last representable 1-based reference is valid but out of bounds.
+    // On the following row the shift overflows; a cached blank must not
+    // turn the unrepresentable reference into another value.
+    let table = numeric_grid([CellValue::Null, CellValue::Null]);
+    let formula = format!("XLOOKUP(A{},$A$1:$A$2,$A$1:$A$2,-1)", usize::MAX);
+    let values = fill_formula_template(&formula, &table).0;
+    assert_eq!(values, vec![(0, 0.0)]);
+}
+
+#[test]
+fn lookup_fill_cache_preserves_types_fallback_and_diagnostics() {
+    use data::CellValue::{Bool, Int, Null, String as Text};
+    let text = |s: &str| Text(s.into());
+    let mut table = data::DataTable {
+        columns: ["sku", "price", "fixed default", "request"]
+            .map(|name| data::ColumnInfo {
+                name: name.into(),
+                data_type: "Utf8".into(),
+            })
+            .to_vec(),
+        rows: vec![
+            vec![Int(7), Int(70), text("error"), Int(7)],
+            vec![text("7"), Int(71), Null, text("7")],
+            vec![Bool(true), Int(72), Null, Bool(true)],
+            vec![Null, Int(73), Null, Null],
+            vec![text("broken"), text("bad price"), Null, text("broken")],
+            vec![text("unused"), Int(20), Null, text("miss")],
+            vec![Null, Null, Null, text("miss")],
+            vec![Null, Null, Null, text("broken")],
+            vec![Null, Null, Null, Int(7)],
+        ],
+        ..data::DataTable::empty()
+    };
+    let source = "XLOOKUP($D1,$A$1:$A$6,$B$1:$B$6,IFERROR($C$1+1,99))";
+    let template = FormulaRows::new(source);
+    let expected = vec![
+        (0, 70.),
+        (1, 71.),
+        (2, 72.),
+        (3, 73.),
+        (5, 99.),
+        (6, 99.),
+        (8, 70.),
+    ];
+    let optimized = fill_formula_template(source, &table);
+    let normal = fill_shifted_template(
+        &template,
+        &table,
+        None,
+        data::evaluate_formula_with_diagnostics,
+    );
+    assert_eq!(optimized.0, expected);
+    assert_eq!(optimized.0, normal.0);
+    let optimized_bad = optimized.1.unwrap();
+    let normal_bad = normal.1.unwrap();
+    assert_eq!(
+        (
+            optimized_bad.row,
+            optimized_bad.col,
+            optimized_bad.content.as_str()
+        ),
+        (4, 1, "bad price")
+    );
+    assert_eq!(
+        (optimized_bad.row, optimized_bad.col, optimized_bad.content),
+        (normal_bad.row, normal_bad.col, normal_bad.content)
+    );
+
+    table.set(0, 1, Int(107));
+    table.set(6, 3, Bool(true));
+    let reloaded = fill_formula_template(source, &table).0;
+    assert_eq!(
+        reloaded,
+        vec![
+            (0, 107.),
+            (1, 71.),
+            (2, 72.),
+            (3, 73.),
+            (5, 99.),
+            (6, 72.),
+            (8, 107.)
+        ]
+    );
+}
+
+#[test]
+fn lookup_fill_performance_matches_every_reference_row() {
+    use data::CellValue;
+    const ROWS: usize = 16_000;
+    const CATALOG: usize = 1_536;
+    const REQUEST_KEYS: usize = 97;
+    let table = data::DataTable {
+        columns: ["catalog SKU", "price cents", "request SKU"]
+            .map(|name| data::ColumnInfo {
+                name: name.into(),
+                data_type: "Utf8".into(),
+            })
+            .to_vec(),
+        rows: (0..ROWS)
+            .map(|i| {
+                let key = i % REQUEST_KEYS;
+                let catalog_key = CATALOG - 1 - key * 11;
+                vec![
+                    if i < CATALOG {
+                        CellValue::String(format!("SKU-{i:04}"))
+                    } else {
+                        CellValue::Null
+                    },
+                    CellValue::Int((i * 3) as i64),
+                    CellValue::String(if key + 1 == REQUEST_KEYS {
+                        "missing".into()
+                    } else {
+                        format!("SKU-{catalog_key:04}")
+                    }),
+                ]
+            })
+            .collect(),
+        ..data::DataTable::empty()
+    };
+    let source = "XLOOKUP(C1,$A$1:$A$1536,$B$1:$B$1536,-1)";
+    let template = FormulaRows::new(source);
+    let key = template.repeated_lookup_key();
+    assert_eq!(key, Some((1, 2)));
+    let run = |lookup| {
+        let mut calls = 0;
+        let start = std::time::Instant::now();
+        let (values, bad) = fill_shifted_template(&template, &table, lookup, |formula, table| {
+            calls += 1;
+            data::evaluate_formula_with_diagnostics(formula, table)
+        });
+        let elapsed = start.elapsed().as_nanos();
+        assert!(bad.is_none());
+        (values, calls, elapsed)
+    };
+    let mut baseline = [0; 3];
+    let mut candidate = [0; 3];
+    for i in 0..3 {
+        let (old, new) = if i % 2 == 0 {
+            (run(None), run(key))
+        } else {
+            let new = run(key);
+            (run(None), new)
+        };
+        assert_eq!(old.1, ROWS);
+        assert_eq!(new.1, REQUEST_KEYS);
+        assert_eq!(new.0, old.0);
+        assert_eq!(new.0.len(), ROWS);
+        for (row, value) in new.0 {
+            let key = row % REQUEST_KEYS;
+            let expected = if key + 1 == REQUEST_KEYS {
+                -1.0
+            } else {
+                ((CATALOG - 1 - key * 11) * 3) as f64
+            };
+            assert_eq!(value, expected, "row {row}");
+        }
+        baseline[i] = old.2;
+        candidate[i] = new.2;
+    }
+    baseline.sort_unstable();
+    candidate.sort_unstable();
+    println!(
+        "lookup_fill_bench rows={ROWS} reference_calls={ROWS} memo_calls={REQUEST_KEYS} baseline_ns={} candidate_ns={} samples=3",
+        baseline[1], candidate[1]
+    );
+}
