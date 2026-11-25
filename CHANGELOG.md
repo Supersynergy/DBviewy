@@ -24,6 +24,8 @@
   of rescanning the full range for each row.
 - Add `COUNTIF`, `SUMIF` and `AVERAGEIF` with text, number, blank and wildcard
   criteria. Keep quoted identifiers unchanged when filling formula columns.
+- Build the macOS bundle without a Homebrew runtime dependency and check
+  all three bundled executables before signing.
 
 - Fix the native macOS About, Hide and Quit labels without moving settings
   or session storage. Load the current DBviewy icon directly in native About.

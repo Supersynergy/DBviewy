@@ -384,6 +384,10 @@ jobs:
 
       # See linux comment: PR-time CI already covered tests on this commit.
       - name: Build release binary
+        env:
+          # The runner's pkg-config can find Homebrew's liblzma. Compile
+          # the vendored library instead so the app runs without Homebrew.
+          LZMA_API_STATIC: "1"
         run: cargo build --release --target aarch64-apple-darwin
 
       - name: Generate ICNS from PNG
@@ -416,6 +420,31 @@ jobs:
           cp pkg/macos/Info.plist "$APP/Contents/Info.plist"
           plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
           plutil -replace CFBundleVersion -string "$VERSION" "$APP/Contents/Info.plist"
+
+      - name: Check macOS runtime dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          # This bundle ships no private dylibs. Failing here catches a
+          # host-only dependency even if the runner can launch the app.
+          for binary in DBviewy.app/Contents/MacOS/{octa,octa-csv,octa-xlsx}; do
+            otool -L "$binary" | awk -v binary="$binary" '
+              /^[[:space:]]/ {
+                found = 1
+                if ($1 !~ /^\/(System\/Library|usr\/lib)\//) {
+                  printf "%s: non-system dependency %s\n", binary, $1 > "/dev/stderr"
+                  failed = 1
+                }
+              }
+              END {
+                if (!found) {
+                  printf "%s: no runtime dependencies found\n", binary > "/dev/stderr"
+                  failed = 1
+                }
+                exit failed
+              }
+            '
+          done
 
       - name: Ad-hoc codesign the bundle
         run: |
