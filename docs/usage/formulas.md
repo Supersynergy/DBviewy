@@ -28,6 +28,9 @@ Start a formula with `=` in the cell editor or the Insert Column dialog.
 =A1*1.05            # add 5%
 =AVERAGE(A1:A3)     # average of three cells
 =SUM(A1:B2, D1, 5)  # add a rectangle, a single cell and a constant
+=ROUND(A1*B1, 2)    # round a line total to cents
+=ABS(A1-B1)         # distance between two values
+=MEDIAN(B1:B9)      # middle value in a range
 ```
 
 For Insert Column, the formula is applied per-row:
@@ -41,9 +44,17 @@ For Insert Column, the formula is applied per-row:
 
 ## Aggregate functions
 
-`SUM`, `AVERAGE`, `MIN`, `MAX` and `COUNT` accept rectangular ranges, single cells and arithmetic expressions. You can nest functions and separate arguments with commas or semicolons. The German names `SUMME`, `MITTELWERT` and `ANZAHL` also work.
+`SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` and `MEDIAN` accept rectangular ranges, single cells and arithmetic expressions. You can nest functions and separate arguments with commas or semicolons. The German names `SUMME`, `MITTELWERT` and `ANZAHL` also work.
 
-In a range or a single-cell argument, these functions include numbers and numeric text, and skip blanks and other values. `COUNT` returns the number of included cells and scalar arguments. When there are no numbers, `AVERAGE` leaves the result empty and the other four functions return zero.
+In a range or a single-cell argument, these functions include numbers and numeric text, and skip blanks and other values. `COUNT` returns the number of included cells and scalar arguments. `MEDIAN` skips non-finite values and averages the two middle numbers when there is an even count. When there are no numbers, `AVERAGE` and `MEDIAN` return no numeric result; the other four functions return zero.
+
+## Single-value functions
+
+- `ABS(value)` returns the magnitude without the sign.
+- `ROUND(value, places)`, also `RUNDEN`, rounds to a whole number of
+  decimal places. Use a negative number of places to round to the left
+  of the decimal point. For example, `ROUND(125, -1)` returns `130`.
+  Halfway values round away from zero, so `ROUND(-1.475, 2)` returns `-1.48`.
 
 ## What gets evaluated
 
@@ -57,7 +68,8 @@ In arithmetic expressions, the engine converts each referenced cell to a number:
   surfaced as errors (see below).
 
 The result is rendered as a number with `Display` precision.
-Division by zero yields no value (the cell is left empty).
+Division by zero yields no numeric result. Inline editing keeps the input
+as text; Insert Column leaves that result empty.
 
 ## When a formula can't be evaluated
 

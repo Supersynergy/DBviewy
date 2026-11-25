@@ -270,3 +270,187 @@ fn malformed_ranges_and_unconsumed_operands_are_rejected() {
         assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
     }
 }
+
+#[test]
+fn round_uses_decimal_midpoints_away_from_zero() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("ROUND(2.15,1)", 2.2),
+        ("ROUND(1.005,2)", 1.01),
+        // The exact f64 neighbour below the float that spells as 1.005.
+        ("ROUND(1.0049999999999997,2)", 1.0),
+        ("ROUND(-1.475,2)", -1.48),
+        ("ROUND(-0.005,2)", -0.01),
+        ("ROUND(-0.0049,2)", 0.0),
+        ("ROUND(6.25,1)", 6.3),
+        ("ROUND(-0.5,0)", -1.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn round_accepts_negative_precision_for_reporting_totals() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("ROUND(624.9,-3)", 1000.0),
+        ("ROUND(499.99,-3)", 0.0),
+        ("ROUND(-50,-2)", -100.0),
+        ("ROUND(21.5,-1)", 20.0),
+        ("runden(A2+B1;-1)", 20.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn round_handles_float_limits_without_intermediate_overflow() {
+    let mut table = formula_table();
+    table.rows[0][1] = CellValue::Float(f64::MAX);
+    table.rows[1][1] = CellValue::Float(f64::from_bits(1));
+    for (formula, expected) in [
+        ("ROUND(B1,320)", Some(f64::MAX)),
+        ("ROUND(B1,-308)", None),
+        ("ROUND(B1,-309)", Some(0.0)),
+        ("ROUND(B2,323)", Some(0.0)),
+        ("ROUND(B2,324)", Some(f64::from_bits(1))),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+}
+
+#[test]
+fn scalar_functions_compose_with_ranges_signs_and_calculated_precision() {
+    let table = formula_table();
+    assert_eq!(
+        evaluate_formula("ROUND(ABS(-(SUM(A1:A2)+B3))/16, A1/5)", &table),
+        Some(1.91)
+    );
+    assert_eq!(evaluate_formula("A1 * -B1 + +2", &table), Some(-23.0));
+    assert_eq!(evaluate_formula("ABS(-A3)", &table), Some(30.0));
+}
+
+#[test]
+fn scalar_functions_reject_invalid_arity_ranges_and_fractional_precision() {
+    let table = formula_table();
+    for formula in [
+        "ABS()",
+        "ABS(A1,B1)",
+        "ABS(A1:A3)",
+        "ABS(1/0)",
+        "ROUND(A1)",
+        "ROUND(A1,)",
+        "ROUND(A1,2,3)",
+        "ROUND(A1,1.5)",
+        "ROUND(A1:A3,2)",
+        "ROUND(A1,2) B1",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}
+
+#[test]
+fn scalar_functions_keep_the_bad_cell_diagnostic() {
+    let table = formula_table();
+    let outcome = evaluate_formula_with_diagnostics("ROUND(ABS(A1), C1)", &table);
+    assert_eq!(outcome.value, None);
+    let bad = outcome.bad_cell.unwrap();
+    assert_eq!((bad.row, bad.col, bad.content.as_str()), (0, 2, "hello"));
+}
+
+#[test]
+fn median_accepts_rectangles_expressions_and_reversed_corners() {
+    let table = formula_table();
+    assert_eq!(evaluate_formula("MEDIAN(A1:A3)", &table), Some(20.0));
+    assert_eq!(evaluate_formula("MEDIAN(B2:A1)", &table), Some(6.5));
+    assert_eq!(
+        evaluate_formula("ROUND(MEDIAN(A3:A1, 2*B1, B3), 1)", &table),
+        Some(10.0)
+    );
+}
+
+#[test]
+fn median_skips_missing_values_but_keeps_zero_and_numeric_text() {
+    let mut table = formula_table();
+    table.set(0, 2, CellValue::String("8.0".into()));
+    table.set(1, 2, CellValue::Float(f64::INFINITY));
+    assert_eq!(
+        evaluate_formula("MEDIAN(C1:C999999999, 0)", &table),
+        Some(4.0)
+    );
+    assert_eq!(evaluate_formula("MEDIAN(C2:C3)", &table), None);
+    assert_eq!(evaluate_formula("MEDIAN()", &table), None);
+    assert!(table.undo());
+    assert_eq!(evaluate_formula("MEDIAN(C1:C3, 0)", &table), Some(4.0));
+    assert!(table.undo());
+    assert_eq!(evaluate_formula("MEDIAN(C1:C3)", &table), None);
+}
+
+#[test]
+fn median_midpoint_does_not_overflow_or_erase_subnormals() {
+    let mut table = formula_table();
+    table.rows[0][1] = CellValue::Float(f64::MAX);
+    table.rows[1][1] = CellValue::Float(f64::MAX);
+    assert_eq!(evaluate_formula("MEDIAN(B1:B2)", &table), Some(f64::MAX));
+    let smallest = f64::from_bits(1);
+    table.rows[0][1] = CellValue::Float(smallest);
+    table.rows[1][1] = CellValue::Float(smallest);
+    assert_eq!(evaluate_formula("MEDIAN(B1:B2)", &table), Some(smallest));
+}
+
+#[test]
+fn nested_calls_stop_at_a_bounded_depth_without_panicking() {
+    let table = formula_table();
+    for depth in [1, 64, 65, 10_000] {
+        let formula = format!("{}A1{}", "ABS(".repeat(depth), ")".repeat(depth));
+        assert_eq!(
+            evaluate_formula(&formula, &table),
+            (depth <= 64).then_some(10.0),
+            "depth {depth}"
+        );
+    }
+}
+
+#[test]
+fn formula_edit_undo_redo_and_xlsx_reopen_keep_numeric_results() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+
+    let mut table = formula_table();
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        1,
+        "=ROUND(ABS(-1.475),2)".into(),
+        BinaryDisplayMode::default()
+    ));
+    assert_eq!(table.get(0, 1), Some(&CellValue::Float(1.48)));
+    assert!(table.undo());
+    assert_eq!(table.get(0, 1), Some(&CellValue::Float(2.5)));
+    assert!(table.redo());
+    assert!(commit_cell_text(
+        &mut table,
+        1,
+        1,
+        "=MEDIAN(A1:A3)".into(),
+        BinaryDisplayMode::default()
+    ));
+    let output = tempfile::tempdir().unwrap();
+    let path = output.path().join("invoice-review.xlsx");
+    ExcelReader.write_file(&path, &table).unwrap();
+    let reopened = ExcelReader.read_file(&path).unwrap();
+    assert_eq!(reopened.get(0, 1), Some(&CellValue::Float(1.48)));
+    assert!(
+        matches!(reopened.get(1, 1), Some(CellValue::Int(20)))
+            || matches!(reopened.get(1, 1), Some(CellValue::Float(x)) if *x == 20.0)
+    );
+    assert!(reopened.formulas.is_empty());
+}

@@ -1,7 +1,8 @@
 //! Excel-like formula evaluation against a [`DataTable`].
 //!
 //! Supports cell references (e.g. `A1`, `BC42`), numeric literals, the four
-//! arithmetic operators, parenthesised sub-expressions and numeric aggregates over ranges.
+//! arithmetic operators, parenthesised sub-expressions, scalar functions and
+//! numeric aggregates over ranges.
 //! Re-exported from [`crate::data`] so call sites keep their existing import
 //! path (`use octa::data::evaluate_formula`).
 
@@ -148,50 +149,33 @@ enum FormulaToken {
     Number(f64),
     CellRef(usize, usize), // (row, col)
     Op(char),              // +, -, *, /
-    Function(Aggregate),
+    Function(Function),
     Range,
     Separator,
     LParen,
     RParen,
 }
 
+#[derive(Clone, Copy, Debug)]
+enum Function {
+    Aggregate(Aggregate),
+    Abs,
+    Round,
+}
+
 fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
+    // Evaluation uses recursive descent for nested parentheses and calls.
+    const MAX_NESTING: usize = 64;
     let mut tokens = Vec::new();
     let chars: Vec<char> = expr.chars().collect();
     let mut i = 0;
+    let mut depth = 0usize;
     while i < chars.len() {
         match chars[i] {
             c if c.is_ascii_whitespace() => {
                 i += 1;
             }
             '+' | '-' | '*' | '/' => {
-                // Unary minus: treat as part of number if at start or after operator/lparen
-                if chars[i] == '-' {
-                    let is_unary = tokens.is_empty()
-                        || matches!(
-                            tokens.last(),
-                            Some(
-                                FormulaToken::Op(_)
-                                    | FormulaToken::LParen
-                                    | FormulaToken::Separator
-                            )
-                        );
-                    if is_unary {
-                        // Collect the number after the minus
-                        i += 1;
-                        let start = i;
-                        while i < chars.len() && (chars[i].is_ascii_digit() || chars[i] == '.') {
-                            i += 1;
-                        }
-                        if i == start {
-                            return None;
-                        }
-                        let num_str: String = chars[start..i].iter().collect();
-                        let val: f64 = num_str.parse().ok()?;
-                        tokens.push(FormulaToken::Number(-val));
-                        continue;
-                    }
-                }
                 tokens.push(FormulaToken::Op(chars[i]));
                 i += 1;
             }
@@ -204,10 +188,15 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                 i += 1;
             }
             '(' => {
+                depth += 1;
+                if depth > MAX_NESTING {
+                    return None;
+                }
                 tokens.push(FormulaToken::LParen);
                 i += 1;
             }
             ')' => {
+                depth = depth.checked_sub(1)?;
                 tokens.push(FormulaToken::RParen);
                 i += 1;
             }
@@ -226,23 +215,27 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                     i += 1;
                 }
                 let word: String = chars[start..i].iter().collect();
-                let token = match word.to_ascii_uppercase().as_str() {
-                    "SUM" | "SUMME" => FormulaToken::Function(Aggregate::Sum),
-                    "AVERAGE" | "MITTELWERT" => FormulaToken::Function(Aggregate::Average),
-                    "MIN" => FormulaToken::Function(Aggregate::Min),
-                    "MAX" => FormulaToken::Function(Aggregate::Max),
-                    "COUNT" | "ANZAHL" => FormulaToken::Function(Aggregate::Count),
+                let function = match word.to_ascii_uppercase().as_str() {
+                    "SUM" | "SUMME" => Function::Aggregate(Aggregate::Sum),
+                    "AVERAGE" | "MITTELWERT" => Function::Aggregate(Aggregate::Average),
+                    "MIN" => Function::Aggregate(Aggregate::Min),
+                    "MAX" => Function::Aggregate(Aggregate::Max),
+                    "COUNT" | "ANZAHL" => Function::Aggregate(Aggregate::Count),
+                    "MEDIAN" => Function::Aggregate(Aggregate::Median),
+                    "ABS" => Function::Abs,
+                    "ROUND" | "RUNDEN" => Function::Round,
                     _ => {
                         let (row, col) = parse_cell_ref(&word)?;
-                        FormulaToken::CellRef(row, col)
+                        tokens.push(FormulaToken::CellRef(row, col));
+                        continue;
                     }
                 };
-                tokens.push(token);
+                tokens.push(FormulaToken::Function(function));
             }
             _ => return None,
         }
     }
-    Some(tokens)
+    (depth == 0).then_some(tokens)
 }
 
 /// Recursive descent parser: expression = term (('+' | '-') term)*
@@ -304,19 +297,25 @@ fn eval_term(
     Some((left, p))
 }
 
-/// factor = Number | CellRef | '(' expression ')'
+/// factor = ('+' | '-')* (Number | CellRef | function | '(' expression ')')
 fn eval_factor(
     tokens: &[FormulaToken],
-    pos: usize,
+    mut pos: usize,
     table: &DataTable,
     bad: &mut Option<FormulaBadCell>,
 ) -> Option<(f64, usize)> {
-    if pos >= tokens.len() {
-        return None;
+    let mut negate = false;
+    loop {
+        match tokens.get(pos)? {
+            FormulaToken::Op('-') => negate = !negate,
+            FormulaToken::Op('+') => {}
+            _ => break,
+        }
+        pos += 1;
     }
-    match &tokens[pos] {
+    let (value, end) = match tokens.get(pos)? {
         FormulaToken::Number(n) => Some((*n, pos + 1)),
-        FormulaToken::Function(function) => eval_aggregate(*function, tokens, pos + 1, table, bad),
+        FormulaToken::Function(function) => eval_function(*function, tokens, pos + 1, table, bad),
         FormulaToken::CellRef(row, col) => {
             match cell_as_f64(table, *row, *col) {
                 Ok(Some(v)) => Some((v, pos + 1)),
@@ -342,7 +341,87 @@ fn eval_factor(
             }
         }
         _ => None,
+    }?;
+    Some((if negate { -value } else { value }, end))
+}
+
+fn eval_function(
+    function: Function,
+    tokens: &[FormulaToken],
+    pos: usize,
+    table: &DataTable,
+    bad: &mut Option<FormulaBadCell>,
+) -> Option<(f64, usize)> {
+    if let Function::Aggregate(aggregate) = function {
+        return eval_aggregate(aggregate, tokens, pos, table, bad);
     }
+    if !matches!(tokens.get(pos), Some(FormulaToken::LParen)) {
+        return None;
+    }
+    let (value, end) = eval_expression(tokens, pos + 1, table, bad)?;
+    let (value, end) = match function {
+        Function::Abs => (value.abs(), end),
+        Function::Round => {
+            if !matches!(tokens.get(end), Some(FormulaToken::Separator)) {
+                return None;
+            }
+            let (places, end) = eval_expression(tokens, end + 1, table, bad)?;
+            (round_decimal(value, places)?, end)
+        }
+        Function::Aggregate(_) => unreachable!("aggregates are handled above"),
+    };
+    if !matches!(tokens.get(end), Some(FormulaToken::RParen)) {
+        return None;
+    }
+    value.is_finite().then_some((value, end + 1))
+}
+
+/// Round the shortest decimal representation rather than scaling the binary
+/// float. Scaling can put a decimal tie like 1.005 just below 100.5 and can
+/// overflow even when the rounded result itself is representable.
+fn round_decimal(value: f64, places: f64) -> Option<f64> {
+    if !value.is_finite() || places.fract() != 0.0 {
+        return None;
+    }
+    if value == 0.0 || places <= -310.0 {
+        return Some(0.0);
+    }
+    if places >= 324.0 {
+        return Some(value);
+    }
+    let places = places as i32;
+    let decimal = if value.is_subnormal() {
+        // The shortest spelling of the smallest float is 5e-324, but
+        // its value is below the midpoint when rounding to 323 places.
+        format!("{:.16e}", value.abs())
+    } else {
+        format!("{:e}", value.abs())
+    };
+    let (mantissa, exponent) = decimal.split_once('e')?;
+    let keep = exponent.parse::<i32>().ok()? + places + 1;
+    if keep < 0 {
+        return Some(0.0);
+    }
+    let keep = keep as usize;
+    let mut digits = mantissa.bytes().filter(|&digit| digit != b'.');
+    let mut units = 0u64;
+    for _ in 0..keep {
+        let Some(digit) = digits.next() else {
+            return Some(value);
+        };
+        units = units * 10 + u64::from(digit - b'0');
+    }
+    let Some(first_discarded) = digits.next() else {
+        return Some(value);
+    };
+    if first_discarded >= b'5' {
+        units += 1;
+    }
+    if units == 0 {
+        return Some(0.0);
+    }
+    let rounded = format!("{units}e{}", -places).parse::<f64>().ok()?;
+    rounded.is_finite().then_some(rounded.copysign(value))
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -352,6 +431,7 @@ enum Aggregate {
     Min,
     Max,
     Count,
+    Median,
 }
 
 /// Aggregate references skip empty and non-numeric cells. Numeric text is useful
@@ -378,6 +458,7 @@ fn eval_aggregate(
     pos += 1;
     let mut value: f64 = 0.0;
     let mut count = 0usize;
+    let mut median_values = Vec::new();
     let mut add = |n: f64| {
         value = match function {
             Aggregate::Min if count > 0 => value.min(n),
@@ -385,6 +466,12 @@ fn eval_aggregate(
             Aggregate::Min | Aggregate::Max => n,
             Aggregate::Sum | Aggregate::Average => value + n,
             Aggregate::Count => value,
+            Aggregate::Median => {
+                if n.is_finite() {
+                    median_values.push(n);
+                }
+                value
+            }
         };
         count += 1;
     };
@@ -434,7 +521,23 @@ fn eval_aggregate(
         Aggregate::Count => count as f64,
         Aggregate::Average if count == 0 => return None,
         Aggregate::Average => value / count as f64,
+        Aggregate::Median => median(&mut median_values)?,
         _ => value,
     };
     Some((result, pos + 1))
+}
+
+fn median(values: &mut [f64]) -> Option<f64> {
+    let len = values.len();
+    if len == 0 {
+        return None;
+    }
+    // Selection is linear and need not sort the entire input range.
+    let (lower, upper_middle, _) = values.select_nth_unstable_by(len / 2, f64::total_cmp);
+    if len.is_multiple_of(2) {
+        let lower_middle = lower.iter().copied().max_by(f64::total_cmp)?;
+        Some(lower_middle.midpoint(*upper_middle))
+    } else {
+        Some(*upper_middle)
+    }
 }

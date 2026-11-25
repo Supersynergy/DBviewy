@@ -607,17 +607,24 @@ Cells support simple Excel-like formulas starting with **=**.
 - **Operators**: `+`, `-`, `*`, `/`.
 - **Parentheses**: `(A1 + B1) * 2`.
 - **Numeric literals**: `=A1 * 1.5`.
-- **Functions**: `SUM`, `AVERAGE`, `MIN`, `MAX` and `COUNT` accept rectangular
+- **Functions**: `SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT` and `MEDIAN` accept rectangular
   ranges, single cells and expressions. For example, `=SUM(A1:B2,C1,5)`
   adds four cells, C1 and five. In cell arguments, blanks and non-numeric
   values are skipped. Numeric text counts. The German names SUMME,
   MITTELWERT and ANZAHL work with either semicolons or commas.
+- **`MEDIAN(B1:B9)`** takes the middle value in a range, or the average
+  of the two middle values if the number of finite values is even.
+- **`ABS(A1-B1)`** gives the distance between two numbers.
+- **`ROUND(A1*B1,2)`** rounds to two decimal places. Use a negative
+  number of places to round tens or hundreds. Halfway values round away
+  from zero. The German name RUNDEN also works.
 
 When inserting a column via **Columns > Insert column**, you can type a formula
 into the **Formula** field. The formula is treated as a row-1 template and
 applied to every row (e.g. `=SUM(A1:C1)` becomes `=SUM(A3:C3)` on row 3).
 
-Division by zero leaves the cell empty.
+Division by zero yields no numeric result. Inline editing keeps the input
+as text; Insert Column leaves that result empty.
 "#;
 
 pub const SORTING: &str = r#"# Sorting

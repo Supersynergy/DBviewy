@@ -16,6 +16,8 @@
   formula bar that commits through the same path as an in-cell edit.
 - Extract `commit_cell_text` from the table cell editor so the formula bar and
   the cell editor share one parser.
+- Add `ROUND`, `ABS` and `MEDIAN` to cell and column formulas, including
+  negative rounding precision and decimal ties away from zero.
 
 - Fix the native macOS About, Hide and Quit labels without moving settings
   or session storage. Load the current DBviewy icon directly in native About.
