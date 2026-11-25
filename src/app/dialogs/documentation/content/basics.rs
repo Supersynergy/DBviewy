@@ -411,7 +411,9 @@ column's type still applies. On a database tab they become pending changes.
 ## Copying
 
 **Ctrl+C** copies the current selection (single cell, row block, column
-block, or free multi-cell selection) as tab-separated values.
+block, or free multi-cell selection) as tab-separated values. A tab
+or line break inside a cell stays in that cell when copied and pasted.
+A single-line cell copied on its own stays plain text.
 
 **Ctrl+V** pastes tab-separated text starting at the selected cell, and one
 Ctrl+Z takes the whole paste back. When the block has more rows or columns

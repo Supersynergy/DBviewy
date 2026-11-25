@@ -11,6 +11,7 @@
   Use binary search when the numeric keys are sorted.
 - Calculate invoice ages and weekday groups with spreadsheet date functions.
   Preserve imported XLSX dates as dates when exporting the report.
+- Keep tabs, line breaks and quotes inside cells when copying and pasting tables.
 
 - Integrate Octa 0.22.1, keeping DBviewy's workbook preservation, per-session
   crash markers, assistant integrations, and local table interface.

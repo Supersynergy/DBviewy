@@ -8,86 +8,44 @@ use octa::ui;
 
 use super::state::OctaApp;
 
+#[path = "clipboard_tsv.rs"]
+mod tsv;
+
 impl OctaApp {
     /// Build a tab-separated string from the current selection.
     /// Priority: selected_rows > selected_cols > selected_cells > selected_cell.
     pub(crate) fn copy_selection_to_string(&self) -> Option<String> {
+        let (cols, rows, mask) = self.selection_block()?;
         let tab = &self.tabs[self.active_tab];
-        let state = &tab.table_state;
-
-        if !state.selected_rows.is_empty() {
-            let mut rows: Vec<usize> = state.selected_rows.iter().copied().collect();
-            rows.sort();
-            let mut lines = Vec::new();
-            for row in rows {
-                let mut cells = Vec::new();
-                for col in 0..tab.table.col_count() {
-                    let text = tab
-                        .table
+        let single_cell = rows.len() == 1 && cols.len() == 1;
+        let mut text = String::new();
+        for (i, &row) in rows.iter().enumerate() {
+            if i != 0 {
+                text.push('\n');
+            }
+            for (j, &col) in cols.iter().enumerate() {
+                if j != 0 {
+                    text.push('\t');
+                }
+                let cell = if !mask || tab.table_state.selected_cells.contains(&(row, col)) {
+                    tab.table
                         .get(row, col)
-                        .map(|v| v.to_string())
-                        .unwrap_or_default();
-                    cells.push(text);
+                        .map(ToString::to_string)
+                        .unwrap_or_default()
+                } else {
+                    String::new()
+                };
+                if single_cell && !cell.contains(['\t', '\r', '\n']) {
+                    // Keep single-line cell text ready to paste into editors,
+                    // including surrounding quotes in identifiers.
+                    return Some(cell);
                 }
-                lines.push(cells.join("\t"));
+                tsv::write_field(&mut text, &cell, cols.len() == 1);
             }
-            Some(lines.join("\n"))
-        } else if !state.selected_cols.is_empty() {
-            let mut cols: Vec<usize> = state.selected_cols.iter().copied().collect();
-            cols.sort();
-            let mut lines = Vec::new();
-            for row in 0..tab.table.row_count() {
-                let mut cells = Vec::new();
-                for &col in &cols {
-                    let text = tab
-                        .table
-                        .get(row, col)
-                        .map(|v| v.to_string())
-                        .unwrap_or_default();
-                    cells.push(text);
-                }
-                lines.push(cells.join("\t"));
-            }
-            Some(lines.join("\n"))
-        } else if !state.selected_cells.is_empty() {
-            let cells: Vec<(usize, usize)> = state.selected_cells.iter().copied().collect();
-            let min_row = cells.iter().map(|(r, _)| *r).min().unwrap();
-            let max_row = cells.iter().map(|(r, _)| *r).max().unwrap();
-            let min_col = cells.iter().map(|(_, c)| *c).min().unwrap();
-            let max_col = cells.iter().map(|(_, c)| *c).max().unwrap();
-            let mut lines = Vec::new();
-            for row in min_row..=max_row {
-                let mut row_cells = Vec::new();
-                for col in min_col..=max_col {
-                    let text = if state.selected_cells.contains(&(row, col)) {
-                        tab.table
-                            .get(row, col)
-                            .map(|v| v.to_string())
-                            .unwrap_or_default()
-                    } else {
-                        String::new()
-                    };
-                    row_cells.push(text);
-                }
-                lines.push(row_cells.join("\t"));
-            }
-            Some(lines.join("\n"))
-        } else if let Some((row, col)) = state.selected_cell {
-            let text = tab
-                .table
-                .get(row, col)
-                .map(|v| v.to_string())
-                .unwrap_or_default();
-            Some(text)
-        } else {
-            None
         }
+        Some(text)
     }
 
-    /// Build a GitHub-flavoured Markdown table from the current selection,
-    /// including the column header row. Same selection precedence as
-    /// [`copy_selection_to_string`](Self::copy_selection_to_string). Returns
-    /// `None` when nothing is selected.
     /// The columns and rows the current selection covers, and whether it is a
     /// disjoint cell selection (cells outside it count as empty). The rule
     /// Copy as Markdown table always used: rows > columns > cells > cell.
@@ -118,7 +76,10 @@ impl OctaApp {
         if cols.is_empty() || rows.is_empty() {
             return None;
         }
-        Some((cols, rows, !state.selected_cells.is_empty()))
+        let mask = state.selected_rows.is_empty()
+            && state.selected_cols.is_empty()
+            && !state.selected_cells.is_empty();
+        Some((cols, rows, mask))
     }
 
     pub(crate) fn copy_selection_as_markdown(&self) -> Option<String> {
@@ -262,10 +223,16 @@ impl OctaApp {
 
     /// Paste tab-separated text into the table at the current selection.
     pub(crate) fn paste_text_into_table(&mut self, text: &str) {
-        let parsed_rows: Vec<Vec<&str>> = text
-            .lines()
-            .map(|line| line.split('\t').collect())
-            .collect();
+        let decoded = tsv::quoted_grid(text);
+        let parsed_rows: Vec<Vec<&str>> = if let Some(rows) = &decoded {
+            rows.iter()
+                .map(|row| row.iter().map(|field| field.as_ref()).collect())
+                .collect()
+        } else {
+            tsv::plain_lines(text)
+                .map(|line| line.split('\t').collect())
+                .collect()
+        };
         if parsed_rows.is_empty() {
             return;
         }

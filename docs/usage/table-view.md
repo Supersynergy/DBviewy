@@ -44,10 +44,13 @@ operations.
 The active selection drives clipboard operations:
 [**Ctrl+C**](../reference/shortcuts.md#clipboard) copies whatever
 is selected (single cell, multi-row block, multi-column block, or
-a free multi-cell selection) as tab-separated values.
+a free multi-cell selection) as tab-separated values. Tabs and line breaks
+inside a cell are quoted so they don't turn into extra rows or columns.
+A single-line cell copied on its own stays plain text.
 
 **Ctrl+V** pastes tab-separated text (what a spreadsheet copies) starting at
-the selected cell, and one Ctrl+Z takes the whole paste back. When the block
+the selected cell. Quoted fields keep their contents in one cell.
+One Ctrl+Z takes the whole paste back. When the block
 has more rows or columns than the table, the table grows to fit it, the way a
 spreadsheet does: new rows at the end, new columns named `col4`, `col5`, ...
 A smaller block leaves the cells past it as they were. Two kinds of tab stop

@@ -132,3 +132,167 @@ fn a_paste_stops_at_the_edge_while_rows_are_still_coming_or_on_a_database_tab() 
     database.paste_text_into_table(block);
     assert_eq!(shape(&database), (1, 2));
 }
+
+#[test]
+fn grid_copy_and_paste_keep_multiline_cells_in_their_columns() {
+    use octa::data::CellValue;
+    let mut app = app(100);
+    let ctx = eframe::egui::Context::default();
+    app.open_new_table_tab(2, 2);
+    let source = app.active_tab;
+    let notes = [
+        ["München\tWest", "Call \"buyer\""],
+        ["First\nSecond", "A\r\nB"],
+    ];
+    for (r, row) in notes.iter().enumerate() {
+        for (c, value) in row.iter().enumerate() {
+            app.tabs[source]
+                .table
+                .set(r, c, CellValue::String((*value).into()));
+        }
+    }
+    app.tabs[source].table_state.selected_cells.insert((0, 0));
+    app.tabs[source].table_state.selected_rows.extend([1, 0]);
+    let mut out = ctx.run_ui(eframe::egui::RawInput::default(), |ui| {
+        app.do_copy(ui.ctx())
+    });
+    out.textures_delta.clear();
+    let text = out
+        .platform_output
+        .commands
+        .into_iter()
+        .find_map(|cmd| {
+            if let eframe::egui::OutputCommand::CopyText(text) = cmd {
+                Some(text)
+            } else {
+                None
+            }
+        })
+        .unwrap();
+    assert_eq!(
+        text,
+        "\"München\tWest\"\t\"Call \"\"buyer\"\"\"\n\"First\nSecond\"\t\"A\r\nB\""
+    );
+    app.open_new_table_tab(1, 1);
+    assert_ne!(app.active_tab, source);
+    let target = app.active_tab;
+    app.do_paste(&ctx, Some(text));
+    assert_eq!(shape(&app), (2, 2));
+    for (r, row) in notes.iter().enumerate() {
+        for (c, expected) in row.iter().enumerate() {
+            assert_eq!(cell(&app, r, c), *expected);
+            assert_eq!(
+                app.tabs[source].table.get(r, c).unwrap().to_string(),
+                *expected
+            );
+        }
+    }
+    assert!(app.tabs[target].table.undo());
+    assert_eq!(shape(&app), (1, 1));
+    assert_eq!(cell(&app, 0, 0), "");
+}
+
+#[test]
+fn quoted_grid_clips_and_preserves_empty_fields_and_record_endings() {
+    let mut app = app(100);
+    app.open_new_table_tab(3, 3);
+    app.tabs[0].bg_can_load_more = true;
+    let ctx = eframe::egui::Context::default();
+    let input = "one\t\"two\r\nlines\"\tlast\r\n\r\"say \"\"hi\"\"\"\t\r\nbeyond\trow";
+    app.readonly_mode = true;
+    app.do_paste(&ctx, Some(input.into()));
+    assert_eq!(cell(&app, 0, 0), "");
+    app.readonly_mode = false;
+    app.do_paste(&ctx, Some(input.into()));
+    assert_eq!(shape(&app), (3, 3));
+    assert_eq!(cell(&app, 0, 1), "two\r\nlines");
+    assert_eq!(cell(&app, 0, 2), "last");
+    assert_eq!(cell(&app, 1, 0), "");
+    assert_eq!(cell(&app, 2, 0), "say \"hi\"");
+    assert_eq!(cell(&app, 2, 1), "");
+}
+
+#[test]
+fn plain_identifiers_and_malformed_quotes_are_not_silently_rewritten() {
+    use octa::data::CellValue;
+    let mut app = app(100);
+    app.open_new_table_tab(2, 2);
+    app.tabs[0]
+        .table
+        .set(0, 0, CellValue::String("\"quoted identifier\"".into()));
+    let text = app.copy_selection_to_string().unwrap();
+    assert_eq!(text, "\"quoted identifier\"");
+    app.paste_text_into_table(&text);
+    assert_eq!(cell(&app, 0, 0), text);
+    for text in [
+        "\"unclosed\told\rnext\tend",
+        "\"closed\" suffix\told\rnext\tend",
+    ] {
+        app.paste_text_into_table(text);
+        assert_eq!(cell(&app, 0, 0), text.split('\t').next().unwrap());
+        assert_eq!(cell(&app, 0, 1), "old");
+        assert_eq!(cell(&app, 1, 0), "next");
+        assert_eq!(cell(&app, 1, 1), "end");
+    }
+}
+
+#[test]
+fn single_multiline_cell_and_empty_last_row_keep_their_shape() {
+    use octa::data::CellValue;
+    let mut app = app(100);
+    app.open_new_table_tab(1, 2);
+    app.tabs[0]
+        .table
+        .set(0, 0, CellValue::String("first\nsecond".into()));
+    assert_eq!(
+        app.copy_selection_to_string().as_deref(),
+        Some("\"first\nsecond\"")
+    );
+    app.tabs[0].table_state.selected_cols.insert(0);
+    let block = app.copy_selection_to_string().unwrap();
+    assert_eq!(block, "\"first\nsecond\"\n\"\"");
+    app.tabs[0].table_state.selected_cols.clear();
+    app.tabs[0]
+        .table
+        .set(1, 0, CellValue::String("old last row".into()));
+    app.paste_text_into_table(&block);
+    assert_eq!(shape(&app), (2, 1));
+    assert_eq!(cell(&app, 0, 0), "first\nsecond");
+    assert_eq!(app.tabs[0].table.get(1, 0), Some(&CellValue::Null));
+}
+
+#[test]
+fn quoted_grid_notes_survive_csv_save_and_reopen() {
+    use octa::data::CellValue;
+    use octa::formats::{FormatReader, csv_reader::CsvReader};
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("notes.csv");
+    std::fs::write(&path, "id,note,flag\nINV-1,old,keep\nINV-2,another,keep\n").unwrap();
+    let mut app = app(100);
+    app.load_file(path.clone());
+    let tab = app.active_tab;
+    app.tabs[tab].table_state.selected_cell = Some((0, 1));
+    let ctx = eframe::egui::Context::default();
+    app.do_paste(
+        &ctx,
+        Some("\"Follow up\ntomorrow, 10:00\"\n\"Tab:\tdetails\"".into()),
+    );
+    app.save_tab(tab);
+    assert!(
+        !app.tabs[tab].table.is_modified(),
+        "{:?}",
+        app.status_message
+    );
+    let reopened = CsvReader.read_file(&path).unwrap();
+    assert_eq!((reopened.row_count(), reopened.col_count()), (2, 3));
+    assert_eq!(
+        reopened.get(0, 1),
+        Some(&CellValue::String("Follow up\ntomorrow, 10:00".into()))
+    );
+    assert_eq!(
+        reopened.get(1, 1),
+        Some(&CellValue::String("Tab:\tdetails".into()))
+    );
+    assert_eq!(reopened.get(0, 0), Some(&CellValue::String("INV-1".into())));
+    assert_eq!(reopened.get(1, 2), Some(&CellValue::String("keep".into())));
+}
