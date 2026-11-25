@@ -38,19 +38,8 @@ impl OctaApp {
             self.tabs[self.active_tab].table_state.editing_cell = None;
             self.tabs[self.active_tab].filter_dirty = true;
         }
-        if action.delete_row
-            && !ro
-            && let Some((row, col)) = self.tabs[self.active_tab].table_state.selected_cell
-        {
-            self.tabs[self.active_tab].table.delete_row(row);
-            self.tabs[self.active_tab].table_state.editing_cell = None;
-            if self.tabs[self.active_tab].table.row_count() == 0 {
-                self.tabs[self.active_tab].table_state.selected_cell = None;
-            } else {
-                let new_row = row.min(self.tabs[self.active_tab].table.row_count() - 1);
-                self.tabs[self.active_tab].table_state.selected_cell = Some((new_row, col));
-            }
-            self.tabs[self.active_tab].filter_dirty = true;
+        if action.delete_row && !ro {
+            self.delete_selected_rows();
         }
         if !ro && (action.move_row_up || action.move_row_down) {
             self.tabs[self.active_tab].move_row_to_neighbour(action.move_row_down);

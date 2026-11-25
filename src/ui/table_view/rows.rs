@@ -10,8 +10,7 @@ use crate::ui::status_bar::format_number;
 use crate::ui::toolbar;
 
 use super::{
-    DEFAULT_COL_WIDTH, HEADER_HEIGHT, ROW_RESIZE_HANDLE_HEIGHT, TableInteraction, TableViewState,
-    mark_submenu,
+    DEFAULT_COL_WIDTH, ROW_RESIZE_HANDLE_HEIGHT, TableInteraction, TableViewState, mark_submenu,
 };
 
 pub(super) fn draw_data_row_direct(
@@ -95,11 +94,17 @@ pub(super) fn draw_data_row_direct(
     // slide underneath. With no frozen band both clips collapse to the
     // original single clip.
     let frozen_clip = egui::Rect::from_min_max(
-        egui::pos2(data_area_left, panel_rect.top() + HEADER_HEIGHT + 1.0),
+        egui::pos2(
+            data_area_left,
+            panel_rect.top() + super::header_height(font_size) + 1.0,
+        ),
         egui::pos2(frozen_right, panel_rect.bottom()),
     );
     let scrolled_clip = egui::Rect::from_min_max(
-        egui::pos2(frozen_right, panel_rect.top() + HEADER_HEIGHT + 1.0),
+        egui::pos2(
+            frozen_right,
+            panel_rect.top() + super::header_height(font_size) + 1.0,
+        ),
         panel_rect.max,
     );
 
@@ -1248,7 +1253,7 @@ pub(super) fn draw_data_row_direct(
                 state.dragging_row = Some(actual_row);
             }
             if let Some(from) = state.dragging_row {
-                let body_top = panel_rect.top() + HEADER_HEIGHT;
+                let body_top = panel_rect.top() + super::header_height(font_size);
                 let drop_rect = egui::Rect::from_min_max(
                     egui::pos2(panel_rect.left(), rn_rect.top().max(body_top)),
                     egui::pos2(

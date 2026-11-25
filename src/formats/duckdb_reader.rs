@@ -223,17 +223,40 @@ impl FormatReader for DuckDbReader {
                 .and_then(|v| v.strip_suffix('"'))
                 .map(|v| v.replace("\"\"", "\""))
         };
-        let (schema_owned, table_name) = match quoted.as_deref() {
-            Some([schema, name]) if unquote(schema).is_some() && unquote(name).is_some() => {
-                (unquote(schema), unquote(name).unwrap())
-            }
-            _ => match table.split_once('.') {
-                Some((s, t)) => (Some(s.to_owned()), t.to_owned()),
-                None => (None, table.to_owned()),
-            },
-        };
+        // Accept either a bare table name (defaults to `main`) or the
+        // `schema.table` of `TableInfo::qualified_name`. Either part may hold
+        // a dot itself (`main."sales.2026"`, `"eu.west".orders`), so the text
+        // alone cannot say where to split: the catalog can. The whole name in
+        // `main` wins, else the schema/table pair the text spells; a name the
+        // catalog does not know splits on the first `.` and fails below with
+        // DuckDB's own message.
         let conn = Connection::open(path)
             .with_context(|| format!("opening DuckDB at {}", path.display()))?;
+        if let Some([schema, name]) = quoted.as_deref()
+            && let (Some(schema), Some(name)) = (unquote(schema), unquote(name))
+        {
+            return read_named_table(&conn, path, Some(schema), name);
+        }
+        let found = table
+            .contains('.')
+            .then(|| {
+                conn.query_row(
+                    "SELECT table_schema, table_name FROM information_schema.tables \
+                     WHERE (table_schema = 'main' AND table_name = $1) \
+                        OR table_schema || '.' || table_name = $1 \
+                     ORDER BY table_schema = 'main' AND table_name = $1 DESC LIMIT 1",
+                    [table],
+                    |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+                )
+                .ok()
+            })
+            .flatten();
+        let (schema_str, table_name) = match (found, table.split_once('.')) {
+            (Some((s, t)), _) => (s, t),
+            (None, Some((s, t))) => (s.to_string(), t.to_string()),
+            (None, None) => ("main".to_string(), table.to_string()),
+        };
+        let schema_owned = (schema_str != "main").then_some(schema_str);
         read_named_table(&conn, path, schema_owned, table_name)
     }
 }

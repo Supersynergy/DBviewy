@@ -78,47 +78,82 @@ pub fn detect_delimiter(path: &Path) -> Option<u8> {
     let mut text = String::from_utf8_lossy(&raw).into_owned();
     // A full buffer most likely cut the last line short, and a short line
     // would break the consistency check below: leave it out.
-    if raw.len() == SNIFF_BYTES
-        && let Some(cut) = text.rfind('\n')
-    {
-        text.truncate(cut);
+    let cut = raw.len() == SNIFF_BYTES;
+    if cut && let Some(at) = text.rfind('\n') {
+        text.truncate(at);
     }
-    detect_delimiter_in(&text)
+    detect_in(&text, cut)
 }
 
 /// The delimiter the first 20 records agree on.
 ///
-/// Counting happens per parsed record, not per physical line, so a quoted
-/// field that spans several lines stays one record and its embedded
-/// delimiters stay inside it. Per candidate, `C` is its most common
-/// non-zero delimiter count per record. From the first record holding `C`
-/// on, every record must hold `C` or none; records **before** it may hold
-/// fewer, which is what a title block above the real header looks like
-/// (`Report generated 03.10.2026`). At least two records must hold `C` (a
-/// lone title line with a comma is not a table), unless the text is a
-/// single line. Among the candidates that pass, the one whose run starts
-/// earliest wins: the header is the first structured record, while decimal
-/// commas only start in the data below it. Then the larger `C`, then the
-/// order `,;|\t`.
+/// Per candidate, `C` is its most common non-zero count per record. From
+/// the first record holding `C` on, every record must hold `C` or none;
+/// records **before** it may hold fewer, which is what a title block above
+/// the real header looks like (`Report generated 03.10.2026`). At least two
+/// records must hold `C` (a lone title line with a comma is not a table),
+/// unless the text is a single line. Among the candidates that pass, the
+/// one whose run starts earliest wins: the header is the first structured
+/// record, while decimal commas only start in the data below it. Then the
+/// larger `C`, then the order `,;|\t`.
+///
+/// Records are parsed, so a quoted cell holding line breaks (and the
+/// delimiter) stays one record. When no candidate passes that way, the
+/// count runs per physical line instead: a title line opening a quote it
+/// never closes makes the parser swallow everything below it.
 pub fn detect_delimiter_in(content: &str) -> Option<u8> {
+    detect_in(content, false)
+}
+
+/// [`detect_delimiter_in`] for a sample that may have been `cut` short, so
+/// its last record can be a quoted cell missing its end.
+fn detect_in(content: &str, cut: bool) -> Option<u8> {
     let multiple_lines = content
         .lines()
         .filter(|l| !l.trim().is_empty())
         .nth(1)
         .is_some();
+    pick_delimiter(multiple_lines, |d| record_counts(content, d, cut))
+        .or_else(|| pick_delimiter(multiple_lines, |d| line_counts(content, d)))
+}
+
+/// Delimiters per parsed record, first 20 records.
+fn record_counts(content: &str, delim: u8, cut: bool) -> Vec<usize> {
+    const RECORDS: usize = 20;
+    let mut counts: Vec<usize> = csv::ReaderBuilder::new()
+        .delimiter(delim)
+        .has_headers(false)
+        .flexible(true)
+        .from_reader(content.as_bytes())
+        .records()
+        .map_while(Result::ok)
+        .take(RECORDS + 1)
+        .map(|r| r.len().saturating_sub(1))
+        .collect();
+    // The parser reached the end of a cut sample: its last record may be
+    // short.
+    if cut && counts.len() <= RECORDS {
+        counts.pop();
+    }
+    counts.truncate(RECORDS);
+    counts
+}
+
+/// Delimiters per physical line, first 20 lines.
+fn line_counts(content: &str, delim: u8) -> Vec<usize> {
+    content
+        .lines()
+        .take(20)
+        .map(|l| l.matches(delim as char).count())
+        .collect()
+}
+
+/// The rule of [`detect_delimiter_in`] over counts per record or per line.
+fn pick_delimiter(multiple_lines: bool, counts_for: impl Fn(u8) -> Vec<usize>) -> Option<u8> {
     // (first record of the run, count per record, delimiter)
     let mut best: Option<(usize, usize, u8)> = None;
     for &delim in b",;|\t" {
-        let counts: Vec<usize> = csv::ReaderBuilder::new()
-            .delimiter(delim)
-            .has_headers(false)
-            .flexible(true)
-            .from_reader(content.as_bytes())
-            .records()
-            .take(20)
-            .filter_map(|r| r.ok())
-            .map(|r| r.len().saturating_sub(1))
-            .collect();
+        let counts = counts_for(delim);
         let Some(c) = most_common_nonzero(&counts) else {
             continue;
         };
@@ -175,8 +210,9 @@ pub fn infer_cell_value(s: &str) -> CellValue {
     if let Ok(f) = s.parse::<f64>() {
         return CellValue::Float(f);
     }
-    // Every supported date and timestamp format contains a literal hyphen.
-    if !s.as_bytes().contains(&b'-') {
+    // Every date and timestamp layout below holds a hyphen; most text does
+    // not, and skips ten parse attempts.
+    if !s.contains('-') {
         return CellValue::String(s.to_string());
     }
     if chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").is_ok() {

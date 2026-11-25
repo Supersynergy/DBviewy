@@ -26,49 +26,43 @@ Edit cells with undo and save in the original format, or use Save As to convert 
 
 ## What it does
 
-The [user guide](https://thorstenfoltz.github.io/octa/guide/) is sorted by task, and each topic lists where a
-job lives: in the app, on the command line, and as an MCP tool for AI agents.
-
-- **[Open files](https://thorstenfoltz.github.io/octa/guide/open/)**: tabs with tiling and groups, a folder
-  sidebar, files bigger than memory, password-protected files, archives, PDF
-  tables, log files, and saved mail, calendars and contacts.
-- **[Connect](https://thorstenfoltz.github.io/octa/guide/connect/)**: S3, Azure, GCS, SFTP and WebDAV, twelve
-  live database engines from PostgreSQL to BigQuery, and REST APIs.
-- **[View and find](https://thorstenfoltz.github.io/octa/guide/view/)**: sorting, search, filters, marks,
-  bookmarks, and views for raw text, JSON trees, maps and timelines.
-- **[Edit and reshape](https://thorstenfoltz.github.io/octa/guide/edit/)**: inline edits with undo, formulas,
-  calculated columns, number bands, type changes, pivot and transpose.
-- **[Clean and protect](https://thorstenfoltz.github.io/octa/guide/clean/)**: duplicates, outliers, missing
-  values, validation rules, personal data and anonymisation.
-- **[Combine and split](https://thorstenfoltz.github.io/octa/guide/combine/)**: union, join, fuzzy and spatial
-  joins, key finding, merging edited copies, splitting into files.
-- **[Analyse](https://thorstenfoltz.github.io/octa/guide/analyse/)**: summaries, value counts, correlations,
-  time series, cohorts, funnels, customer segments, charts, forecasts, seasonality and HTML reports.
-- **[Compare and history](https://thorstenfoltz.github.io/octa/guide/compare/)**: file and database diffs,
-  schema and data drift, cell history in Git, earlier versions.
-- **[Save and export](https://thorstenfoltz.github.io/octa/guide/save/)**: save back, convert, PDF, workbooks
-  and DDL.
-- **[SQL and assistant](https://thorstenfoltz.github.io/octa/guide/sql-assistant/)**: DuckDB SQL over any open
-  file, and a chat assistant that runs on a cloud model or offline with
-  [Ollama](https://ollama.com/).
-- **[Automate](https://thorstenfoltz.github.io/octa/guide/automate/)**: recipes that replay a clean-up, batch
-  conversion, a full [command line](https://thorstenfoltz.github.io/octa/cli/) and an
-  [MCP server](https://thorstenfoltz.github.io/octa/mcp/) for Claude and other
-  [Model Context Protocol](https://modelcontextprotocol.io/) clients.
+- **[Open](https://thorstenfoltz.github.io/octa/guide/open/)** files bigger
+  than memory, password-protected files and archives, with tabs, tiling and a
+  folder sidebar, plus [views](https://thorstenfoltz.github.io/octa/guide/view/)
+  for raw text, JSON trees, maps and timelines.
+- **[Connect](https://thorstenfoltz.github.io/octa/guide/connect/)** to S3,
+  Azure, GCS, SFTP, WebDAV, twelve database engines and REST APIs.
+- **[Edit](https://thorstenfoltz.github.io/octa/guide/edit/)** cells, rows and
+  columns with undo, formulas and calculated columns, then
+  **[clean](https://thorstenfoltz.github.io/octa/guide/clean/)** duplicates,
+  outliers, missing values and personal data.
+- **[Combine](https://thorstenfoltz.github.io/octa/guide/combine/)** and
+  **[compare](https://thorstenfoltz.github.io/octa/guide/compare/)** tables:
+  joins (fuzzy and spatial too), file and database diffs, schema drift, cell
+  history in Git.
+- **[Analyse](https://thorstenfoltz.github.io/octa/guide/analyse/)** with
+  summaries, pivots, correlations, time series, cohorts, charts, forecasts and
+  HTML reports.
+- **[Query](https://thorstenfoltz.github.io/octa/guide/sql-assistant/)** any
+  open table with DuckDB SQL, or ask the built-in assistant, on a cloud model or
+  offline with [Ollama](https://ollama.com/).
+- **[Save](https://thorstenfoltz.github.io/octa/guide/save/)** in the original
+  format or convert to another one, and
+  **[automate](https://thorstenfoltz.github.io/octa/guide/automate/)** it all
+  with recipes, the [command line](https://thorstenfoltz.github.io/octa/cli/)
+  or the [MCP server](https://thorstenfoltz.github.io/octa/mcp/).
 
 ## What it reads
 
 Parquet, CSV/TSV, JSON and JSON Lines, Excel, ODS, Arrow, Avro, ORC, SQLite,
-DuckDB, GeoPackage, Microsoft Access, SAS (also transport files), QlikView QVD, SPSS, Stata, R, HDF5, MATLAB, NetCDF, NumPy, MessagePack, BSON,
-DBF, XML, TOML, YAML, Jupyter notebooks, Markdown, HTML, EPUB, PDF tables, log
-files, GeoJSON, Shapefile, GPX, KML, Delta Lake, Apache Iceberg, Lance, fixed-width text, zip/tar
-archives, SQL dumps, email and mailboxes (`.eml`, `.mbox`, Outlook `.msg`, `.pst`,
-`.olm`), calendars and contacts (`.ics`, `.vcf`), and source code. Many of those
-can be written back, and Save As converts between them.
-
-See [supported formats](https://thorstenfoltz.github.io/octa/getting-started/supported-formats/)
-for the full list and what each one can do, or open [`samples/`](samples/) for
-one small example of every one of them.
+DuckDB, GeoPackage, Microsoft Access, SAS, QlikView QVD, SPSS, Stata, R, HDF5,
+MATLAB, NetCDF, NumPy, MessagePack, BSON, DBF, XML, TOML, YAML, Jupyter
+notebooks, Markdown, HTML, EPUB, PDF tables, log files, GeoJSON, Shapefile, GPX,
+KML, Delta Lake, Apache Iceberg, Lance, fixed-width text, zip/tar archives, SQL
+dumps, email (`.eml`, `.mbox`, Outlook `.msg`, `.pst`, `.olm`), calendars and
+contacts, and source code. See
+[supported formats](https://thorstenfoltz.github.io/octa/getting-started/supported-formats/)
+for what each one can do, and [`samples/`](samples/) for an example of each.
 
 ## Installation
 
@@ -82,6 +76,38 @@ security prompts on Windows and macOS.
 
 Run the desktop app with `cargo run --release --bin octa`. The CLI executable retains the name `octa`.
 
+### Windows
+
+Install from the
+[Microsoft Store](https://apps.microsoft.com/detail/9PF9BVRT9PX4): one click, no
+SmartScreen prompt, and the Store keeps it updated.
+
+Or download `octa.exe` from the
+[releases page](https://github.com/thorstenfoltz/octa/releases) and run it, no
+installation needed. `install.ps1` (per-user, no admin) or `install.bat`
+(system-wide) set it up properly with a Start Menu entry.
+
+Those downloads are not code-signed, so Windows shows *"Windows protected your
+PC"* on first launch. It is safe to continue:
+[how to get past the SmartScreen prompt](https://thorstenfoltz.github.io/octa/troubleshooting/#windows-smartscreen-prompt).
+
+### Docker
+
+A headless image ships the CLI and the MCP server:
+
+```bash
+docker pull ghcr.io/thorstenfoltz/octa:latest
+```
+
+Mount a directory and pass any CLI flag:
+
+```bash
+docker run --rm -v "$PWD:/data" ghcr.io/thorstenfoltz/octa --schema /data/file.parquet
+```
+
+See the [container docs](https://thorstenfoltz.github.io/octa/cli/docker/) for
+the MCP invocation and Podman.
+
 ## License
 
-MIT
+[MIT](LICENSE)

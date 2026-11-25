@@ -121,6 +121,8 @@ impl OctaApp {
         let chat = super::chat_panel::ChatPanelState::new(&settings);
         Self {
             chat,
+            // Set by `main.rs`, the GUI start: the crash sentinel lives in the
+            // real logs folder, and the unit tests build an `OctaApp` too.
             pending_crash_offer: false,
             tabs: vec![TabState::new(search_mode)],
             active_tab: 0,
@@ -165,6 +167,7 @@ impl OctaApp {
             startup_update_seen: false,
             pending_release_notes: show_release_notes,
             status_message: startup_warning,
+            status_success: None,
             last_auto_save: std::time::Instant::now(),
             recent_files,
             recent_dbs,

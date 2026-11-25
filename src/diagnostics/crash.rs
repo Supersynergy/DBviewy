@@ -3,7 +3,9 @@
 //! 2. A per-session sentinel: unlocked at next launch => the previous run
 //!    ended uncleanly (a hard crash the Rust panic hook could not catch).
 
+use std::cell::Cell;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use super::logs_dir;
 
@@ -12,20 +14,42 @@ struct Session {
     _lock: std::fs::File,
 }
 
+thread_local! {
+    /// True while [`caught`] runs on this thread.
+    static CATCHING: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Run third-party code that may panic on a damaged file, and turn the panic
+/// into `Err(message)`. The panic is still logged, but it writes no
+/// `last_crash.txt`: Octa carries on, so the next start must not report a
+/// crash that never happened.
+pub fn caught<T>(f: impl FnOnce() -> T) -> Result<T, String> {
+    let outer = CATCHING.with(|c| c.replace(true));
+    let run = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+    CATCHING.with(|c| c.set(outer));
+    run.map_err(|payload| panic_message(payload.as_ref()))
+}
+
+/// Whether a panic on this thread now would be caught by [`caught`].
+fn panic_is_caught() -> bool {
+    CATCHING.with(Cell::get)
+}
+
 impl Drop for Session {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.path);
     }
 }
 
-static SESSION: std::sync::Mutex<Option<Session>> = std::sync::Mutex::new(None);
+static SESSION: Mutex<Option<Session>> = Mutex::new(None);
 
 fn crash_path() -> Option<PathBuf> {
     logs_dir().map(|d| d.join("last_crash.txt"))
 }
 
-/// Returns true if the previous run ended uncleanly (the lock was still there),
-/// then (re)creates the lock for this session. Call once at startup.
+/// Returns true if the previous run ended uncleanly, then marks this session
+/// running. Call once, from the GUI start only: tests that build an
+/// `OctaApp` must not touch the real logs folder.
 pub fn check_and_mark_running() -> bool {
     let mut session = SESSION.lock().unwrap_or_else(|err| err.into_inner());
     if session.is_some() {
@@ -108,8 +132,9 @@ pub fn install_panic_hook() {
             .unwrap_or_else(|| "unknown".to_string());
         let msg = panic_message(info.payload());
         let bt = std::backtrace::Backtrace::force_capture();
-        tracing::error!(target: "octa::panic", location = %loc, message = %msg, "panic");
-        if let Some(p) = crash_path() {
+        let caught = panic_is_caught();
+        tracing::error!(target: "octa::panic", location = %loc, message = %msg, caught, "panic");
+        if !caught && let Some(p) = crash_path() {
             if let Some(parent) = p.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }

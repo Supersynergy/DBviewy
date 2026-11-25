@@ -141,17 +141,6 @@ fn main() -> ExitCode {
     // that clap owns --version / --help output.
     let _ = (VERSION, AUTHORS, REPOSITORY);
 
-    let title = match initial_files.first() {
-        Some(p) if initial_files.len() == 1 => format!(
-            "DBviewy - {}",
-            p.file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default()
-        ),
-        Some(_) => format!("DBviewy - {} files", initial_files.len()),
-        None => "DBviewy".to_string(),
-    };
-
     let mut settings = AppSettings::load();
     // `OCTA_DEBUG=1 octa` turns diagnostics on without going through Settings.
     // That matters when the GUI is the thing being diagnosed: a user whose
@@ -159,6 +148,23 @@ fn main() -> ExitCode {
     if std::env::var_os("OCTA_DEBUG").is_some() {
         settings.debug_mode = true;
     }
+    // The window title below is translated, so the language goes in before it
+    // (`OctaApp::new` sets it again from the same settings).
+    octa::i18n::set_language(&settings.language);
+
+    let title = match initial_files.first() {
+        Some(p) if initial_files.len() == 1 => format!(
+            "DBviewy - {}",
+            p.file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default()
+        ),
+        Some(_) => format!(
+            "DBviewy - {}",
+            octa::i18n::t("msg.window_files").replace("{n}", &initial_files.len().to_string())
+        ),
+        None => "DBviewy".to_string(),
+    };
 
     // A start with files hands them to the Octa already running and exits; a
     // start without files, or any failure, opens its own window as before.
@@ -244,6 +250,10 @@ fn main() -> ExitCode {
             #[cfg(target_os = "macos")]
             macos_documents::attach(&cc.egui_ctx);
             let mut app = OctaApp::new(initial_files, settings, resolved_icon);
+            // Mark this session running and detect an unclean prior exit or a
+            // waiting crash file, to offer a debug report once. Here and not in
+            // `OctaApp::new`, which the unit tests call: they wrote the real
+            // sentinel and never cleared it, so the next start reported a crash.
             app.pending_crash_offer = octa::diagnostics::crash::check_and_mark_running()
                 || octa::diagnostics::crash::has_last_crash();
             if app.settings.open_in_running_instance

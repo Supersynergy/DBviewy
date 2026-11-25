@@ -400,9 +400,28 @@ fn run_frame_searching(
     events: Vec<egui::Event>,
     search: Option<Search<'_>>,
 ) -> egui::FullOutput {
-    frame_with(ctx, table, state, events, search, |ui, table, state, cx| {
-        super::split::draw_table_split(ui, table, state, cx);
-    })
+    run_frame_at(ctx, table, state, events, search, 13.0)
+}
+
+fn run_frame_at(
+    ctx: &egui::Context,
+    table: &mut DataTable,
+    state: &mut TableViewState,
+    events: Vec<egui::Event>,
+    search: Option<Search<'_>>,
+    font_size: f32,
+) -> egui::FullOutput {
+    frame_with_font(
+        ctx,
+        table,
+        state,
+        events,
+        search,
+        font_size,
+        |ui, table, state, cx| {
+            super::split::draw_table_split(ui, table, state, cx);
+        },
+    )
 }
 
 fn frame_with(
@@ -411,6 +430,18 @@ fn frame_with(
     state: &mut TableViewState,
     events: Vec<egui::Event>,
     search: Option<Search<'_>>,
+    render: impl FnMut(&mut egui::Ui, &mut DataTable, &mut TableViewState, TableCtx<'_>),
+) -> egui::FullOutput {
+    frame_with_font(ctx, table, state, events, search, 13.0, render)
+}
+
+fn frame_with_font(
+    ctx: &egui::Context,
+    table: &mut DataTable,
+    state: &mut TableViewState,
+    events: Vec<egui::Event>,
+    search: Option<Search<'_>>,
+    font_size: f32,
     mut render: impl FnMut(&mut egui::Ui, &mut DataTable, &mut TableViewState, TableCtx<'_>),
 ) -> egui::FullOutput {
     let filtered: Vec<usize> = (0..table.rows.len()).collect();
@@ -438,7 +469,7 @@ fn frame_with(
             alternating_row_colors: false,
             negative_numbers_red: false,
             highlight_edits: false,
-            font_size: 13.0,
+            font_size,
             cell_line_breaks: false,
             show_invisibles: false,
             shape_detail: Default::default(),
@@ -1788,4 +1819,42 @@ fn typing_edits_the_selected_cell_and_enter_goes_one_row_down() {
     // And the next value goes straight into the row below.
     frame(&mut table, &mut state, text("7"));
     assert_eq!(state.editing_cell, Some((row + 1, col, "7".to_string())));
+}
+
+/// Zoom grows the font, so the header's three lines (index, title, type) grow
+/// with it. A header of fixed height laid the title over the type line from
+/// about 150% on (user, 2026-11-18).
+#[test]
+fn a_zoomed_header_keeps_its_three_lines_apart() {
+    for font_size in [13.0_f32, 19.5, 26.0, 39.0, 65.0] {
+        let ctx = egui::Context::default();
+        let mut table = scrollable_table();
+        let mut state = TableViewState::default();
+        run_frame_at(&ctx, &mut table, &mut state, vec![], None, font_size);
+        let out = run_frame_at(&ctx, &mut table, &mut state, vec![], None, font_size);
+        let line = |text: &str| {
+            out.shapes
+                .iter()
+                .find_map(|s| match &s.shape {
+                    egui::Shape::Text(t) if t.galley.text() == text => {
+                        Some(t.galley.rect.translate(t.pos.to_vec2()))
+                    }
+                    _ => None,
+                })
+                .unwrap_or_else(|| panic!("{text:?} is painted at {font_size}"))
+        };
+        let (index, title, kind) = (line("A (1)"), line("col0"), line("Utf8"));
+        assert!(
+            index.bottom() <= title.top() + 0.5,
+            "index over title at {font_size}: {index:?} {title:?}"
+        );
+        assert!(
+            title.bottom() <= kind.top() + 0.5,
+            "title over type at {font_size}: {title:?} {kind:?}"
+        );
+        assert!(
+            index.top() >= 0.0,
+            "the header starts at the panel's top at {font_size}: {index:?}"
+        );
+    }
 }
