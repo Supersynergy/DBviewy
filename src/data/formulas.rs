@@ -20,6 +20,8 @@ mod date;
 mod lex;
 #[path = "formulas_lookup.rs"]
 mod lookup;
+#[path = "formulas_presence.rs"]
+mod presence;
 #[path = "formulas_product.rs"]
 mod product;
 #[path = "formulas_workdays.rs"]
@@ -180,6 +182,7 @@ enum FormulaToken {
 #[derive(Clone, Copy, Debug)]
 enum Function {
     Aggregate(Aggregate),
+    Presence(presence::Presence),
     Conditional(ConditionalAggregate),
     ConditionalMany(ConditionalAggregate),
     Abs,
@@ -233,6 +236,24 @@ fn function_named(name: &str) -> Option<Function> {
         ("MAX", Function::Aggregate(Max)),
         ("COUNT", Function::Aggregate(Count)),
         ("ANZAHL", Function::Aggregate(Count)),
+        (
+            "COUNTA",
+            Function::Presence(presence::Presence::CountValues),
+        ),
+        (
+            "ANZAHL2",
+            Function::Presence(presence::Presence::CountValues),
+        ),
+        (
+            "COUNTBLANK",
+            Function::Presence(presence::Presence::CountBlanks),
+        ),
+        (
+            "ANZAHLLEEREZELLEN",
+            Function::Presence(presence::Presence::CountBlanks),
+        ),
+        ("ISBLANK", Function::Presence(presence::Presence::IsBlank)),
+        ("ISTLEER", Function::Presence(presence::Presence::IsBlank)),
         ("MEDIAN", Function::Aggregate(Median)),
         (
             "COUNTIF",
@@ -463,7 +484,10 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                 while bytes.get(i).is_some_and(u8::is_ascii_digit) {
                     i += 1;
                 }
-                if !column_fixed && !row_fixed && row_start == i {
+                if !column_fixed
+                    && !row_fixed
+                    && (row_start == i || lex::numbered_function(bytes, col_start, i))
+                {
                     if lex::has_intl_suffix(bytes, i) {
                         i += 5;
                     }
@@ -661,6 +685,7 @@ fn eval_function(
         Function::Index => return lookup::evaluate_index(tokens, pos, context),
         Function::Match => return lookup::evaluate_match(tokens, pos, context),
         Function::Calendar(kind) => return date::evaluate(kind, tokens, pos, context),
+        Function::Presence(kind) => return presence::evaluate(kind, tokens, pos, context),
         Function::Workdays(kind, intl) => {
             return workdays::evaluate(kind, intl, tokens, pos, context);
         }

@@ -639,6 +639,12 @@ tilde to escape a wildcard, `""` for blank cells and `"<>"` for nonblank
 cells. Match the shape of the criterion and value ranges to make the
 cell pairing clear.
 
+For a completeness check, use `COUNTA(A1:C20)` to count stored values
+and `COUNTBLANK(A1:C20)` to count blanks. Both count stored empty text,
+but neither treats a space or zero as blank. `IF(ISBLANK(C1),1,0)`
+flags only a truly empty cell. The German names are ANZAHL2,
+ANZAHLLEEREZELLEN and ISTLEER. Unloaded rows do not count as blanks.
+
 Use `COUNTIFS`, `SUMIFS` or `AVERAGEIFS` when every criterion must match.
 For example, `=SUMIFS(C1:C20,A1:A20,"West",B1:B20,"Paid")` adds amounts
 from C only for paid records in West. Give each range the same height

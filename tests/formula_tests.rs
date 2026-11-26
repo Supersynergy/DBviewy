@@ -33,6 +33,117 @@ fn formula_table() -> DataTable {
     }
 }
 
+#[test]
+fn completeness_distinguishes_null_empty_text_zero_and_unloaded_cells() {
+    use CellValue::{Binary, Bool, Date, DateTime, Float, Int, Null, String as Text};
+    let mut table = DataTable {
+        rows: vec![
+            vec![Null, Text("".into()), Int(0)],
+            vec![Bool(false), Date("2024-03-01".into()), Text(" ".into())],
+            vec![Binary(vec![0, 1]), Float(0.0)],
+            vec![
+                Text("#N/A".into()),
+                DateTime("2024-03-01 06:30:00".into()),
+                Null,
+            ],
+        ],
+        row_offset: 2000,
+        total_rows: Some(2_000_000),
+        ..formula_table()
+    };
+    for (formula, count) in [
+        ("COUNTA(C4:A1)", 9.0),
+        ("ANZAHL2 (A1:C4)", 9.0),
+        ("COUNTBLANK(C4:A1)", 4.0),
+        ("ANZAHLLEEREZELLEN(A1:ZZ9999999999)", 4.0),
+        ("COUNTBLANK(A999999998:A9999999999)", 0.0),
+        ("COUNTA(Z1:ZX9999999999)", 0.0),
+        ("COUNTBLANK(C3)", 1.0),
+        ("ISTLEER((A1))", 1.0),
+        ("ISBLANK(B1)", 0.0),
+        ("ISBLANK(C1)", 0.0),
+        ("ISBLANK(C3)", 1.0),
+        ("ISBLANK(0)", 0.0),
+        (r#"ISBLANK("")"#, 0.0),
+        (r#"COUNTA(A1; ""; WAHR; 2+5; B1)"#, 4.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(count), "{formula}");
+    }
+    assert_eq!(evaluate_formula("ISBLANK(A9000)", &table), None);
+    assert_eq!(evaluate_formula("ISBLANK(Z1)", &table), None);
+    assert_eq!(evaluate_formula("COUNT(A1:C4)", &table), Some(2.0));
+    table.set(0, 0, Text("received".into()));
+    table.set(0, 1, Null);
+    assert_eq!(evaluate_formula("ISBLANK(A1)", &table), Some(0.0));
+    assert_eq!(evaluate_formula("ISBLANK(B1)", &table), Some(1.0));
+    assert_eq!(evaluate_formula("COUNTBLANK(A1:C4)", &table), Some(3.0));
+    assert_eq!(evaluate_formula("COUNTA(A1:C4)", &table), Some(9.0));
+}
+
+#[test]
+fn completeness_validates_arguments_even_in_an_inactive_branch() {
+    let table = formula_table();
+    for formula in [
+        "COUNTA()",
+        "COUNTA(A1,)",
+        "COUNTBLANK(A1,A2)",
+        "COUNTBLANK(A1:)",
+        "COUNTBLANK(2)",
+        "ISBLANK()",
+        "ISBLANK(A1:A2)",
+        "ISBLANK(A1,A2)",
+        "IF(TRUE,7,COUNTBLANK(A1,A2))",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+    assert_eq!(
+        evaluate_formula("IF(TRUE,7,COUNTA(1/0))", &table),
+        Some(7.0)
+    );
+    assert_eq!(
+        evaluate_formula("IFERROR(ISBLANK(A9000),8)", &table),
+        Some(8.0)
+    );
+    let max = format!("COUNTA({})", vec!["0"; 255].join(","));
+    let rejected = format!("COUNTA({})", vec!["0"; 256].join(","));
+    assert_eq!(evaluate_formula(&max, &table), Some(255.0));
+    assert_eq!(evaluate_formula(&rejected, &table), None);
+}
+
+#[test]
+fn completeness_report_keeps_zero_false_and_missing_distinct_in_xlsx() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("approvals.csv");
+    std::fs::write(&source,
+        "Order,Approval,Recorded,Missing,Review\nINV-1,FALSE,0,0,0\nINV-2,,0,0,0\nINV-3,TBD,0,0,0\nINV-4,0,0,0,0\n"
+    ).unwrap();
+    let mut table = CsvReader.read_file(&source).unwrap();
+    for (row, col, formula) in [
+        (0, 2, "=COUNTA(B1:B4)"),
+        (0, 3, "=COUNTBLANK(B1:B4)"),
+        (1, 4, "=IF(ISBLANK(B2),1,0)"),
+    ] {
+        assert!(commit_cell_text(
+            &mut table,
+            row,
+            col,
+            formula.into(),
+            BinaryDisplayMode::default()
+        ));
+    }
+    let output = dir.path().join("approval-report.xlsx");
+    ExcelReader.write_file(&output, &table).unwrap();
+    let report = ExcelReader.read_file(&output).unwrap();
+    assert_eq!(evaluate_formula("C1", &report), Some(3.0));
+    assert_eq!(evaluate_formula("D1", &report), Some(1.0));
+    assert_eq!(evaluate_formula("E2", &report), Some(1.0));
+    assert_eq!(evaluate_formula("COUNTBLANK(B1:B4)", &report), Some(1.0));
+    assert_eq!(evaluate_formula("ISBLANK(B1)", &report), Some(0.0));
+    assert_eq!(evaluate_formula("ISBLANK(B4)", &report), Some(0.0));
+}
+
 // --- Basic arithmetic ---
 
 #[test]

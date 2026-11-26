@@ -245,6 +245,7 @@ impl<'a> FormulaRows<'a> {
                 i += 1;
                 continue;
             }
+            let name_start = i;
             while bytes.get(i).is_some_and(u8::is_ascii_alphabetic) {
                 i += 1;
             }
@@ -253,6 +254,12 @@ impl<'a> FormulaRows<'a> {
             let start = i;
             while bytes.get(i).is_some_and(u8::is_ascii_digit) {
                 i += 1;
+            }
+            if start != i
+                && (name_start == 0 || bytes[name_start - 1] != b'$')
+                && formula_lex::numbered_function(bytes, name_start, i)
+            {
+                continue;
             }
             if start != i
                 && let Ok(row @ 1..) = source[start..i].parse::<usize>()

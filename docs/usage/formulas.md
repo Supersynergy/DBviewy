@@ -72,6 +72,19 @@ and start at a fixed row. To order or restart totals by another column, use
 
 In a range or a single-cell argument, these functions include numbers and numeric text, and skip blanks and other values. `COUNT` returns the number of included cells and scalar arguments. `MEDIAN` skips non-finite values and averages the two middle numbers when there is an even count. When there are no numbers, `AVERAGE` and `MEDIAN` return no numeric result; the other four functions return zero.
 
+### Check for missing entries
+
+| Formula | What it checks |
+|---------|----------------|
+| `=COUNTA(A1:C20)` | Counts stored values, including text, dates, zero and `FALSE`. |
+| `=COUNTBLANK(A1:C20)` | Counts empty cells and stored empty text. |
+| `=IF(ISBLANK(C1),1,0)` | Flags a truly empty cell, not stored empty text. |
+
+The German names are `ANZAHL2`, `ANZAHLLEEREZELLEN` and `ISTLEER`.
+`COUNTA` also counts stored empty text, so it is not the inverse of
+`COUNTBLANK`. Neither a space nor zero is blank. The two counts use only
+loaded cells; `ISBLANK` returns no result for an unloaded address.
+
 ### Conditional totals, counts and averages
 
 | Formula | Result |

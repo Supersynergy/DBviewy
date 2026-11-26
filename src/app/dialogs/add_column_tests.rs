@@ -551,6 +551,47 @@ fn classic_lookup_fill_reuses_fixed_catalogs_without_moving_them() {
 }
 
 #[test]
+fn german_counta_fills_relative_rows_without_shifting_its_function_name() {
+    use data::CellValue::{Bool, Int, Null, String as Text};
+    let mut app = workbook_app();
+    app.tabs[0].table = data::DataTable {
+        columns: ["ID", "approval", "receipt"]
+            .map(|name| data::ColumnInfo {
+                name: name.into(),
+                data_type: "Utf8".into(),
+            })
+            .to_vec(),
+        rows: vec![
+            vec![Int(1), Null, Text("".into())],
+            vec![Int(2), Bool(false), Int(0)],
+            vec![Int(3), Null, Null],
+        ],
+        ..data::DataTable::empty()
+    };
+    let formula = "AnZaHl2 (B1:C1)";
+    let mut shifted = String::new();
+    assert_eq!(
+        FormulaRows::new(formula).at(2, &mut shifted),
+        Some("AnZaHl2 (B3:C3)")
+    );
+    assert_eq!(
+        FormulaRows::new("ANZAHL2+$ANZAHL2").at(2, &mut shifted),
+        Some("ANZAHL4+$ANZAHL4")
+    );
+    app.tabs[0].new_col_name = "Recorded".into();
+    app.tabs[0].new_col_formula = format!("={formula}");
+    add_formula_column(&mut app);
+    let table = &mut app.tabs[0].table;
+    assert_eq!(table.col_count(), 4);
+    assert_eq!(table.get(0, 3), Some(&Int(1)));
+    assert_eq!(table.get(1, 3), Some(&Int(2)));
+    assert_eq!(table.get(2, 3), Some(&Int(0)));
+    assert_eq!(table.undo_stack.len(), 1);
+    table.undo();
+    assert_eq!(table.col_count(), 3);
+}
+
+#[test]
 fn intl_workday_formulas_shift_dates_but_keep_the_holiday_list_fixed() {
     use data::CellValue::{Date, Null};
     let table = data::DataTable {
