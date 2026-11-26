@@ -6,7 +6,7 @@ use regex::{Regex, RegexBuilder};
 
 use super::{
     CellValue, Comparison as Compare, DataTable, Evaluation, FormulaToken as Token, aggregate_cell,
-    eval_expression,
+    date, eval_expression,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -289,8 +289,9 @@ fn criterion_piece<'a, 't: 'a>(
             CellValue::Float(value) => CriterionInput::Number(*value),
             CellValue::Null => CriterionInput::Number(0.0),
             CellValue::Bool(value) => CriterionInput::Boolean(*value),
-            CellValue::String(value) | CellValue::Date(value) | CellValue::DateTime(value) => {
-                CriterionInput::Text(value.as_str().into())
+            CellValue::String(value) => CriterionInput::Text(value.as_str().into()),
+            cell @ (CellValue::Date(_) | CellValue::DateTime(_)) => {
+                CriterionInput::Number(date::criterion_serial(cell)?)
             }
             _ => return None,
         },
@@ -373,6 +374,7 @@ impl Condition {
                     CellValue::Int(value) => Some(*value as f64),
                     CellValue::Float(value) => Some(*value),
                     CellValue::String(value) => value.trim().parse().ok(),
+                    CellValue::Date(_) | CellValue::DateTime(_) => date::criterion_serial(cell),
                     _ => None,
                 };
                 number

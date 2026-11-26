@@ -1253,6 +1253,150 @@ fn multi_criteria_enforces_the_excel_pair_limit() {
 }
 
 #[test]
+fn conditional_date_criteria_keep_clock_time_and_leave_date_text_alone() {
+    use CellValue::{Date, DateTime, Float, Int, Null, String as Text};
+    // 15 March 2024 in Excel's 1900 calendar.
+    let table = DataTable {
+        rows: vec![
+            vec![Date("2024-03-15".into()), Date("2024-03-15".into())],
+            vec![
+                DateTime("2024-03-15T12:00:00+05:30".into()),
+                DateTime("2024-03-15 12:00:00".into()),
+            ],
+            vec![Text("2024-03-15".into()), Text("2024-03-15".into())],
+            vec![Int(45_366), Date("1900-02-29".into())],
+            vec![Float(45_366.5), Date("1899-12-31".into())],
+            vec![
+                DateTime("2024-03-15 00:15:00+0530".into()),
+                DateTime("2024-03-15 00:00:00.500".into()),
+            ],
+            vec![DateTime("2024-03-15T00:00:00.500".into()), Null],
+            vec![DateTime("1900-02-29 12:00:00".into()), Null],
+        ],
+        ..formula_table()
+    };
+    for (formula, count) in [
+        ("COUNTIF(A1:A8,DATE(2024,3,15))", 2.0),
+        ("COUNTIF(A1:A8,B1)", 2.0),
+        ("COUNTIF(A1:A8,B2)", 2.0),
+        (r#"COUNTIF(A1:A8,"="&B2)"#, 2.0),
+        (r#"COUNTIF(A1:A8,">"&B1)"#, 4.0),
+        ("COUNTIF(A1:A8,B6)", 1.0),
+        ("COUNTIF(A1:A8,B3)", 2.0),
+        (r#"COUNTIF(A1:A8,">="&DATE(2024,3,15))"#, 6.0),
+        (r#"COUNTIF(A1:A8,"<>")"#, 8.0),
+        ("IFERROR(COUNTIF(A1:A8,B4),99)", 99.0),
+        ("IFERROR(COUNTIF(A1:A8,B5),77)", 77.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(count), "{formula}");
+    }
+    assert_eq!(evaluate_formula("COUNTIF(A1:A8,B4)", &table), None);
+    assert_eq!(evaluate_formula("COUNTIF(A1:A8,A8)", &table), None);
+
+    let boundary = DataTable {
+        rows: vec![
+            vec![DateTime("2024-03-31 23:59:59.999999999".into())],
+            vec![DateTime("2024-04-01T00:00:00.000000001".into())],
+            vec![DateTime("2024-03-31T23:45:00-03:00".into())],
+        ],
+        ..formula_table()
+    };
+    for (formula, count) in [
+        (r#"COUNTIF(A1:A3,"<"&DATE(2024,4,1))"#, 2.0),
+        ("COUNTIF(A1:A3,DATE(2024,4,1))", 0.0),
+        (r#"COUNTIF(A1:A3,">"&DATE(2024,4,1))"#, 1.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &boundary),
+            Some(count),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn xlsx_month_end_totals_include_the_last_evening_but_not_next_month() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::{ExcelDateTime, Format, Workbook};
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("invoices.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet();
+    for (col, name) in ["Issued", "Amount", "Status", "March total", "Paid invoices"]
+        .into_iter()
+        .enumerate()
+    {
+        sheet.write_string(0, col as u16, name).unwrap();
+    }
+    let timestamp = Format::new().set_num_format("yyyy-mm-dd hh:mm:ss");
+    for (i, (when, amount, status)) in [
+        ("2024-02-29T23:59:59", 900, "Paid"),
+        ("2024-03-01T00:00:00", 240, "Paid"),
+        ("2024-03-31T23:59:59", 60, "Paid"),
+        ("2024-04-01T00:00:00", 1200, "Paid"),
+        ("2024-03-10T12:00:00", 400, "Overdue"),
+        ("2024-03-26", 700, "Paid"),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let row = i as u32 + 1;
+        if i == 5 {
+            sheet.write_string(row, 0, when).unwrap();
+        } else {
+            let date = ExcelDateTime::parse_from_str(when).unwrap();
+            sheet
+                .write_datetime_with_format(row, 0, &date, &timestamp)
+                .unwrap();
+        }
+        sheet.write_number(row, 1, amount).unwrap();
+        sheet.write_string(row, 2, status).unwrap();
+    }
+    sheet.write_number(1, 3, 0).unwrap();
+    sheet.write_number(1, 4, 0).unwrap();
+    book.save(&path).unwrap();
+
+    let mut table = ExcelReader.read_file(&path).unwrap();
+    assert!(matches!(table.get(2, 0), Some(CellValue::DateTime(_))));
+    assert_eq!(
+        table.get(5, 0),
+        Some(&CellValue::String("2024-03-26".into()))
+    );
+    table.set(2, 1, CellValue::Int(65));
+    let criteria = r#"A1:A6,">="&DATE(2024,3,1),A1:A6,"<"&DATE(2024,4,1),C1:C6,"Paid""#;
+    assert_eq!(
+        evaluate_formula(&format!("AVERAGEIFS(B1:B6,{criteria})"), &table),
+        Some(152.5)
+    );
+    for (col, formula) in [
+        (3, format!("=SUMIFS(B1:B6,{criteria})")),
+        (4, format!("=COUNTIFS({criteria})")),
+    ] {
+        assert!(commit_cell_text(
+            &mut table,
+            0,
+            col,
+            formula,
+            BinaryDisplayMode::default()
+        ));
+    }
+
+    let report = dir.path().join("march-report.xlsx");
+    ExcelReader.write_file(&report, &table).unwrap();
+    let reopened = ExcelReader.read_file(&report).unwrap();
+    assert_eq!(evaluate_formula("D1", &reopened), Some(305.0));
+    assert_eq!(evaluate_formula("E1", &reopened), Some(2.0));
+    assert_eq!(
+        evaluate_formula(&format!("SUMIFS(B1:B6,{criteria})"), &reopened),
+        Some(305.0)
+    );
+    assert_eq!(evaluate_formula("DAY(A3)", &reopened), Some(31.0));
+    assert_eq!(evaluate_formula("DAY(A4)", &reopened), Some(1.0));
+}
+
+#[test]
 fn multi_criteria_formula_survives_inline_save_and_reopen_xlsx() {
     use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
     use octa::ui::table_view::commit_cell_text;

@@ -1,5 +1,5 @@
 //! Gregorian calendar functions for the numeric formula evaluator.
-use chrono::{DateTime, Datelike, Days, NaiveDate, TimeDelta};
+use chrono::{DateTime, Datelike, Days, NaiveDate, TimeDelta, Timelike};
 
 use super::control::{arguments, unparen};
 use super::{CellValue, Evaluation, FormulaBadCell, FormulaToken as Token, eval_complete, snippet};
@@ -85,6 +85,59 @@ pub(super) fn whole(value: f64) -> Option<i64> {
 
 pub(super) fn serial(date: NaiveDate) -> f64 {
     ((date - FIRST).num_days() + 1 + i64::from(date >= MARCH_1900)) as f64
+}
+
+/// The serial used by numeric criteria, including a timestamp's local
+/// clock time. Plain strings do not participate in this coercion.
+pub(super) fn criterion_serial(cell: &CellValue) -> Option<f64> {
+    let (day, fraction) = match cell {
+        CellValue::Date(text) => (iso_date(text)?, 0.0),
+        CellValue::DateTime(text) => {
+            let text = text.trim();
+            let offset = text
+                .as_bytes()
+                .get(11..)
+                .is_some_and(|clock| clock.iter().any(|b| matches!(b, b'+' | b'-' | b'Z' | b'z')));
+            let time = if offset {
+                // Parse offsets before entering the generic date parser,
+                // which would normalise to UTC and can move the date.
+                DateTime::parse_from_rfc3339(text)
+                    .ok()
+                    .or_else(|| {
+                        [
+                            "%Y-%m-%d %H:%M:%S%.f%z",
+                            "%Y-%m-%dT%H:%M:%S%.f%z",
+                            "%Y-%m-%d %H:%M%z",
+                            "%Y-%m-%dT%H:%M%z",
+                        ]
+                        .iter()
+                        .find_map(|format| DateTime::parse_from_str(text, format).ok())
+                    })?
+                    .naive_local()
+            } else {
+                crate::data::time_calc::cell_to_datetime(cell)?.0
+            };
+            let ns = time.nanosecond();
+            // Excel serials do not represent leap seconds.
+            if ns >= 1_000_000_000 {
+                return None;
+            }
+            let seconds = f64::from(time.num_seconds_from_midnight()) + f64::from(ns) / 1e9;
+            (time.date(), seconds / 86_400.0)
+        }
+        _ => return None,
+    };
+    if !(FIRST..=LAST).contains(&day) {
+        return None;
+    }
+    let start = serial(day);
+    if fraction == 0.0 {
+        Some(start)
+    } else {
+        // A sub-microsecond time can round to midnight at serial-number
+        // precision. Keep it on the correct side of both day boundaries.
+        Some((start + fraction).clamp(start.next_up(), (start + 1.0).next_down()))
+    }
 }
 
 fn normalise_date(year: i64, month: i64, day: i64) -> Option<NaiveDate> {

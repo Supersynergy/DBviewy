@@ -117,6 +117,22 @@ the criterion cells advance with each row. For example,
 current row's region and status. DBviewy can reuse the result when the
 same pair appears again.
 
+### Total records in a date window
+
+Use the first day of the next period as the upper bound. This includes
+timestamps throughout the last day. For example, with invoice dates in A
+and amounts in B, this totals March invoices:
+
+```text
+=SUMIFS(B1:B100,A1:A100,">="&DATE(2024,3,1),A1:A100,"<"&DATE(2024,4,1))
+```
+
+The conditional functions compare typed dates and timestamps as serial
+numbers, including the time of day as a fraction. A typed date in D1 also
+works as a threshold with `">="&D1`. Timestamps with an offset use their
+displayed date and time, without converting to UTC. Plain text such as
+`"2024-03-01"` is not converted to a date in a numeric comparison.
+
 ### Weighted totals and averages
 
 Use `=SUMPRODUCT(B1:B100,C1:C100)` to multiply each unit price in B

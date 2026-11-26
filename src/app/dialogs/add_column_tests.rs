@@ -807,6 +807,56 @@ fn criteria_fill_cache_keeps_loaded_blanks_distinct_from_missing_rows() {
 }
 
 #[test]
+fn criteria_fill_cache_distinguishes_typed_dates_from_equal_text() {
+    use data::CellValue::{Date, DateTime, Int, String as Text};
+    let table = data::DataTable {
+        columns: ["source", "criterion"]
+            .map(|name| data::ColumnInfo {
+                name: name.into(),
+                data_type: "Utf8".into(),
+            })
+            .to_vec(),
+        rows: vec![
+            vec![Date("2024-03-15".into()), Date("2024-03-15".into())],
+            vec![Int(45_366), Text("2024-03-15".into())],
+            vec![Int(45_366), Date("2024-03-15".into())],
+            vec![Text("2024-03-15".into()), Text("2024-03-15".into())],
+            vec![
+                DateTime("2024-03-15 12:00:00".into()),
+                DateTime("2024-03-15 12:00:00".into()),
+            ],
+            vec![
+                data::CellValue::Float(45_366.5),
+                Text("2024-03-15 12:00:00".into()),
+            ],
+        ],
+        ..data::DataTable::empty()
+    };
+    let formula = "COUNTIF($A$1:$A$6,B1)";
+    let template = FormulaRows::new(formula);
+    let keys = template.memo_inputs().unwrap();
+    let normal = fill_shifted_template(
+        &template,
+        &table,
+        &[],
+        data::evaluate_formula_with_diagnostics,
+    );
+    let mut calls = 0;
+    let memo = fill_shifted_template(&template, &table, &keys, |formula, table| {
+        calls += 1;
+        data::evaluate_formula_with_diagnostics(formula, table)
+    });
+    assert_eq!(
+        normal.0,
+        [(0, 3.0), (1, 2.0), (2, 3.0), (3, 2.0), (4, 2.0), (5, 1.0)]
+    );
+    assert_eq!(memo.0, normal.0);
+    assert!(memo.1.is_none());
+    assert!(normal.1.is_none());
+    assert_eq!(calls, 4);
+}
+
+#[test]
 fn criteria_fill_bench_matches_each_group_total_using_the_real_evaluator() {
     use data::CellValue::{Int, String as Text};
     const ROWS: usize = 3_000;

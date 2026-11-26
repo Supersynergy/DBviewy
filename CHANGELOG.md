@@ -16,6 +16,7 @@
 - Look up a value by row and column with `INDEX` and `MATCH` (`VERGLEICH`).
 - Count workdays and calculate deadlines with holidays and custom weekends.
 - Reuse totals for repeated criteria when filling a formula column over fixed ranges.
+- Count or total invoices by date range, including XLSX timestamps on the last day.
 
 - Integrate Octa 0.22.1, keeping DBviewy's workbook preservation, per-session
   crash markers, assistant integrations, and local table interface.

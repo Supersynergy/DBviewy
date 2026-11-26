@@ -451,6 +451,8 @@ enum FormulaMemoCell<'a> {
     Integer(i64),
     Float(u64),
     Text(&'a str),
+    Date(&'a str),
+    DateTime(&'a str),
 }
 
 impl<'a> FormulaMemoCell<'a> {
@@ -464,9 +466,9 @@ impl<'a> FormulaMemoCell<'a> {
             Some(CellValue::Float(value)) if value.is_finite() => {
                 Some(Self::Float(value.to_bits()))
             }
-            Some(
-                CellValue::String(value) | CellValue::Date(value) | CellValue::DateTime(value),
-            ) if value.len() <= 256 => Some(Self::Text(value)),
+            Some(CellValue::String(value)) if value.len() <= 256 => Some(Self::Text(value)),
+            Some(CellValue::Date(value)) if value.len() <= 256 => Some(Self::Date(value)),
+            Some(CellValue::DateTime(value)) if value.len() <= 256 => Some(Self::DateTime(value)),
             _ => None,
         }
     }

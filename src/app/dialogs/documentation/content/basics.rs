@@ -640,6 +640,13 @@ and width. For SUMIFS and AVERAGEIFS, give the value range first.
 When filling a column, fix the source ranges and let the criterion cells
 move with each row. Repeated region and status pairs can reuse their total.
 
+For a monthly invoice total with dates in A and amounts in B, use
+`=SUMIFS(B1:B100,A1:A100,">="&DATE(2024,3,1),A1:A100,"<"&DATE(2024,4,1))`.
+Stopping before 1 April includes timestamps throughout 31 March.
+You can also use a typed date cell, for example `">="&D1`.
+Plain date text stays text. Timestamps with an offset compare by their
+displayed date and time, not UTC.
+
 **Weighted totals**: `=SUMPRODUCT(B1:B20,C1:C20)` multiplies each
 price by its quantity, then adds the products. Divide by `SUM(C1:C20)`
 for the weighted unit price. Give each range the same height and
