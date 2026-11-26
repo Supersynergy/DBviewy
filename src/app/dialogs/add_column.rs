@@ -263,65 +263,73 @@ impl<'a> FormulaRows<'a> {
         Self { source, relative }
     }
 
-    /// Memoize only a whole lookup call whose first argument is itself
-    /// the sole moving reference. The other arguments cannot vary by row.
-    /// Row numbers are one-based to keep the same overflow check as `at`.
-    fn repeated_lookup_key(&self) -> Option<(usize, usize)> {
-        let [(_, row)] = self.relative.as_slice() else {
+    /// Only cache whole calls whose moving references are bare cells in
+    /// criterion slots. Range endpoints and other expressions cannot be
+    /// keyed by those cells' values alone.
+    fn memo_inputs(&self) -> Option<Vec<(usize, usize)>> {
+        if !(1..=MAX_MEMO_INPUTS).contains(&self.relative.len()) {
             return None;
+        }
+        let open = self.source.find('(')?;
+        let body = self.source[open + 1..].trim_ascii_end().strip_suffix(')')?;
+        let name = self.source[..open].trim_ascii().to_uppercase();
+        let accepts = |arg: usize| match name.as_str() {
+            "XLOOKUP" | "XVERWEIS" | "XMATCH" | "XVERGLEICH" | "MATCH" | "VERGLEICH"
+            | "VLOOKUP" | "SVERWEIS" | "HLOOKUP" | "WVERWEIS" => arg == 0,
+            "COUNTIF" | "ZÄHLENWENN" | "SUMIF" | "SUMMEWENN" | "AVERAGEIF" | "MITTELWERTWENN" => {
+                arg == 1
+            }
+            "COUNTIFS" | "ZÄHLENWENNS" => arg % 2 == 1,
+            "SUMIFS" | "SUMMEWENNS" | "AVERAGEIFS" | "MITTELWERTWENNS" => arg >= 2 && arg % 2 == 0,
+            _ => false,
         };
-        let (function, args) = self.source.split_once('(')?;
-        if ![
-            "XLOOKUP",
-            "XVERWEIS",
-            "XMATCH",
-            "XVERGLEICH",
-            "MATCH",
-            "VERGLEICH",
-            "VLOOKUP",
-            "SVERWEIS",
-            "HLOOKUP",
-            "WVERWEIS",
-        ]
-        .iter()
-        .any(|name| name.eq_ignore_ascii_case(function.trim_ascii()))
-        {
-            return None;
-        }
-        let body = args.trim_ascii_end().strip_suffix(')')?;
-        let (arg, _) = body.split_once([',', ';'])?;
-        let arg = arg.trim_ascii();
-        let cell = arg.strip_prefix('$').unwrap_or(arg);
-        let letters = cell.bytes().take_while(u8::is_ascii_alphabetic).count();
-        let (col, digits) = cell.split_at(letters);
-        if letters == 0
-            || !digits.bytes().all(|b| b.is_ascii_digit())
-            || digits.parse::<usize>().ok()? != *row
-        {
-            return None;
-        }
-        let col = col
-            .bytes()
-            .try_fold(0usize, |col, letter| {
-                col.checked_mul(26)?
-                    .checked_add(usize::from(letter.to_ascii_uppercase() - b'A' + 1))
-            })?
-            .checked_sub(1)?;
-
-        // Do not apply early reuse to an outer expression or an extra call
-        // after the lookup. Doubled quotes toggle twice without visiting
-        // any unquoted characters inside the literal.
-        let mut depth = 0usize;
-        let mut quoted = false;
-        for b in body.bytes() {
-            match b {
+        // Scan just the top-level arguments. Doubled quotes toggle twice,
+        // so punctuation inside a quoted string remains part of that string.
+        let mut inputs = Vec::with_capacity(self.relative.len());
+        let mut moving = self.relative.iter().peekable();
+        let (mut start, mut arg, mut depth, mut quoted) = (open + 1, 0, 0usize, false);
+        for (relative_end, ch) in body.bytes().chain([b',']).enumerate() {
+            let end = open + 1 + relative_end;
+            match ch {
                 b'"' => quoted = !quoted,
                 b'(' if !quoted => depth += 1,
                 b')' if !quoted => depth = depth.checked_sub(1)?,
+                b',' | b';' if !quoted && depth == 0 => {
+                    if let Some((span, row)) = moving.peek()
+                        && span.start < end
+                    {
+                        if !accepts(arg) {
+                            return None;
+                        }
+                        let raw = &self.source[start..end];
+                        let trimmed = raw.trim_ascii_start();
+                        let leading = raw.len() - trimmed.len();
+                        let trimmed = trimmed.trim_ascii_end();
+                        let cell = trimmed.strip_prefix('$').unwrap_or(trimmed);
+                        let letters = cell.bytes().take_while(u8::is_ascii_alphabetic).count();
+                        let (column, digits) = cell.split_at(letters);
+                        let digit_start = start + leading + (trimmed.len() - cell.len()) + letters;
+                        if letters == 0 || *span != (digit_start..digit_start + digits.len()) {
+                            return None;
+                        }
+                        let col = column
+                            .bytes()
+                            .try_fold(0usize, |n, letter| {
+                                n.checked_mul(26)?.checked_add(usize::from(
+                                    letter.to_ascii_uppercase() - b'A' + 1,
+                                ))
+                            })?
+                            .checked_sub(1)?;
+                        inputs.push((*row, col));
+                        moving.next();
+                    }
+                    start = end + 1;
+                    arg += 1;
+                }
                 _ => {}
             }
         }
-        (depth == 0 && !quoted).then_some((*row, col))
+        (!quoted && depth == 0 && moving.next().is_none()).then_some(inputs)
     }
 
     fn at<'b>(&'b self, offset: usize, buffer: &'b mut String) -> Option<&'b str> {
@@ -377,6 +385,8 @@ fn running_sum_range(formula: &str) -> Option<(&str, usize)> {
 
 type FormulaResults = Vec<(usize, f64)>;
 
+const MAX_MEMO_INPUTS: usize = 8;
+
 fn fill_running_sum(formula: &str, table: &data::DataTable) -> Option<FormulaResults> {
     let (column, first_end) = running_sum_range(formula)?;
     let rows = table.row_count();
@@ -424,16 +434,18 @@ fn fill_formula_template(
         };
         return (results, outcome.bad_cell);
     }
+    let inputs = template.memo_inputs().unwrap_or_default();
     fill_shifted_template(
         &template,
         table,
-        template.repeated_lookup_key(),
+        &inputs,
         data::evaluate_formula_with_diagnostics,
     )
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-enum LookupMemoKey<'a> {
+enum FormulaMemoCell<'a> {
+    Missing,
     Blank,
     Boolean(bool),
     Integer(i64),
@@ -441,11 +453,12 @@ enum LookupMemoKey<'a> {
     Text(&'a str),
 }
 
-impl<'a> LookupMemoKey<'a> {
+impl<'a> FormulaMemoCell<'a> {
     fn from_cell(cell: Option<&'a data::CellValue>) -> Option<Self> {
         use data::CellValue;
         match cell {
-            None | Some(CellValue::Null) => Some(Self::Blank),
+            None => Some(Self::Missing),
+            Some(CellValue::Null) => Some(Self::Blank),
             Some(CellValue::Bool(value)) => Some(Self::Boolean(*value)),
             Some(CellValue::Int(value)) => Some(Self::Integer(*value)),
             Some(CellValue::Float(value)) if value.is_finite() => {
@@ -462,22 +475,40 @@ impl<'a> LookupMemoKey<'a> {
 fn fill_shifted_template(
     template: &FormulaRows<'_>,
     table: &data::DataTable,
-    lookup: Option<(usize, usize)>,
+    inputs: &[(usize, usize)],
     mut evaluate: impl FnMut(&str, &data::DataTable) -> data::FormulaOutcome,
 ) -> (FormulaResults, Option<data::FormulaBadCell>) {
-    // Keep this per fill against the immutable pre-insertion table. Borrow
-    // short keys rather than copying them; unique-key workloads remain
-    // memory-bounded and fall back to the normal evaluator.
+    // Per fill against the immutable pre-insertion table. A tuple borrows its
+    // probe from the stack and only allocates on a new distinct combination.
     const MAX_MEMO_KEYS: usize = 4096;
-    let mut memo = HashMap::<LookupMemoKey<'_>, Option<f64>>::new();
+    let mut singles = HashMap::<FormulaMemoCell<'_>, Option<f64>>::new();
+    let mut tuples = HashMap::<Vec<FormulaMemoCell<'_>>, Option<f64>>::new();
+    let mut key = [FormulaMemoCell::Missing; MAX_MEMO_INPUTS];
     let mut shifted = String::with_capacity(template.source.len());
     let mut results = Vec::new();
     let mut first_bad = None;
     for row in 0..table.row_count() {
-        let key = lookup.and_then(|(base, col)| {
-            LookupMemoKey::from_cell(table.get(base.checked_add(row)? - 1, col))
-        });
-        if let Some(value) = key.and_then(|key| memo.get(&key)) {
+        let probe = &mut key[..inputs.len()];
+        let usable = inputs
+            .iter()
+            .zip(probe.iter_mut())
+            .all(|(&(base, col), dest)| {
+                let Some(cell) = base
+                    .checked_add(row)
+                    .and_then(|address| FormulaMemoCell::from_cell(table.get(address - 1, col)))
+                else {
+                    return false;
+                };
+                *dest = cell;
+                true
+            });
+        let probe: &[FormulaMemoCell<'_>] = if usable { probe } else { &[] };
+        let cached = match probe {
+            [] => None,
+            [one] => singles.get(one),
+            many => tuples.get(many),
+        };
+        if let Some(value) = cached {
             if let Some(value) = value {
                 results.push((row, *value));
             }
@@ -493,12 +524,17 @@ fn fill_shifted_template(
         if let Some(value) = outcome.value {
             results.push((row, value));
         }
-        // A cached failure was already evaluated at an earlier output
-        // row, so it cannot change the first diagnostic in this fill.
-        if memo.len() < MAX_MEMO_KEYS
-            && let Some(key) = key
-        {
-            memo.insert(key, outcome.value);
+        // Cached failures have already been evaluated and cannot take
+        // precedence over the first diagnostic seen in this fill.
+        match probe {
+            [] => {}
+            [one] if singles.len() < MAX_MEMO_KEYS => {
+                singles.insert(*one, outcome.value);
+            }
+            many if many.len() > 1 && tuples.len() < MAX_MEMO_KEYS => {
+                tuples.insert(many.to_vec(), outcome.value);
+            }
+            _ => {}
         }
     }
     (results, first_bad)

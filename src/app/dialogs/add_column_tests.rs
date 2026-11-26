@@ -511,8 +511,8 @@ fn lookup_fill_cache_only_admits_a_single_relative_lookup_key() {
         (r#"XLOOKUP("D1",A1:$A$6,$B$1:$B$6)"#, None),
     ] {
         assert_eq!(
-            FormulaRows::new(source).repeated_lookup_key(),
-            expected,
+            FormulaRows::new(source).memo_inputs(),
+            expected.map(|key| vec![key]),
             "{source}"
         );
     }
@@ -618,7 +618,7 @@ fn lookup_fill_cache_preserves_types_fallback_and_diagnostics() {
     let normal = fill_shifted_template(
         &template,
         &table,
-        None,
+        &[],
         data::evaluate_formula_with_diagnostics,
     );
     assert_eq!(optimized.0, expected);
@@ -691,12 +691,12 @@ fn lookup_fill_performance_matches_every_reference_row() {
     };
     let source = "XLOOKUP(C1,$A$1:$A$1536,$B$1:$B$1536,-1)";
     let template = FormulaRows::new(source);
-    let key = template.repeated_lookup_key();
-    assert_eq!(key, Some((1, 2)));
-    let run = |lookup| {
+    let keys = template.memo_inputs().unwrap();
+    assert_eq!(keys, [(1, 2)]);
+    let run = |inputs: &[(usize, usize)]| {
         let mut calls = 0;
         let start = std::time::Instant::now();
-        let (values, bad) = fill_shifted_template(&template, &table, lookup, |formula, table| {
+        let (values, bad) = fill_shifted_template(&template, &table, inputs, |formula, table| {
             calls += 1;
             data::evaluate_formula_with_diagnostics(formula, table)
         });
@@ -708,10 +708,10 @@ fn lookup_fill_performance_matches_every_reference_row() {
     let mut candidate = [0; 3];
     for i in 0..3 {
         let (old, new) = if i % 2 == 0 {
-            (run(None), run(key))
+            (run(&[]), run(&keys))
         } else {
-            let new = run(key);
-            (run(None), new)
+            let new = run(&keys);
+            (run(&[]), new)
         };
         assert_eq!(old.1, ROWS);
         assert_eq!(new.1, REQUEST_KEYS);
@@ -734,6 +734,148 @@ fn lookup_fill_performance_matches_every_reference_row() {
     println!(
         "lookup_fill_bench rows={ROWS} reference_calls={ROWS} memo_calls={REQUEST_KEYS} baseline_ns={} candidate_ns={} samples=3",
         baseline[1], candidate[1]
+    );
+}
+
+#[test]
+fn criteria_fill_cache_proves_each_moving_argument_is_a_bare_criterion() {
+    for (source, expected) in [
+        ("COUNTIF($A$1:$A$20,B1)", Some(vec![(1, 1)])),
+        ("SUMMEWENN($A$1:$A$20;$B3;$C$1:$C$20)", Some(vec![(3, 1)])),
+        (
+            r#"COUNTIFS($A$1:$A$20,B1,$B$1:$B$20,"A1,(;)",$C$1:$C$20,D1)"#,
+            Some(vec![(1, 1), (1, 3)]),
+        ),
+        ("ZÄHLENWENNS($A$1;$B1;$C$1;D1)", Some(vec![(1, 1), (1, 3)])),
+        (
+            "AVERAGEIFS($D$1:$D$8,$A$1:$A$8,B1,$C$1:$C$8,D1,$E$1:$E$8,F2)",
+            Some(vec![(1, 1), (1, 3), (2, 5)]),
+        ),
+        ("SUMIFS($D$1:$D8,$A$1:$A$8,B1,$C$1:$C$8,D1)", None),
+        ("COUNTIF(A$1:A20,B1)", None),
+        ("COUNTIFS($A$1:$A$20,B1+0)", None),
+        ("COUNTIFS($A$1:$A$20,B1)+COUNTIF($A$1:$A$20,B1)", None),
+        (r#"COUNTIFS($A$1:$A$20,">="&B1)"#, None),
+        ("COUNTIF($A$1:$A$20,IF(TRUE,B1,0))", None),
+    ] {
+        assert_eq!(FormulaRows::new(source).memo_inputs(), expected, "{source}");
+    }
+}
+
+#[test]
+fn criteria_fill_cache_keeps_loaded_blanks_distinct_from_missing_rows() {
+    use data::CellValue::{Bool, Int, Null, String as Text};
+    let table = data::DataTable {
+        columns: ["category", "amount", "criterion"]
+            .map(|name| data::ColumnInfo {
+                name: name.into(),
+                data_type: "Utf8".into(),
+            })
+            .to_vec(),
+        rows: vec![
+            vec![Null, Int(1), Null],
+            vec![Int(0), Int(2), Null],
+            vec![Text("0".into()), Int(4), Bool(false)],
+            vec![Bool(false), Int(8), Int(0)],
+            vec![
+                Text("bad".into()),
+                Text("not a number".into()),
+                Text("bad".into()),
+            ],
+            vec![Text("other".into()), Int(16), Text("bad".into())],
+        ],
+        ..data::DataTable::empty()
+    };
+    let formula = "AVERAGEIF($A$1:$A$6,C2,$B$1:$B$6)";
+    let template = FormulaRows::new(formula);
+    let memo = template.memo_inputs().unwrap();
+    assert_eq!(memo, [(2, 2)]);
+    let run = |keys: &[(usize, usize)]| {
+        let mut calls = 0;
+        let (results, bad) = fill_shifted_template(&template, &table, keys, |shifted, table| {
+            calls += 1;
+            data::evaluate_formula_with_diagnostics(shifted, table)
+        });
+        assert!(bad.is_none());
+        (results, calls)
+    };
+    let (uncached, unoptimized_calls) = run(&[]);
+    let (cached, optimized_calls) = run(&memo);
+    assert_eq!(uncached, [(0, 3.0), (1, 8.0), (2, 3.0)]);
+    assert_eq!(cached, uncached);
+    assert_eq!((unoptimized_calls, optimized_calls), (6, 5));
+}
+
+#[test]
+fn criteria_fill_bench_matches_each_group_total_using_the_real_evaluator() {
+    use data::CellValue::{Int, String as Text};
+    const ROWS: usize = 3_000;
+    const GROUPS: usize = 12;
+    let mut table = data::DataTable {
+        columns: ["region", "status", "amount"]
+            .map(|name| data::ColumnInfo {
+                name: name.into(),
+                data_type: "Utf8".into(),
+            })
+            .to_vec(),
+        rows: (0..ROWS)
+            .map(|i| {
+                vec![
+                    Text(["North", "South", "East", "West"][i % 4].into()),
+                    Text(["Paid", "Open", "Refunded"][(i / 4) % 3].into()),
+                    Int((i % 17 + 1) as i64),
+                ]
+            })
+            .collect(),
+        ..data::DataTable::empty()
+    };
+    table.set(23, 2, Int(200));
+    let mut totals = [0.0; GROUPS];
+    for row in 0..ROWS {
+        let Some(Int(value)) = table.get(row, 2) else {
+            panic!("missing amount")
+        };
+        totals[row % GROUPS] += *value as f64;
+    }
+    let formula = "SUMIFS($C$1:$C$3000,$A$1:$A$3000,A1,$B$1:$B$3000,B1)";
+    let template = FormulaRows::new(formula);
+    let keys = template.memo_inputs().unwrap();
+    assert_eq!(keys, [(1, 0), (1, 1)]);
+    let run = |inputs: &[(usize, usize)]| {
+        let mut calls = 0;
+        let start = std::time::Instant::now();
+        let (results, bad) = fill_shifted_template(&template, &table, inputs, |shifted, table| {
+            calls += 1;
+            data::evaluate_formula_with_diagnostics(shifted, table)
+        });
+        let elapsed = start.elapsed().as_nanos();
+        assert!(bad.is_none());
+        (results, calls, elapsed)
+    };
+    let mut base = [0; 3];
+    let mut memo = [0; 3];
+    for i in 0..3 {
+        let (old, new) = if i % 2 == 0 {
+            (run(&[]), run(&keys))
+        } else {
+            let new = run(&keys);
+            (run(&[]), new)
+        };
+        assert_eq!(old.1, ROWS);
+        assert_eq!(new.1, GROUPS);
+        assert_eq!(new.0, old.0);
+        assert_eq!(new.0.len(), ROWS);
+        for (row, value) in new.0 {
+            assert_eq!(value, totals[row % GROUPS], "row {row}");
+        }
+        base[i] = old.2;
+        memo[i] = new.2;
+    }
+    base.sort_unstable();
+    memo.sort_unstable();
+    println!(
+        "criteria_fill_bench rows={ROWS} reference_calls={ROWS} memo_calls={GROUPS} baseline_ns={} candidate_ns={} samples=3",
+        base[1], memo[1]
     );
 }
 

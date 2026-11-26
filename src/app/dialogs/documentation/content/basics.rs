@@ -637,6 +637,8 @@ Use `COUNTIFS`, `SUMIFS` or `AVERAGEIFS` when every criterion must match.
 For example, `=SUMIFS(C1:C20,A1:A20,"West",B1:B20,"Paid")` adds amounts
 from C only for paid records in West. Give each range the same height
 and width. For SUMIFS and AVERAGEIFS, give the value range first.
+When filling a column, fix the source ranges and let the criterion cells
+move with each row. Repeated region and status pairs can reuse their total.
 
 **Weighted totals**: `=SUMPRODUCT(B1:B20,C1:C20)` multiplies each
 price by its quantity, then adds the products. Divide by `SUM(C1:C20)`

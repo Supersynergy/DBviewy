@@ -15,6 +15,7 @@
 - Paste and undo large row blocks without repeatedly rebuilding existing edits.
 - Look up a value by row and column with `INDEX` and `MATCH` (`VERGLEICH`).
 - Count workdays and calculate deadlines with holidays and custom weekends.
+- Reuse totals for repeated criteria when filling a formula column over fixed ranges.
 
 - Integrate Octa 0.22.1, keeping DBviewy's workbook preservation, per-session
   crash markers, assistant integrations, and local table interface.

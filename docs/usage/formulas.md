@@ -111,6 +111,12 @@ Only positions loaded in every range are considered. `COUNTIFS` and
 if no matching values are numeric. The German names are
 `ZÄHLENWENNS`, `SUMMEWENNS` and `MITTELWERTWENNS`.
 
+To fill group totals into a new column, fix the source ranges and let
+the criterion cells advance with each row. For example,
+`=SUMIFS($C$1:$C$100,$A$1:$A$100,A1,$B$1:$B$100,B1)` totals the
+current row's region and status. DBviewy can reuse the result when the
+same pair appears again.
+
 ### Weighted totals and averages
 
 Use `=SUMPRODUCT(B1:B100,C1:C100)` to multiply each unit price in B
