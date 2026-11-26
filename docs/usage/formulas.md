@@ -246,6 +246,21 @@ if that threshold repeats. Unsorted keys, gaps and non-numeric keys are
 not supported in threshold mode. The result is still a single number.
 The German names are `SVERWEIS` and `WVERWEIS`.
 
+### Find the value at a row and column intersection
+
+`=INDEX(B2:D4,MATCH("West",A2:A4,0),MATCH("February",B1:D1,0))`
+finds West down the left-hand labels and February across the top, then
+returns the number where they meet. Positions start at 1 within the
+result range. For a single row or column, `=INDEX(B2:D2,2)` returns
+its second cell. INDEX returns one number, not a whole row or column.
+
+`MATCH` (German `VERGLEICH`) returns a position. Use mode `0` to find the
+first exact match, including text keys with `*` or `?`. Escape a wildcard
+with `~`. Unlike XMATCH, MATCH defaults to mode `1`, which takes the
+largest key at or below the requested value in ascending numeric data.
+Mode `-1` takes the smallest key at or above it in descending numeric
+data. Unsorted or non-numeric thresholds are refused.
+
 ## What gets evaluated
 
 In arithmetic expressions, the engine converts each referenced cell to a number:

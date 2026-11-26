@@ -272,6 +272,8 @@ impl<'a> FormulaRows<'a> {
             "XVERWEIS",
             "XMATCH",
             "XVERGLEICH",
+            "MATCH",
+            "VERGLEICH",
             "VLOOKUP",
             "SVERWEIS",
             "HLOOKUP",

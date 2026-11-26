@@ -13,6 +13,7 @@
   Preserve imported XLSX dates as dates when exporting the report.
 - Keep tabs, line breaks and quotes inside cells when copying and pasting tables.
 - Paste and undo large row blocks without repeatedly rebuilding existing edits.
+- Look up a value by row and column with `INDEX` and `MATCH` (`VERGLEICH`).
 
 - Integrate Octa 0.22.1, keeping DBviewy's workbook preservation, per-session
   crash markers, assistant integrations, and local table interface.

@@ -675,6 +675,12 @@ FALSE takes the first exact match and supports text wildcards. TRUE
 or an omitted mode uses ascending numeric thresholds and takes the last
 threshold at or below the key. German names: SVERWEIS and WVERWEIS.
 
+`=INDEX(B2:D4,MATCH("West",A2:A4,0),MATCH("February",B1:D1,0))` finds
+one value where a row and a column meet. MATCH (VERGLEICH) returns a
+position starting at 1; pass 0 for an exact match. INDEX also accepts
+one position for a single-row or single-column range, and never spills
+into other cells.
+
 **Calendar dates.** Use `=YEAR(A1)`, `=MONTH(A1)` or `=DAY(A1)` to
 extract a date part. `=DAYS(DATE(2024,3,31),A1)` counts days from A1
 to 31 March; `=WEEKDAY(A1,2)` numbers Monday as 1. Use a date cell,

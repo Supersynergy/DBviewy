@@ -241,39 +241,122 @@ pub(super) fn evaluate_table(
     };
     let offset = match mode {
         Some(Key::Boolean(false) | Key::Integer(0) | Key::Number(0.0)) => {
-            let matcher = match key {
-                Key::Text(text) if text.contains(['*', '?', '~']) => {
-                    Matcher::Wildcard(wildcard(text)?)
-                }
-                _ => Matcher::Exact(key),
-            };
-            (0..len).find(|&offset| key_at(offset).is_some_and(|value| matcher.matches(value)))?
+            classic_exact(len, key, key_at)?
         }
         None | Some(Key::Boolean(true) | Key::Integer(1) | Key::Number(1.0)) => {
-            // Check monotonicity and choose the greatest threshold <= key
-            // in a single pass, without allocating a sorted copy or
-            // accepting an incorrect result for an unsorted catalogue.
-            let mut previous = None;
-            let mut found = None;
-            for offset in 0..len {
-                let current = key_at(offset)?;
-                if let Some(prev) = previous
-                    && current.numeric_cmp(prev)?.is_lt()
-                {
-                    return None;
-                }
-                if !current.numeric_cmp(key)?.is_gt() {
-                    found = Some(offset);
-                }
-                previous = Some(current);
-            }
-            found?
+            sorted_threshold(len, key, false, key_at)?
         }
         _ => return None,
     };
     let (r, c) = axis.at(array, offset, index as usize - 1);
     let value = read_number(context, r, c)?;
     value.is_finite().then_some((value, end))
+}
+
+pub(super) fn evaluate_match(
+    tokens: &[Token],
+    pos: usize,
+    context: &mut Evaluation<'_>,
+) -> Option<(f64, usize)> {
+    let ([key, search, mode], end) = arguments(tokens, pos)?;
+    let key = key_value(key?, context)?;
+    let search = range(search?)?;
+    let mode = option_number(mode, 1.0, context)?;
+    let Some(table) = context.table else {
+        return Some((0.0, end));
+    };
+    let axis = match search.shape() {
+        (1, _) => Axis::Row,
+        (_, 1) => Axis::Column,
+        _ => return None,
+    };
+    let (len, width) = axis.loaded_size(search, table);
+    if width == 0 {
+        return None;
+    }
+    let key_at = |offset| {
+        let (r, c) = axis.at(search, offset, 0);
+        Key::from_cell(table.get(r, c))
+    };
+    let found = match mode {
+        0.0 => classic_exact(len, key, key_at)?,
+        1.0 | -1.0 => sorted_threshold(len, key, mode < 0.0, key_at)?,
+        _ => return None,
+    };
+    Some(((found + 1) as f64, end))
+}
+
+pub(super) fn evaluate_index(
+    tokens: &[Token],
+    pos: usize,
+    context: &mut Evaluation<'_>,
+) -> Option<(f64, usize)> {
+    let ([area, row, column], end) = arguments(tokens, pos)?;
+    let area = range(area?)?;
+    let resolve = |part, context: &mut Evaluation<'_>| match optional(part) {
+        Some(part) => eval_complete(part, context).map(Some),
+        None => Some(None),
+    };
+    let (row, column) = (resolve(row, context)?, resolve(column, context)?);
+    if row.is_none() && column.is_none() {
+        return None;
+    }
+    if context.table.is_none() {
+        return Some((0.0, end));
+    }
+    let (rows, cols) = area.shape();
+    let (row, column) = if rows == 1 && column.is_none() {
+        // With one row, a single position addresses the horizontal vector.
+        (Some(1.0), row)
+    } else {
+        (row, column)
+    };
+    let scalar_offset = |index: Option<f64>, len: usize| match index {
+        None | Some(0.0) if len == 1 => Some(0),
+        Some(i) if i.fract() == 0.0 && i >= 1.0 && i <= len as f64 => Some(i as usize - 1),
+        _ => None,
+    };
+    let (r, c) = area.at(scalar_offset(row, rows)?, scalar_offset(column, cols)?);
+    let value = read_number(context, r, c)?;
+    value.is_finite().then_some((value, end))
+}
+
+fn classic_exact<'a>(
+    len: usize,
+    key: Key<'a>,
+    key_at: impl Fn(usize) -> Option<Key<'a>>,
+) -> Option<usize> {
+    let matcher = match key {
+        Key::Text(text) if text.contains(['*', '?', '~']) => Matcher::Wildcard(wildcard(text)?),
+        _ => Matcher::Exact(key),
+    };
+    (0..len).find(|&i| key_at(i).is_some_and(|candidate| matcher.matches(candidate)))
+}
+
+fn sorted_threshold<'a>(
+    len: usize,
+    key: Key<'a>,
+    descending: bool,
+    key_at: impl Fn(usize) -> Option<Key<'a>>,
+) -> Option<usize> {
+    // Check monotonicity even past a match. This is deliberately separate
+    // from XMATCH's opt-in binary search, which trusts the caller's sort.
+    let order = |cmp: Ordering| if descending { cmp.reverse() } else { cmp };
+    let mut previous = None;
+    let mut found = None;
+    for offset in 0..len {
+        let current = key_at(offset)?;
+        if let Some(prev) = previous
+            && order(current.numeric_cmp(prev)?).is_lt()
+        {
+            return None;
+        }
+        if !order(current.numeric_cmp(key)?).is_gt() {
+            found = Some(offset);
+        }
+        previous = Some(current);
+    }
+    found
 }
 
 fn read_number(context: &mut Evaluation<'_>, row: usize, col: usize) -> Option<f64> {

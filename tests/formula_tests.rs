@@ -1474,6 +1474,125 @@ fn classic_hlookup_pairs_with_the_requested_row() {
 }
 
 #[test]
+fn index_reads_one_based_positions_in_rectangles_and_vectors() {
+    let table = formula_table();
+    for (formula, want) in [
+        ("INDEX(A1:B3,2,2)", 3.0),
+        ("INDEX(B3:A1,2,2)", 3.0),
+        ("INDEX(B1:B3,2)", 3.0),
+        ("INDEX(B1:B3,2,0)", 3.0),
+        ("INDEX(A1:B1,2)", 2.5),
+        ("INDEX(A1:B1,,2)", 2.5),
+        ("INDEX(A1:B1,0,2)", 2.5),
+        ("INDEX(A1,0,0)", 10.0),
+        ("INDEX(A1:B3,XMATCH(20,A1:A3),2)+1", 4.0),
+        ("INDEX(B1:B3,MATCH(20,A1:A3,0))", 3.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(want), "{formula}");
+    }
+}
+
+#[test]
+fn match_returns_typed_exact_positions_and_resolves_wildcards() {
+    let mut table = lookup_catalog();
+    for (formula, want) in [
+        (r#"MATCH("ax-01",A1:A7,0)"#, 1.0),
+        (r#"MATCH("AX-??",A2:A7,0)"#, 1.0),
+        (r#"VERGLEICH("AX-~*";$A$1:$A$7;0)"#, 4.0),
+        (r#"MATCH("ÖKO",A1:A7,FALSE)"#, 5.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(want), "{formula}");
+    }
+    table.set(0, 0, CellValue::String("1".into()));
+    table.set(1, 0, CellValue::Int(1));
+    table.set(2, 0, CellValue::Bool(true));
+    assert_eq!(evaluate_formula(r#"MATCH("1",A1:A3,0)"#, &table), Some(1.0));
+    assert_eq!(evaluate_formula("MATCH(1,A1:A3,0)", &table), Some(2.0));
+    assert_eq!(evaluate_formula("MATCH(TRUE,A1:A3,0)", &table), Some(3.0));
+}
+
+#[test]
+fn match_validates_classic_numeric_threshold_order_in_both_directions() {
+    let mut table = formula_table();
+    for (formula, want) in [
+        ("MATCH(25,A1:A1000000)", Some(2.0)),
+        ("MATCH(5,A1:A3,1)", None),
+        ("MATCH(25,A1:A3,-1)", None),
+        ("MATCH(500,A1:A3,1)", Some(3.0)),
+        ("MATCH(20,A1:A3,1)", Some(2.0)),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), want, "{formula}");
+    }
+    table.set(0, 0, CellValue::Int(30));
+    table.set(2, 0, CellValue::Int(10));
+    assert_eq!(evaluate_formula("MATCH(23,A1:A3,-1)", &table), Some(1.0));
+    assert_eq!(evaluate_formula("MATCH(15,A1:A3,-1)", &table), Some(2.0));
+    assert_eq!(evaluate_formula("MATCH(31,A1:A3,-1)", &table), None);
+    table.set(2, 0, CellValue::Int(25));
+    assert_eq!(evaluate_formula("MATCH(30,A1:A3,-1)", &table), None);
+}
+
+#[test]
+fn index_and_match_do_not_alias_offsheet_or_multicell_results() {
+    let table = formula_table();
+    for formula in [
+        "INDEX(A1:B3,2,0)",
+        "INDEX(A1:B3,2)",
+        "INDEX(A1:B3,,2)",
+        "INDEX(A1:B3,)",
+        "INDEX(A1:B3,1.5,2)",
+        "INDEX(A1:B10,8,2)",
+        "INDEX(A1:B3,2,3)",
+        "INDEX(A1:B3,2,2,1)",
+        "MATCH(10,A1:B3,0)",
+        "MATCH(10,D1:D1000000,0)",
+        "MATCH(10,A1:A3,4)",
+        "IFERROR(INDEX(A1:B3,1+,2),7)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+    assert_eq!(
+        evaluate_formula("IFERROR(INDEX(A1:B3,2,0),7)", &table),
+        Some(7.0)
+    );
+    let bad = evaluate_formula_with_diagnostics("INDEX(A1:C3,1,3)", &table)
+        .bad_cell
+        .unwrap();
+    assert_eq!((bad.row, bad.col, bad.content.as_str()), (0, 2, "hello"));
+}
+
+#[test]
+fn index_match_turns_month_and_region_into_a_saved_xlsx_value() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("rates.csv");
+    std::fs::write(
+        &source,
+        "Region,Jan,Feb,Mar,Result\nMonth,January,February,March,0\nNorth,9.5,11.5,13.5,0\nWest,17.25,20.5,22.5,0\nEast,18,23.25,24,0\n",
+    )
+    .unwrap();
+    let mut table = CsvReader.read_file(&source).unwrap();
+    let formula =
+        r#"=INDEX($B$2:$D$4;VERGLEICH("West";$A$2:$A$4;0);VERGLEICH("February";$B$1:$D$1;0))"#;
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        4,
+        formula.into(),
+        BinaryDisplayMode::default()
+    ));
+    assert_eq!(table.get(0, 4), Some(&CellValue::Float(20.5)));
+    let report = dir.path().join("rates-report.xlsx");
+    ExcelReader.write_file(&report, &table).unwrap();
+    let reopened = ExcelReader.read_file(&report).unwrap();
+    assert_eq!(reopened.get(0, 4), Some(&CellValue::Float(20.5)));
+    assert_eq!(reopened.get(2, 2), Some(&CellValue::Float(20.5)));
+    assert_eq!(reopened.get(2, 0), Some(&CellValue::String("West".into())));
+}
+
+#[test]
 fn classic_lookup_uses_sorted_numeric_thresholds_by_default() {
     let mut table = formula_table();
     for (formula, expected) in [

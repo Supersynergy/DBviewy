@@ -491,6 +491,7 @@ fn lookup_fill_cache_only_admits_a_single_relative_lookup_key() {
     for (source, expected) in [
         ("XLOOKUP($AA002; $A$1:$A$6; $B$1:$B$6; -1)", Some((2, 26))),
         ("xvergleich(b1,$A$1:$A$6,, -1)", Some((1, 1))),
+        ("VERGLEICH(C1;$A$1:$A$9;0)", Some((1, 2))),
         ("SVERWEIS(C1;$A$1:$B$9;2;FALSCH)", Some((1, 2))),
         ("HLOOKUP(D1,$A$1:$C$2,2,FALSE)", Some((1, 3))),
         ("WVERWEIS(A1,B$1:$D2,2)", None),
@@ -545,6 +546,8 @@ fn classic_lookup_fill_reuses_fixed_catalogs_without_moving_them() {
     };
     let (values, _) = fill_formula_template("VLOOKUP(C1,$A$1:$B$4,2,FALSE)", &table);
     assert_eq!(values, vec![(0, 40.0), (1, 25.0), (2, 40.0)]);
+    let (positions, _) = fill_formula_template("MATCH(C1,$A$1:$A$4,0)", &table);
+    assert_eq!(positions, vec![(0, 2.0), (1, 1.0), (2, 2.0)]);
 }
 
 #[test]
