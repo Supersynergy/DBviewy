@@ -297,6 +297,8 @@ apply_recipe = "Áp dụng công thức..."
 apply_recipe_hint = "Chạy lại một công thức đã lưu (.ocp) trên tab này."
 fill_series = "Điền chuỗi..."
 fill_series_hint = "Điền các ô đã chọn bằng số tăng dần, một mã tiếp tục đếm, ngày tháng hoặc một mẫu lặp lại."
+fill_down = "Sao chép giá trị xuống"
+fill_down_hint = "Sao chép giá trị hiển thị được chọn trên cùng vào các ô đã chọn bên dưới trong từng cột."
 
 [dialog]
 file_changed_title = "Tệp đã thay đổi trên đĩa"

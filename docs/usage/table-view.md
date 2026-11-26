@@ -61,6 +61,18 @@ at the table's edge instead: a database tab (new columns would change the
 table on the server) and a table whose rows are still loading (rows added at
 the end of what is loaded would land in the middle of the file).
 
+### Fill down
+
+Select at least two visible cells in a column, or select one or more
+column headers. Choose **Edit > Fill down values** to repeat the top selected
+value in each column. It overwrites the selected cells below, including
+clearing them if the source is blank. Hidden rows and columns and
+unselected cells stay as they are. This copies values, not formatting
+or formulas. Undo the whole fill in one step.
+
+You can also find **Fill down values** through **Find a command** and assign a
+shortcut in Settings. The existing Duplicate row shortcut is unchanged.
+
 ### Copy as
 
 **Copy as** (under **Edit**, and in the cell / row right-click menu) copies

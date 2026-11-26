@@ -297,6 +297,8 @@ apply_recipe = "Recept alkalmazása..."
 apply_recipe_hint = "Mentett recept (.ocp) lejátszása ezen a lapon."
 fill_series = "Sorozat kitöltése..."
 fill_series_hint = "Töltsd ki a kijelölt cellákat egymást követő számokkal, továbbszámoló azonosítóval, dátumokkal vagy ismétlődő mintával."
+fill_down = "Értékek másolása lefelé"
+fill_down_hint = "Oszloponként másold a legfelső látható kijelölt értéket az alatta kijelölt cellákba."
 
 [dialog]
 file_changed_title = "A fájl megváltozott a lemezen"

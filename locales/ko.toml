@@ -286,6 +286,8 @@ apply_recipe = "레시피 적용..."
 apply_recipe_hint = "저장한 레시피(.ocp)를 이 탭에서 다시 실행해."
 fill_series = "연속 데이터 채우기..."
 fill_series_hint = "선택한 셀을 이어지는 숫자, 계속 세는 ID, 날짜 또는 반복되는 패턴으로 채워."
+fill_down = "값을 아래로 복사"
+fill_down_hint = "각 열에서 선택된 맨 위의 보이는 값을 아래쪽의 선택된 셀에 복사해."
 
 [dialog]
 file_changed_title = "디스크에서 파일이 바뀌었습니다"

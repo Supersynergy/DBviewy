@@ -286,6 +286,8 @@ apply_recipe = "Rezept anwenden..."
 apply_recipe_hint = "Ein gespeichertes Rezept (.ocp) auf diesem Tab abspielen."
 fill_series = "Reihe ausfüllen..."
 fill_series_hint = "Füll die markierten Zellen mit hochzählenden Zahlen, einer weiterzählenden ID, Datumswerten oder einem wiederholten Muster."
+fill_down = "Werte nach unten ausfüllen"
+fill_down_hint = "Kopiere in jeder Spalte den obersten sichtbaren ausgewählten Wert in die ausgewählten Zellen darunter."
 
 [dialog]
 file_changed_title = "Datei auf der Festplatte geändert"

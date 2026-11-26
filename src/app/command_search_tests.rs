@@ -354,3 +354,33 @@ fn fit_columns_and_tab_colour_are_found_by_name() {
         );
     }
 }
+
+#[test]
+fn fill_down_is_discoverable_and_runs_on_an_editable_visible_selection() {
+    let (mut app, ctx) = opened("fill down values");
+    let row = |app: &OctaApp| {
+        app.command_rows("fill down values")
+            .into_iter()
+            .find(|row| row.action == SA::FillDown)
+            .expect("Fill down values is findable")
+    };
+    assert!(row(&app).why.is_some());
+    app.open_new_table_tab(1, 3);
+    let tab = &mut app.tabs[app.active_tab];
+    tab.table.rows[0][0] = octa::data::CellValue::Int(23);
+    tab.table_state.selected_cells.extend([(0, 0), (2, 0)]);
+    app.recompute_filter();
+    assert!(row(&app).why.is_none());
+    app.readonly_mode = true;
+    assert!(row(&app).why.is_some());
+    app.readonly_mode = false;
+    settle(&mut app, &ctx);
+    step(&mut app, &ctx, key(egui::Key::Enter));
+    settle(&mut app, &ctx);
+    let table = &app.tabs[app.active_tab].table;
+    assert_eq!(table.get(1, 0), Some(&octa::data::CellValue::Null));
+    assert_eq!(table.get(2, 0), Some(&octa::data::CellValue::Int(23)));
+    assert_eq!(table.undo_stack.len(), 1);
+    assert!(SA::FillDown.default_combo().key.is_none());
+    assert_eq!(SA::DuplicateRow.default_combo().key, Some(egui::Key::D));
+}

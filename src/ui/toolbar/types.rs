@@ -60,6 +60,8 @@ pub struct ToolbarCtx<'a> {
     pub selected_rows: &'a HashSet<usize>,
     pub selected_cols: &'a HashSet<usize>,
     pub selected_cells: &'a HashSet<(usize, usize)>,
+    /// Resolve only when the Edit menu is open.
+    pub fill_down_block: &'a dyn Fn() -> Option<&'static str>,
     pub row_count: usize,
     pub col_count: usize,
     pub current_view_mode: ViewMode,
@@ -464,6 +466,7 @@ pub struct ToolbarAction {
     pub open_classify: bool,
     /// **Edit -> Fill series...**.
     pub open_fill_series: bool,
+    pub fill_down: bool,
     /// Toggle "Filter to marked": keep only marked rows/columns/cells.
     /// Fired by **Edit -> Filter to marked**.
     pub filter_to_marked: bool,

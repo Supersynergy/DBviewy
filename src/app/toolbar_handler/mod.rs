@@ -311,6 +311,15 @@ impl OctaApp {
                     selected_rows: &tab.table_state.selected_rows,
                     selected_cols: &tab.table_state.selected_cols,
                     selected_cells: &tab.table_state.selected_cells,
+                    fill_down_block: &|| {
+                        crate::app::fill_down::fill_down_block(
+                            tab.view_mode,
+                            &tab.table_state,
+                            &tab.filtered_rows,
+                            &tab.hidden_columns,
+                            &tab.table,
+                        )
+                    },
                     row_count: tab.table.row_count(),
                     col_count: tab.table.col_count(),
                     current_view_mode: tab.view_mode,

@@ -286,6 +286,8 @@ apply_recipe = "Applica ricetta..."
 apply_recipe_hint = "Rigioca una ricetta salvata (.ocp) su questa scheda."
 fill_series = "Riempi serie..."
 fill_series_hint = "Riempi le celle selezionate con numeri in sequenza, un ID che continua a contare, date o uno schema ripetuto."
+fill_down = "Copia i valori verso il basso"
+fill_down_hint = "Copia il primo valore visibile selezionato nelle celle selezionate sotto, in ogni colonna."
 
 [dialog]
 file_changed_title = "Il file è cambiato sul disco"

@@ -435,6 +435,7 @@ const OPENS_SOMETHING: &[&str] = &[
 /// Menu entries that just do the thing, in place: no tab, no window, nothing to
 /// fill in. An ellipsis on these is a broken promise.
 const JUST_EXECUTES: &[&str] = &[
+    "edit_menu.fill_down", // writes values to the existing selection
     "tiles.tile",
     "tiles.side_by_side",
     "tiles.stacked",

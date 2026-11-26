@@ -293,6 +293,8 @@ apply_recipe = "Primijeni recept..."
 apply_recipe_hint = "Ponovi spremljeni recept (.ocp) na ovoj kartici."
 fill_series = "Ispuni niz..."
 fill_series_hint = "Ispuni odabrane ćelije uzastopnim brojevima, ID-jem koji broji dalje, datumima ili ponovljenim uzorkom."
+fill_down = "Kopiraj vrijednosti prema dolje"
+fill_down_hint = "Kopiraj prvu vidljivu odabranu vrijednost u odabrane ćelije ispod nje u svakom stupcu."
 
 [dialog]
 file_changed_title = "Datoteka se promijenila na disku"

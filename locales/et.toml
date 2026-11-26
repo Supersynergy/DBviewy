@@ -293,6 +293,8 @@ apply_recipe = "Rakenda retsept..."
 apply_recipe_hint = "Esita salvestatud retsept (.ocp) sellel vahelehel."
 fill_series = "Täida jada..."
 fill_series_hint = "Täida valitud lahtrid järjestikuste arvude, edasi loendava tunnuse, kuupäevade või korduva mustriga."
+fill_down = "Kopeeri väärtused alla"
+fill_down_hint = "Kopeeri igas veerus ülemine nähtav valitud väärtus allpool olevatesse valitud lahtritesse."
 
 [dialog]
 file_changed_title = "Fail on kettal muutunud"

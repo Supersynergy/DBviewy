@@ -286,6 +286,8 @@ apply_recipe = "应用配方..."
 apply_recipe_hint = "在这个标签页上重放已保存的配方（.ocp）。"
 fill_series = "填充序列..."
 fill_series_hint = "用递增的数字、继续计数的 ID、日期或重复的模式填充所选单元格。"
+fill_down = "向下复制值"
+fill_down_hint = "把每列选中的首个可见值复制到下方选中的单元格。"
 
 [dialog]
 file_changed_title = "磁盘上的文件已改变"

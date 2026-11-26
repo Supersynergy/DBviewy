@@ -286,6 +286,8 @@ apply_recipe = "レシピを適用..."
 apply_recipe_hint = "保存したレシピ（.ocp）をこのタブで再生します。"
 fill_series = "連続データを入力..."
 fill_series_hint = "選んだセルを連番、続きを数える ID、日付、または繰り返しのパターンで埋める。"
+fill_down = "値を下方向にコピー"
+fill_down_hint = "各列で選択されている一番上の表示セルの値を、下にある選択セルにコピーします。"
 
 [dialog]
 file_changed_title = "ファイルがディスク上で変更されました"

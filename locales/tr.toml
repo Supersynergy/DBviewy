@@ -286,6 +286,8 @@ apply_recipe = "Tarifi uygula..."
 apply_recipe_hint = "Kayıtlı bir tarifi (.ocp) bu sekmede yeniden oynat."
 fill_series = "Seri doldur..."
 fill_series_hint = "Seçili hücreleri ardışık sayılarla, saymaya devam eden bir kimlikle, tarihlerle ya da tekrarlanan bir desenle doldur."
+fill_down = "Değerleri aşağı kopyala"
+fill_down_hint = "Her sütunda görünen en üst seçili değeri altındaki seçili hücrelere kopyala."
 
 [dialog]
 file_changed_title = "Dosya diskte değişti"

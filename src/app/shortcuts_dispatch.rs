@@ -600,6 +600,9 @@ impl OctaApp {
             if action_fired(SA::OpenClassify) {
                 self.open_classify();
             }
+            if action_fired(SA::FillDown) {
+                self.fill_down();
+            }
             if action_fired(SA::FillSeries) {
                 self.open_fill_series();
             }

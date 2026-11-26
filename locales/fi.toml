@@ -286,6 +286,8 @@ apply_recipe = "Käytä reseptiä..."
 apply_recipe_hint = "Toista tallennettu resepti (.ocp) tällä välilehdellä."
 fill_series = "Täytä sarja..."
 fill_series_hint = "Täytä valitut solut juoksevilla numeroilla, eteenpäin laskevalla tunnisteella, päivämäärillä tai toistuvalla kuviolla."
+fill_down = "Kopioi arvot alas"
+fill_down_hint = "Kopioi kunkin sarakkeen ylin näkyvä valittu arvo sen alla oleviin valittuihin soluihin."
 
 [dialog]
 file_changed_title = "Tiedosto on muuttunut levyllä"

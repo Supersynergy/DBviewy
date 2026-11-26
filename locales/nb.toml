@@ -286,6 +286,8 @@ apply_recipe = "Bruk oppskrift..."
 apply_recipe_hint = "Spill av en lagret oppskrift (.ocp) på denne fanen."
 fill_series = "Fyll serie..."
 fill_series_hint = "Fyll de valgte cellene med fortløpende tall, en ID som teller videre, datoer eller et gjentatt mønster."
+fill_down = "Kopier verdier nedover"
+fill_down_hint = "Kopier den øverste synlige valgte verdien til de valgte cellene under i hver kolonne."
 
 [dialog]
 file_changed_title = "Filen er endret på disken"

@@ -297,6 +297,8 @@ apply_recipe = "Aplică rețeta..."
 apply_recipe_hint = "Rulează din nou o rețetă salvată (.ocp) în această filă."
 fill_series = "Umple o serie..."
 fill_series_hint = "Umple celulele selectate cu numere consecutive, un ID care numără mai departe, date sau un model repetat."
+fill_down = "Copiază valorile în jos"
+fill_down_hint = "Copiază prima valoare vizibilă selectată în celulele selectate de sub ea, în fiecare coloană."
 
 [dialog]
 file_changed_title = "Fișierul s-a schimbat pe disc"

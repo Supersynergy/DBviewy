@@ -286,6 +286,8 @@ apply_recipe = "Aplica una recepta..."
 apply_recipe_hint = "Torna a executar una recepta desada (.ocp) en aquesta pestanya."
 fill_series = "Omple una sèrie..."
 fill_series_hint = "Omple les cel·les seleccionades amb nombres seguits, un ID que continua comptant, dates o un patró repetit."
+fill_down = "Copia els valors cap avall"
+fill_down_hint = "Copia el primer valor visible seleccionat a les cel·les seleccionades de sota a cada columna."
 
 [dialog]
 file_changed_title = "El fitxer ha canviat al disc"

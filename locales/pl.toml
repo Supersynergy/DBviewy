@@ -286,6 +286,8 @@ apply_recipe = "Zastosuj przepis..."
 apply_recipe_hint = "Odtwórz zapisany przepis (.ocp) na tej karcie."
 fill_series = "Wypełnij serią..."
 fill_series_hint = "Wypełnij zaznaczone komórki kolejnymi liczbami, ID, które liczy dalej, datami albo powtarzanym wzorem."
+fill_down = "Kopiuj wartości w dół"
+fill_down_hint = "Skopiuj górną widoczną zaznaczoną wartość do zaznaczonych komórek poniżej w każdej kolumnie."
 
 [dialog]
 file_changed_title = "Plik zmienił się na dysku"

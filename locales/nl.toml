@@ -286,6 +286,8 @@ apply_recipe = "Recept toepassen..."
 apply_recipe_hint = "Een opgeslagen recept (.ocp) afspelen op dit tabblad."
 fill_series = "Reeks invullen..."
 fill_series_hint = "Vul de geselecteerde cellen met oplopende getallen, een ID dat doortelt, datums of een herhaald patroon."
+fill_down = "Kopieer waarden omlaag"
+fill_down_hint = "Kopieer de bovenste zichtbare geselecteerde waarde naar de geselecteerde cellen eronder in elke kolom."
 
 [dialog]
 file_changed_title = "Bestand op schijf gewijzigd"

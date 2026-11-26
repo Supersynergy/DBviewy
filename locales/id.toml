@@ -297,6 +297,8 @@ apply_recipe = "Terapkan resep..."
 apply_recipe_hint = "Putar ulang resep tersimpan (.ocp) di tab ini."
 fill_series = "Isi deret..."
 fill_series_hint = "Isi sel yang dipilih dengan angka berurutan, ID yang terus menghitung, tanggal, atau pola yang diulang."
+fill_down = "Salin nilai ke bawah"
+fill_down_hint = "Salin nilai terpilih teratas yang terlihat ke sel terpilih di bawahnya pada tiap kolom."
 
 [dialog]
 file_changed_title = "Berkas berubah di disk"

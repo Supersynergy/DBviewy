@@ -91,6 +91,9 @@ impl OctaApp {
         if let Some(f) = action.copy_as {
             self.do_copy_as(ctx, f);
         }
+        if action.fill_down {
+            self.fill_down();
+        }
         if action.open_fill_series {
             self.open_fill_series();
         }

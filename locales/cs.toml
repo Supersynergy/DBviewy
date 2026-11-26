@@ -297,6 +297,8 @@ apply_recipe = "Použít recept..."
 apply_recipe_hint = "Přehrát uložený recept (.ocp) na této kartě."
 fill_series = "Vyplnit řadu..."
 fill_series_hint = "Vyplň vybrané buňky postupnými čísly, ID, které počítá dál, daty nebo opakovaným vzorem."
+fill_down = "Zkopírovat hodnoty dolů"
+fill_down_hint = "Zkopíruj horní viditelnou vybranou hodnotu do vybraných buněk pod ní v každém sloupci."
 
 [dialog]
 file_changed_title = "Soubor se na disku změnil"

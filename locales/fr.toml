@@ -286,6 +286,8 @@ apply_recipe = "Appliquer une recette..."
 apply_recipe_hint = "Rejouer une recette enregistrée (.ocp) sur cet onglet."
 fill_series = "Remplir en série..."
 fill_series_hint = "Remplis les cellules sélectionnées avec des nombres qui se suivent, un identifiant qui continue de compter, des dates ou un motif répété."
+fill_down = "Recopier les valeurs vers le bas"
+fill_down_hint = "Copie la première valeur visible sélectionnée dans les cellules sélectionnées en dessous, dans chaque colonne."
 
 [dialog]
 file_changed_title = "Le fichier a changé sur le disque"

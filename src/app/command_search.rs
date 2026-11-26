@@ -112,6 +112,7 @@ impl OctaApp {
         let need_file =
             || (!tab.is_some_and(|t| t.table.source_path.is_some())).then(|| t("greyed.need_file"));
         match a {
+            SA::FillDown => need_edit().or_else(|| tab?.fill_down_block().map(t)),
             SA::DeleteRow
             | SA::DuplicateRow
             | SA::InsertRowBelow

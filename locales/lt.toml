@@ -293,6 +293,8 @@ apply_recipe = "Taikyti receptą..."
 apply_recipe_hint = "Pakartoti išsaugotą receptą (.ocp) šiame skirtuke."
 fill_series = "Užpildyti seką..."
 fill_series_hint = "Užpildyk pažymėtus langelius iš eilės einančiais skaičiais, toliau skaičiuojančiu ID, datomis ar pasikartojančiu raštu."
+fill_down = "Kopijuok reikšmes žemyn"
+fill_down_hint = "Kiekviename stulpelyje nukopijuok viršutinę matomą pažymėtą reikšmę į po ja esančius pažymėtus langelius."
 
 [dialog]
 file_changed_title = "Failas diske pasikeitė"

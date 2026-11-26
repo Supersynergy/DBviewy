@@ -604,6 +604,8 @@ pub enum ShortcutAction {
     CopyAsJson,
     /// Copy the selection as SQL `INSERT` statements. Also **Edit -> Copy as**.
     CopyAsInsert,
+    /// Edit -> Fill down. Repeat selected values without touching the clipboard.
+    FillDown,
     /// Edit -> Fill series...
     FillSeries,
     /// Search -> Find a command... (Ctrl+K)
@@ -867,6 +869,7 @@ impl ShortcutAction {
             Self::CopyAsInList => "Copy as IN list",
             Self::CopyAsJson => "Copy as JSON",
             Self::CopyAsInsert => "Copy as SQL INSERT statements",
+            Self::FillDown => "Fill down values",
             Self::FillSeries => "Fill series...",
             Self::FindCommand => "Find a command...",
             Self::OpenCohorts => "Cohorts...",
@@ -1086,6 +1089,7 @@ impl ShortcutAction {
             | Self::CopyAsInList
             | Self::CopyAsJson
             | Self::CopyAsInsert
+            | Self::FillDown
             | Self::FillSeries
             | Self::OpenCohorts
             | Self::OpenFunnel
@@ -1285,6 +1289,7 @@ impl ShortcutAction {
             | Self::CopyAsInList
             | Self::CopyAsJson
             | Self::CopyAsInsert
+            | Self::FillDown
             | Self::FillSeries => G::Editing,
             Self::OpenDocumentation
             | Self::OpenSettings
@@ -1545,6 +1550,7 @@ impl ShortcutAction {
             Self::CopyAsInList => "command.copy_as_in_list",
             Self::CopyAsJson => "command.copy_as_json",
             Self::CopyAsInsert => "command.copy_as_insert",
+            Self::FillDown => "edit_menu.fill_down",
             Self::FillSeries => "edit_menu.fill_series",
             Self::FindCommand => "help_menu.find_command",
             Self::ToggleColumnNavigator => "view_menu.column_navigator",
@@ -1607,6 +1613,7 @@ impl ShortcutAction {
             | Self::CopyAsInList
             | Self::CopyAsJson
             | Self::CopyAsInsert
+            | Self::FillDown
             | Self::FillSeries
             | Self::ToggleEditAudit
             | Self::ToggleRecipePanel

@@ -286,6 +286,8 @@ apply_recipe = "Aplicar receita..."
 apply_recipe_hint = "Repetir uma receita guardada (.ocp) neste separador."
 fill_series = "Preencher série..."
 fill_series_hint = "Preenche as células selecionadas com números seguidos, um ID que continua a contar, datas ou um padrão repetido."
+fill_down = "Copiar valores para baixo"
+fill_down_hint = "Copia o primeiro valor visível selecionado para as células selecionadas abaixo, em cada coluna."
 
 [dialog]
 file_changed_title = "O ficheiro mudou no disco"

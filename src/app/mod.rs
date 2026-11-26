@@ -33,6 +33,7 @@ pub(crate) mod edit_audit;
 pub(crate) mod edit_ops;
 pub(crate) mod enrich;
 pub(crate) mod file_io;
+mod fill_down;
 pub(crate) mod find_replace;
 pub(crate) mod flag_guard;
 pub(crate) mod folder_compare;

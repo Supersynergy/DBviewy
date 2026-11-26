@@ -293,6 +293,8 @@ apply_recipe = "Uporabi recept..."
 apply_recipe_hint = "Predvajaj shranjen recept (.ocp) na tem zavihku."
 fill_series = "Zapolni niz..."
 fill_series_hint = "Zapolni izbrane celice z zaporednimi števili, ID-jem, ki šteje naprej, datumi ali ponavljajočim se vzorcem."
+fill_down = "Kopiraj vrednosti navzdol"
+fill_down_hint = "V vsakem stolpcu kopiraj zgornjo vidno izbrano vrednost v izbrane celice pod njo."
 
 [dialog]
 file_changed_title = "Datoteka se je na disku spremenila"

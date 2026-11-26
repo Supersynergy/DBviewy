@@ -293,6 +293,8 @@ apply_recipe = "Lietot recepti..."
 apply_recipe_hint = "Atkārtot saglabātu recepti (.ocp) šajā cilnē."
 fill_series = "Aizpildīt virkni..."
 fill_series_hint = "Aizpildi atlasītās šūnas ar secīgiem skaitļiem, ID, kas skaita tālāk, datumiem vai atkārtotu rakstu."
+fill_down = "Kopē vērtības uz leju"
+fill_down_hint = "Katrā kolonnā kopē augšējo redzamo atlasīto vērtību atlasītajās šūnās zem tās."
 
 [dialog]
 file_changed_title = "Fails diskā ir mainījies"

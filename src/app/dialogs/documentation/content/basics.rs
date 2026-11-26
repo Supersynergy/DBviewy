@@ -280,6 +280,15 @@ cell by `R5:C3`, `R5`, `C3`, a row number, or a column name. Go to,
 highlight search and problem navigation reveal the selected visible row
 even after zooming or resizing rows. A jump does not clear your filter.
 
+## Fill down
+
+Select at least two visible cells in a column, or select column headers,
+then choose **Edit > Fill down values**. Each column's top selected value
+overwrites the selected cells below. A blank source clears them.
+Hidden rows, hidden columns and unselected cells stay as they are.
+Only values are copied, not formulas or formatting. Undo restores the
+whole fill in one step. Find the command by name or bind it in Settings.
+
 ## Zoom
 
 The zoom level always shows at the right end of the status bar, 100%

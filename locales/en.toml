@@ -293,6 +293,8 @@ apply_recipe = "Apply recipe..."
 apply_recipe_hint = "Replay a saved recipe (.ocp) on this tab."
 fill_series = "Fill series..."
 fill_series_hint = "Fill the selected cells with counting numbers, an ID that counts on, dates or a repeated pattern."
+fill_down = "Fill down values"
+fill_down_hint = "Copy the top visible selected value to the selected cells below it in each column."
 
 [dialog]
 file_changed_title = "File changed on disk"
