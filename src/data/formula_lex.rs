@@ -1,10 +1,14 @@
 //! Token boundaries shared by the evaluator and column formula fill.
 
-pub(crate) fn has_intl_suffix(bytes: &[u8], start: usize) -> bool {
-    bytes
-        .get(start..)
-        .and_then(|tail| tail.get(..5))
-        .is_some_and(|suffix| suffix.eq_ignore_ascii_case(b".INTL"))
+/// A dotted function suffix, such as .INTL or .EXC. The evaluator still
+/// requires the complete name to be registered.
+pub(crate) fn dotted_suffix_end(bytes: &[u8], start: usize) -> Option<usize> {
+    let suffix = bytes.get(start..)?.strip_prefix(b".")?;
+    let letters = suffix
+        .iter()
+        .take_while(|b| b.is_ascii_alphabetic())
+        .count();
+    (letters != 0).then_some(start + 1 + letters)
 }
 
 fn digits(bytes: &[u8], mut end: usize) -> usize {

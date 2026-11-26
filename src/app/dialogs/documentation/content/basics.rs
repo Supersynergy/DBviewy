@@ -639,6 +639,13 @@ Cells support simple Excel-like formulas starting with **=**.
   MITTELWERT and ANZAHL work with either semicolons or commas.
 - **`MEDIAN(B1:B9)`** takes the middle value in a range, or the average
   of the two middle values if the number of finite values is even.
+- **`PERCENTILE.INC(A1:A100,95%)`** finds the 95th percentile, for
+  example of response times. `PERCENTILE.EXC` returns no result when the
+  sample cannot support the chosen percentile. For quartiles, use
+  `QUARTILE.INC(range,1)` or `QUARTILE.EXC(range,1)` for the first
+  quartile, 2 for the median and 3 for the third quartile. Only loaded
+  finite numbers and numeric text count. In German use QUANTIL.INKL,
+  QUANTIL.EXKL, QUARTILE.INKL and QUARTILE.EXKL.
 - **`ABS(A1-B1)`** gives the distance between two numbers.
 - **`ROUND(A1*B1,2)`** rounds to two decimal places. Use a negative
   number of places to round tens or hundreds. Halfway values round away

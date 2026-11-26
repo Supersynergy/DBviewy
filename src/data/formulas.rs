@@ -24,6 +24,8 @@ mod lookup;
 mod presence;
 #[path = "formulas_product.rs"]
 mod product;
+#[path = "formulas_quantiles.rs"]
+mod quantiles;
 #[path = "formulas_time.rs"]
 mod time;
 #[path = "formulas_workdays.rs"]
@@ -185,6 +187,7 @@ enum FormulaToken {
 enum Function {
     Aggregate(Aggregate),
     Presence(presence::Presence),
+    Quantile(quantiles::Kind),
     Conditional(ConditionalAggregate),
     ConditionalMany(ConditionalAggregate),
     Abs,
@@ -229,7 +232,8 @@ impl Comparison {
 
 fn function_named(name: &str) -> Option<Function> {
     use Aggregate::{Average, Count, Max, Median, Min, Sum};
-    use Function::{Abs, Round};
+    use Function::{Abs, Quantile, Round};
+    use quantiles::Kind::{PercentileExc, PercentileInc, QuartileExc, QuartileInc};
     const NAMES: &[(&str, Function)] = &[
         ("SUM", Function::Aggregate(Sum)),
         ("SUMME", Function::Aggregate(Sum)),
@@ -258,6 +262,17 @@ fn function_named(name: &str) -> Option<Function> {
         ("ISBLANK", Function::Presence(presence::Presence::IsBlank)),
         ("ISTLEER", Function::Presence(presence::Presence::IsBlank)),
         ("MEDIAN", Function::Aggregate(Median)),
+        ("PERCENTILE.INC", Quantile(PercentileInc)),
+        ("PERCENTILE.EXC", Quantile(PercentileExc)),
+        ("QUANTIL.INKL", Quantile(PercentileInc)),
+        ("QUANTIL.EXKL", Quantile(PercentileExc)),
+        ("PERCENTILE", Quantile(PercentileInc)),
+        ("QUANTIL", Quantile(PercentileInc)),
+        ("QUARTILE.INC", Quantile(QuartileInc)),
+        ("QUARTILE.EXC", Quantile(QuartileExc)),
+        ("QUARTILE.INKL", Quantile(QuartileInc)),
+        ("QUARTILE.EXKL", Quantile(QuartileExc)),
+        ("QUARTILE", Quantile(QuartileInc)),
         (
             "COUNTIF",
             Function::Conditional(ConditionalAggregate::Count),
@@ -518,8 +533,8 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                     && !row_fixed
                     && (row_start == i || lex::numbered_function(bytes, col_start, i))
                 {
-                    if lex::has_intl_suffix(bytes, i) {
-                        i += 5;
+                    if let Some(end) = lex::dotted_suffix_end(bytes, i) {
+                        i = end;
                     }
                     let name = &expr[col_start..i];
                     if name.eq_ignore_ascii_case("TRUE") || name.eq_ignore_ascii_case("WAHR") {
@@ -717,6 +732,7 @@ fn eval_function(
         Function::Calendar(kind) => return date::evaluate(kind, tokens, pos, context),
         Function::Clock(kind) => return time::evaluate(kind, tokens, pos, context),
         Function::Presence(kind) => return presence::evaluate(kind, tokens, pos, context),
+        Function::Quantile(kind) => return quantiles::evaluate(kind, tokens, pos, context),
         Function::Workdays(kind, intl) => {
             return workdays::evaluate(kind, intl, tokens, pos, context);
         }

@@ -1492,3 +1492,89 @@ fn keyboard_preview_reads_sample_then_dismisses_it_when_the_formula_changes() {
     assert!(app.tabs[0].new_col_preview.is_none());
     assert_eq!(app.tabs[0].table.col_count(), 1);
 }
+
+#[test]
+fn percentile_fill_reuses_identical_requests_only_for_the_fixed_range() {
+    use CellValue::{Float, Int};
+    let percentiles = [0.95, 0.5, 1.0, 0.95, 0.5, 1.0];
+    let table = data::DataTable {
+        columns: ["Response ms", "Percentile"]
+            .map(|name| ColumnInfo {
+                name: name.into(),
+                data_type: "Float64".into(),
+            })
+            .to_vec(),
+        rows: [100, 120, 160, 200, 300, 500]
+            .into_iter()
+            .zip(percentiles)
+            .map(|(ms, pct)| vec![Int(ms), Float(pct)])
+            .collect(),
+        ..data::DataTable::empty()
+    };
+    let formula = "QUANTIL.INKL($A$1:$A$6;B1)";
+    let template = FormulaRows::new(formula);
+    let keys = template.memo_inputs().unwrap();
+    assert_eq!(keys, [(1, 1)]);
+    for moving in [
+        "QUANTIL.INKL($A$1:A6;B1)",
+        "QUARTILE.EXKL(A1:$A$6;B1)",
+        "PERCENTILE.INC($A$1:$A$6,B1+0)",
+    ] {
+        assert!(FormulaRows::new(moving).memo_inputs().is_none(), "{moving}");
+    }
+    assert_eq!(
+        FormulaRows::new("QUARTILE.EXKL($A$1:$A$6;B1)").memo_inputs(),
+        Some(vec![(1, 1)])
+    );
+    let mut calls = 0;
+    let cached = fill_shifted_template(&template, &table, &keys, |expr, table| {
+        calls += 1;
+        data::evaluate_formula_with_diagnostics(expr, table)
+    });
+    let direct = fill_shifted_template(
+        &template,
+        &table,
+        &[],
+        data::evaluate_formula_with_diagnostics,
+    );
+    assert_eq!(cached.0, direct.0);
+    assert!(cached.1.is_none() && direct.1.is_none());
+    assert_eq!(
+        cached.0,
+        [
+            (0, 450.0),
+            (1, 180.0),
+            (2, 500.0),
+            (3, 450.0),
+            (4, 180.0),
+            (5, 500.0)
+        ]
+    );
+    assert_eq!(calls, 3);
+
+    let mut app = workbook_app();
+    app.tabs[0].table = table;
+    app.tabs[0].new_col_name = "Latency threshold".into();
+    app.tabs[0].new_col_formula = format!("={formula}");
+    add_formula_column(&mut app);
+    let table = &mut app.tabs[0].table;
+    assert_eq!(table.col_count(), 3);
+    for (r, v) in [450, 180, 500, 450, 180, 500].into_iter().enumerate() {
+        assert_eq!(table.get(r, 2), Some(&Int(v)));
+    }
+    assert_eq!(table.undo_stack.len(), 1);
+    table.undo();
+    assert_eq!(table.col_count(), 2);
+}
+
+#[test]
+fn a_dotted_function_name_preserves_the_formula_column_relative_rows() {
+    let mut buffer = String::new();
+    for (base, shifted) in [
+        ("PERCENTILE.EXC(A1:A$9,B1)", "PERCENTILE.EXC(A4:A$9,B4)"),
+        ("QuArTiLe.InKl(A1:A3;$B$1)", "QuArTiLe.InKl(A4:A6;$B$1)"),
+        ("NETWORKDAYS.INTL(A1,A$2)", "NETWORKDAYS.INTL(A4,A$2)"),
+    ] {
+        assert_eq!(FormulaRows::new(base).at(3, &mut buffer), Some(shifted));
+    }
+}

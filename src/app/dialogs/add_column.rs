@@ -394,8 +394,10 @@ impl<'a> FormulaRows<'a> {
                 }
                 continue;
             }
-            if *byte == b'.' && formula_lex::has_intl_suffix(bytes, i) {
-                i += 5;
+            if *byte == b'.'
+                && let Some(end) = formula_lex::dotted_suffix_end(bytes, i)
+            {
+                i = end;
                 continue;
             }
             if byte.is_ascii_digit() || *byte == b'.' {
@@ -435,8 +437,8 @@ impl<'a> FormulaRows<'a> {
     }
 
     /// Only cache whole calls whose moving references are bare cells in
-    /// criterion slots. Range endpoints and other expressions cannot be
-    /// keyed by those cells' values alone.
+    /// a supported argument slot. Range endpoints and other expressions
+    /// cannot be keyed by those cells' values alone.
     fn memo_inputs(&self) -> Option<Vec<(usize, usize)>> {
         if !(1..=MAX_MEMO_INPUTS).contains(&self.relative.len()) {
             return None;
@@ -451,6 +453,9 @@ impl<'a> FormulaRows<'a> {
                 arg == 1
             }
             "COUNTIFS" | "ZÄHLENWENNS" => arg % 2 == 1,
+            "PERCENTILE.INC" | "PERCENTILE.EXC" | "PERCENTILE" | "QUANTIL.INKL"
+            | "QUANTIL.EXKL" | "QUANTIL" | "QUARTILE.INC" | "QUARTILE.EXC" | "QUARTILE.INKL"
+            | "QUARTILE.EXKL" | "QUARTILE" => arg == 1,
             "SUMIFS" | "SUMMEWENNS" | "AVERAGEIFS" | "MITTELWERTWENNS" | "MINIFS" | "MINWENNS"
             | "MAXIFS" | "MAXWENNS" => arg >= 2 && arg % 2 == 0,
             _ => false,

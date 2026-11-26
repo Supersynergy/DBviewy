@@ -75,6 +75,32 @@ column, use **Columns > Calculated column > Running total** instead.
 
 In a range or a single-cell argument, these functions include numbers and numeric text, and skip blanks and other values. `COUNT` returns the number of included cells and scalar arguments. `MEDIAN` skips non-finite values and averages the two middle numbers when there is an even count. When there are no numbers, `AVERAGE` and `MEDIAN` return no numeric result; the other four functions return zero.
 
+### Find percentiles and quartiles
+
+To find the 95th-percentile response time, enter
+`=PERCENTILE.INC(A1:A5,95%)`. With times of 100, 120, 160, 200 and 300 ms,
+the result is 280 ms. The inclusive method uses the minimum at 0% and
+the maximum at 100%. `PERCENTILE.EXC` uses a different ranking and
+returns no result if the sample cannot support the requested percentile.
+
+| Formula | What it finds |
+|---------|---------------|
+| `=QUARTILE.INC(A1:A5,1)` | First quartile. Use 2 for the median and 3 for the third quartile. |
+| `=QUARTILE.EXC(A1:A5,3)` | Third quartile using the exclusive method. |
+| `=QUANTIL.INKL(A1:A5;95%)` | The same inclusive percentile with the German function name. |
+
+German names also include `QUANTIL.EXKL`, `QUARTILE.INKL` and
+`QUARTILE.EXKL`. `PERCENTILE`, `QUANTIL` and `QUARTILE` use the inclusive
+method. Inclusive quartiles accept 0 for the minimum and 4 for the
+maximum; exclusive quartiles accept 1 to 3. The quartile argument is
+truncated to an integer.
+
+Use a single cell or rectangular range. Only finite loaded numbers and
+numeric text in that range count. An empty sample gives no result.
+Use `$A$1:$A$5` in Insert Column to keep the sample fixed while reading
+the percentile from a different cell on each row. Formulas store the
+result, not a formula that recalculates.
+
 ### Check for missing entries
 
 | Formula | What it checks |

@@ -2897,3 +2897,219 @@ fn evening_extrema_report_round_trips_xlsx_clocks_and_numeric_results() {
     assert_eq!(evaluate_formula("D1", &reopened), Some(3.0));
     assert_eq!(evaluate_formula("E1", &reopened), Some(17.0));
 }
+
+fn quantile_sample(values: impl IntoIterator<Item = CellValue>) -> DataTable {
+    DataTable {
+        rows: values.into_iter().map(|v| vec![v]).collect(),
+        ..formula_table()
+    }
+}
+
+#[test]
+fn percentile_and_quartile_match_worked_excel_examples_and_legacy_names() {
+    let table = quantile_sample([1, 3, 2, 4, 7, 8, 9, 10, 12].map(CellValue::Int));
+    for (formula, expected) in [
+        ("PERCENTILE.INC(A1:A4,0.3)", 1.9),
+        ("quantil.inkl(A1:A4;30%)", 1.9),
+        ("PERCENTILE(A1:A4,0.3)", 1.9),
+        ("QUANTIL(A1:A4;30%)", 1.9),
+        ("QUANTIL.EXKL(A1:A4;30%)", 1.5),
+        ("PERCENTILE.EXC(A1:A4,1/5)", 1.0),
+        ("PERCENTILE.EXC(A1:A4,4/5)", 4.0),
+        ("QUARTILE.INC(A1:A4,0)", 1.0),
+        ("QUARTILE.INKL(A1:A4;4)", 4.0),
+        ("QUARTILE(A1:A4,2)", 2.5),
+        ("QUARTILE.INKL(A1:A4;1.9)", 1.75),
+        ("QUARTILE.EXC(A1:A4,1)", 1.25),
+        ("QUARTILE.EXKL(A1:A4;3)", 3.75),
+    ] {
+        let got = evaluate_formula(formula, &table).unwrap();
+        assert!(
+            (got - expected).abs() < 1e-12,
+            "{formula}: {got} != {expected}"
+        );
+    }
+    let inclusive = quantile_sample([1, 2, 4, 7, 8, 9, 10, 12].map(CellValue::Int));
+    assert_eq!(
+        evaluate_formula("QUARTILE.INC(A1:A8,1)", &inclusive),
+        Some(3.5)
+    );
+    let exclusive = quantile_sample([6, 7, 15, 36, 39, 40, 41, 42, 43, 47, 49].map(CellValue::Int));
+    assert_eq!(
+        evaluate_formula("QUARTILE.EXC(A1:A11,1)", &exclusive),
+        Some(15.0)
+    );
+    assert_eq!(
+        evaluate_formula("QUARTILE.EXC(A1:A11,3)", &exclusive),
+        Some(43.0)
+    );
+}
+
+#[test]
+fn quantiles_follow_numeric_edits_and_only_loaded_cells_in_a_rectangle() {
+    use CellValue::{Bool, Float, Int, Null, String as Text};
+    let mut table = DataTable {
+        rows: vec![
+            vec![Int(30), Text(" 10 ".into()), Float(f64::NAN)],
+            vec![Bool(true), Int(20), Text(" 40 ".into())],
+            vec![Float(f64::INFINITY), Text("-inf".into()), Null],
+        ],
+        row_offset: 4000,
+        total_rows: Some(900_000),
+        ..formula_table()
+    };
+    table.set(0, 0, Int(50));
+    assert_eq!(
+        evaluate_formula("PERCENTILE.INC((ZZZ999999999:A1),25%)", &table),
+        Some(17.5)
+    );
+    assert_eq!(
+        evaluate_formula("QUARTILE.INC(A1:C3,2)", &table),
+        Some(30.0)
+    );
+    assert_eq!(
+        evaluate_formula("PERCENTILE.INC(B1,100%)", &table),
+        Some(10.0)
+    );
+    assert_eq!(
+        evaluate_formula("PERCENTILE.EXC(B1,50%)", &table),
+        Some(10.0)
+    );
+    assert_eq!(
+        evaluate_formula("PERCENTILE.INC(A4001:A4002,50%)", &table),
+        None
+    );
+    assert_eq!(evaluate_formula("PERCENTILE.INC(A3:C3,50%)", &table), None);
+}
+
+#[test]
+fn invalid_quantile_values_leave_no_result_and_lazy_branches_still_parse() {
+    let table = quantile_sample([1, 2, 3, 4].map(CellValue::Int));
+    for formula in [
+        "PERCENTILE.INC(A1:A4)",
+        "PERCENTILE.INC(A1:A4,0.5,0.9)",
+        "PERCENTILE.INC(A1:A4,)",
+        "PERCENTILE.INC(A1+A2,0.5)",
+        "PERCENTILE.INC(A1:A4,-1%)",
+        "PERCENTILE.INC(A1:A4,110%)",
+        "PERCENTILE.INC(A1:A4,1E300*1E300)",
+        r#"PERCENTILE.INC(A1:A4,"95%")"#,
+        "PERCENTILE.EXC(A1:A4,0)",
+        "PERCENTILE.EXC(A1:A4,100%)",
+        "PERCENTILE.EXC(A1:A4,19%)",
+        "PERCENTILE.EXC(A1:A4,81%)",
+        "QUARTILE.EXC(A1:A4,0)",
+        "QUARTILE.EXC(A1:A4,4)",
+        "QUARTILE.EXC(A1:A2,1)",
+        "QUARTILE.INC(A1:A4,5)",
+        "QUARTILE.INC.EXTRA(A1:A4,1)",
+        "IF(FALSE,PERCENTILE.INC(A1:A4),7)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+    for formula in [
+        "IF(FALSE,PERCENTILE.EXC(A1:A4,0),7)",
+        "IFERROR(PERCENTILE.EXC(A1:A4,95%),7)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(7.0), "{formula}");
+    }
+    assert_eq!(
+        evaluate_formula("1+PERCENTILE.INC(A1:A4,1/2)*2", &table),
+        Some(6.0)
+    );
+}
+
+#[test]
+fn quantile_interpolation_keeps_extreme_finite_endpoints_finite() {
+    let table = quantile_sample([f64::MAX, -f64::MAX].map(CellValue::Float));
+    for (p, want) in [("0%", -f64::MAX), ("50%", 0.0), ("100%", f64::MAX)] {
+        let formula = format!("PERCENTILE.INC(A1:A2,{p})");
+        assert_eq!(evaluate_formula(&formula, &table), Some(want));
+    }
+    let near = f64::from_bits(f64::MAX.to_bits() - 2);
+    let table = quantile_sample([f64::MAX, near, -near, -f64::MAX].map(CellValue::Float));
+    for (p, lo, hi) in [("5%", -f64::MAX, -near), ("95%", near, f64::MAX)] {
+        let formula = format!("PERCENTILE.INC(A1:A4,{p})");
+        let got = evaluate_formula(&formula, &table).unwrap();
+        assert!((lo..=hi).contains(&got), "{formula}: {got}");
+    }
+}
+
+#[test]
+fn quantile_selection_agrees_with_sorted_reference_on_unsorted_repeated_values() {
+    for len in [1, 2, 3, 7, 16, 45, 127, 1023] {
+        let data: Vec<f64> = (0..len)
+            .map(|n| ((n * 211 + 73) % 97 - 50) as f64)
+            .collect();
+        let table = quantile_sample(data.iter().copied().map(CellValue::Float));
+        let mut sorted = data;
+        sorted.sort_unstable_by(f64::total_cmp);
+        for percent in [0, 1, 5, 25, 35, 50, 75, 95, 99, 100] {
+            let n = len as f64;
+            for (method, rank) in [
+                ("INC", (n - 1.0) * percent as f64 / 100.0),
+                ("EXC", (n + 1.0) * percent as f64 / 100.0 - 1.0),
+            ] {
+                let formula = format!("PERCENTILE.{method}(A1:A{len},{percent}%)");
+                let got = evaluate_formula(&formula, &table);
+                if (0.0..n).contains(&rank) && rank.ceil() < n {
+                    let lower = sorted[rank.floor() as usize];
+                    let upper = sorted[rank.ceil() as usize];
+                    let expected = lower + (upper - lower) * rank.fract();
+                    assert!((got.unwrap() - expected).abs() < 1e-10, "{formula}");
+                } else {
+                    assert_eq!(got, None, "{formula}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn latency_percentile_report_round_trips_numeric_results_through_xlsx() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::Workbook;
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("latency-ms.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet().set_name("Latency").unwrap();
+    for (col, label) in ["Response ms", "P95 ms", "Upper quartile ms"]
+        .into_iter()
+        .enumerate()
+    {
+        sheet.write_string(0, col as u16, label).unwrap();
+    }
+    for (r, sample) in [100, 120, 160, 200, 300].into_iter().enumerate() {
+        sheet.write_number(r as u32 + 1, 0, sample).unwrap();
+    }
+    sheet.write_number(1, 1, 0).unwrap();
+    sheet.write_number(1, 2, 0).unwrap();
+    book.save(&source).unwrap();
+
+    let mut table = ExcelReader.read_file(&source).unwrap();
+    for (col, formula) in [
+        (1, "=QUANTIL.INKL(A1:A5;95%)"),
+        (2, "=QUARTILE.EXC(A1:A5,3)"),
+    ] {
+        assert!(commit_cell_text(
+            &mut table,
+            0,
+            col,
+            formula.into(),
+            BinaryDisplayMode::default()
+        ));
+    }
+    let report = dir.path().join("latency-report.xlsx");
+    ExcelReader.write_file(&report, &table).unwrap();
+    let reopened = ExcelReader.read_file(&report).unwrap();
+    for (col, expected) in [(1, 280.0), (2, 250.0)] {
+        let actual = match reopened.get(0, col).unwrap() {
+            CellValue::Float(v) => *v,
+            CellValue::Int(v) => *v as f64,
+            other => panic!("wanted a numeric XLSX cell, got {other:?}"),
+        };
+        assert!((actual - expected).abs() < 1e-10, "{actual} != {expected}");
+    }
+}
