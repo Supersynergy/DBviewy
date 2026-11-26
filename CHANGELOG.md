@@ -19,6 +19,7 @@
 - Count or total invoices by date range, including XLSX timestamps on the last day.
 - Correct existing XLSX dates and timestamps without changing the cell format or date system.
 - Check data completeness with `COUNTA`, `COUNTBLANK` and `ISBLANK`, also in German.
+- Fill running averages and counts without rescanning earlier rows.
 
 - Integrate Octa 0.22.1, keeping DBviewy's workbook preservation, per-session
   crash markers, assistant integrations, and local table interface.

@@ -355,10 +355,32 @@ impl<'a> FormulaRows<'a> {
     }
 }
 
-/// Find an exact single-column SUM whose lower endpoint is fixed and whose
-/// upper endpoint advances one row per result. Subexpressions, different
-/// columns, and ranges that cross over the fixed endpoint use the evaluator.
-fn running_sum_range(formula: &str) -> Option<(&str, usize)> {
+#[derive(Clone, Copy)]
+enum RunningAggregate {
+    Add(&'static str),
+    Average,
+}
+
+impl RunningAggregate {
+    fn named(name: &str) -> Option<Self> {
+        for (english, german, kind) in [
+            ("SUM", "SUMME", Self::Add("SUM")),
+            ("COUNT", "ANZAHL", Self::Add("COUNT")),
+            ("COUNTA", "ANZAHL2", Self::Add("COUNTA")),
+            ("COUNTBLANK", "ANZAHLLEEREZELLEN", Self::Add("COUNTBLANK")),
+            ("AVERAGE", "MITTELWERT", Self::Average),
+        ] {
+            if name.eq_ignore_ascii_case(english) || name.eq_ignore_ascii_case(german) {
+                return Some(kind);
+            }
+        }
+        None
+    }
+}
+
+/// Find one whole single-column call whose first row stays fixed and whose
+/// last row advances. Other shapes and modes stay on the regular evaluator.
+fn running_range(formula: &str) -> Option<(RunningAggregate, &str, usize, usize)> {
     fn endpoint(s: &str) -> Option<(&str, usize, bool)> {
         let s = s.trim_ascii();
         let s = s.strip_prefix('$').unwrap_or(s);
@@ -374,10 +396,7 @@ fn running_sum_range(formula: &str) -> Option<(&str, usize)> {
     }
 
     let (name, range) = formula.trim().split_once('(')?;
-    let name = name.trim_ascii_end();
-    if !(name.eq_ignore_ascii_case("SUM") || name.eq_ignore_ascii_case("SUMME")) {
-        return None;
-    }
+    let kind = RunningAggregate::named(name.trim_ascii_end())?;
     let (a, b) = range.strip_suffix(')')?.split_once(':')?;
     let a = endpoint(a)?;
     let b = endpoint(b)?;
@@ -386,42 +405,68 @@ fn running_sum_range(formula: &str) -> Option<(&str, usize)> {
         (false, true) => (b, a),
         _ => return None,
     };
-    (fixed.0.eq_ignore_ascii_case(advancing.0) && fixed.1 <= advancing.1)
-        .then_some((advancing.0, advancing.1))
+    (fixed.0.eq_ignore_ascii_case(advancing.0) && fixed.1 <= advancing.1).then_some((
+        kind,
+        advancing.0,
+        fixed.1,
+        advancing.1,
+    ))
 }
 
 type FormulaResults = Vec<(usize, f64)>;
 
 const MAX_MEMO_INPUTS: usize = 8;
 
-fn fill_running_sum(formula: &str, table: &data::DataTable) -> Option<FormulaResults> {
-    let (column, first_end) = running_sum_range(formula)?;
+fn fill_running_aggregate(formula: &str, table: &data::DataTable) -> Option<FormulaResults> {
+    let (kind, column, first_start, first_end) = running_range(formula)?;
     let rows = table.row_count();
     if rows == 0 {
         return Some(Vec::new());
     }
 
-    // The normal evaluator validates the first range and sums it in source
-    // order. Then read just the newly included cells. SUM(cell) deliberately
-    // keeps the same coercion as the full range (numeric text, blanks and
-    // non-numeric types), without using differences of rounded prefix sums.
-    let mut sum = data::evaluate_formula(formula, table)?;
+    // Validate the first range with the ordinary evaluator. Keep the
+    // unrounded sum and the count for AVERAGE, not the previous mean.
+    let (term_name, mut total, mut count) = match kind {
+        RunningAggregate::Add(name) => (name, data::evaluate_formula(formula, table)?, 0.0),
+        RunningAggregate::Average => {
+            let range = format!("{column}{first_start}:{column}{first_end}");
+            (
+                "AVERAGE",
+                data::evaluate_formula(&format!("SUM({range})"), table)?,
+                data::evaluate_formula(&format!("COUNT({range})"), table)?,
+            )
+        }
+    };
+    let is_mean = matches!(kind, RunningAggregate::Average);
     let fill_rows = rows.min(usize::MAX - first_end + 1);
     let mut results = Vec::with_capacity(fill_rows);
-    results.push((0, sum));
     let mut next = first_end.min(rows);
-    let mut term = format!("SUM({column}");
+    let mut term = format!("{term_name}({column}");
     let prefix = term.len();
 
-    for offset in 1..fill_rows {
+    for offset in 0..fill_rows {
         let end = (first_end + offset).min(rows);
         for source in next..end {
             term.truncate(prefix);
             write!(term, "{})", source + 1).ok()?;
-            sum += data::evaluate_formula(&term, table)?;
+            let value = data::evaluate_formula(&term, table);
+            if is_mean {
+                // A one-cell average returns the coerced numeric value,
+                // or None for cells the multi-cell average would skip.
+                if let Some(number) = value {
+                    total += number;
+                    count += 1.0;
+                }
+            } else {
+                total += value?;
+            }
         }
         next = end;
-        results.push((offset, sum));
+        if !is_mean {
+            results.push((offset, total));
+        } else if count > 0.0 {
+            results.push((offset, total / count));
+        }
     }
     Some(results)
 }
@@ -564,7 +609,7 @@ fn add_formula_column(app: &mut OctaApp) {
         // Read the pre-insertion table, including existing edits. A formula
         // must see the same original columns regardless of output position.
         let first_bad;
-        (results, first_bad) = match fill_running_sum(formula, &tab.table) {
+        (results, first_bad) = match fill_running_aggregate(formula, &tab.table) {
             Some(values) => (values, None),
             None => fill_formula_template(formula, &tab.table),
         };

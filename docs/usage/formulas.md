@@ -61,10 +61,13 @@ fixed, so the row still advances. Insert Column fills down and never changes
 column letters. It looks up all references in the table **before** inserting
 the result, even when you place the new column first.
 
-For a running sum such as `SUM(A$1:A1)`, DBviewy keeps the previous total
-and reads only the newly included cells. The range must stay in one column
-and start at a fixed row. To order or restart totals by another column, use
-**Columns > Calculated column > Running total** instead.
+For a running sum such as `SUM(A$1:A1)`, DBviewy reads only the newly
+included cells as it fills a column. A running average such as
+`AVERAGE(B$1:B1)` starts at the first numeric value. The same single-pass
+approach works for `COUNT`, `COUNTA` and `COUNTBLANK`; for example,
+`COUNTBLANK(C$1:C1)` tracks missing entries so far. Use a single column
+with a fixed start and a moving end. To order or restart totals by another
+column, use **Columns > Calculated column > Running total** instead.
 
 ## Aggregate functions
 

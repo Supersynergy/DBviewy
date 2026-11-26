@@ -228,7 +228,7 @@ fn prefix_sum_matches_original_order_and_coercion() {
         "SUM(AAA$1:AAA1)",
         &format!("SUM(A$1:A{})", usize::MAX),
     ] {
-        let actual = fill_running_sum(formula, &table).unwrap();
+        let actual = fill_running_aggregate(formula, &table).unwrap();
         let (baseline, bad) = fill_formula_template(formula, &table);
         assert!(bad.is_none());
         assert_eq!(actual.len(), baseline.len(), "{formula}");
@@ -252,14 +252,21 @@ fn prefix_sum_falls_back_for_unrelated_or_malformed_formulas() {
         "SUM(A$1:B1)",
         "SUM(A$1:A1,5)",
         "SUM(A$1:A1)+1",
-        "COUNT(A$1:A1)",
+        "MEDIAN(A$1:A1)",
+        "COUNTBLANK(A$1:A1, A1)",
+        "AVERAGE(A$2:A1)",
+        "COUNTA(A$1:B1)",
+        "ANZAHL2(A$1:A1)+1",
         "SUM(A$0:A1)",
         "SUM(A$$1:A1)",
         "SUM(A$1:A 1)",
         "SUM(\u{00a0}A$1:A1)",
         "SUM(XXXXXXXXXXXXXXXXXXXXXX$1:XXXXXXXXXXXXXXXXXXXXXX1)",
     ] {
-        assert!(fill_running_sum(formula, &table).is_none(), "{formula}");
+        assert!(
+            fill_running_aggregate(formula, &table).is_none(),
+            "{formula}"
+        );
     }
 
     let mut app = workbook_app();
@@ -320,7 +327,7 @@ fn prefix_sum_performance_fixture_matches_every_baseline_row() {
         };
         let optimized = || {
             let start = std::time::Instant::now();
-            let result = fill_running_sum(formula, &table).unwrap();
+            let result = fill_running_aggregate(formula, &table).unwrap();
             (result, start.elapsed().as_nanos())
         };
         let ((old, old_ns), (new, new_ns)) = if i % 2 == 0 {
@@ -339,6 +346,169 @@ fn prefix_sum_performance_fixture_matches_every_baseline_row() {
     println!(
         "running_sum_bench rows={ROWS} baseline_ns={} incremental_ns={} samples=3",
         old_times[1], new_times[1]
+    );
+}
+
+#[test]
+fn running_counts_preserve_empty_text_edits_and_incomplete_rows() {
+    let mut table = numeric_grid([
+        CellValue::Null,
+        CellValue::String("".into()),
+        CellValue::Int(0),
+        CellValue::Bool(false),
+        CellValue::String(" ".into()),
+        CellValue::Date("2024-04-01".into()),
+        CellValue::String(" 12.5 ".into()),
+        CellValue::Float(f64::NAN),
+    ]);
+    table.set(4, 0, CellValue::Null);
+    table.rows.push(Vec::new());
+    for (formula, last) in [
+        ("COUNT(A$1:A1)", 3.0),
+        ("ANZAHL(A$1:A1)", 3.0),
+        ("COUNTA(A$1:A1)", 6.0),
+        ("ANZAHL2(A$1:A1)", 6.0),
+        ("COUNTBLANK(A$1:A1)", 4.0),
+        ("ANZAHLLEEREZELLEN ($a1 : A$1)", 4.0),
+        ("COUNTBLANK(A$1:A9000000)", 4.0),
+        ("COUNTA(A$9000000:A9000000)", 0.0),
+        ("COUNTBLANK(AAA$1:AAA1)", 0.0),
+    ] {
+        let candidate = fill_running_aggregate(formula, &table).unwrap();
+        let (expected, bad) = fill_formula_template(formula, &table);
+        assert!(bad.is_none());
+        assert_eq!(candidate, expected, "{formula}");
+        assert_eq!(candidate.last(), Some(&(8, last)), "{formula}");
+    }
+}
+
+#[test]
+fn running_means_start_at_the_first_number_and_preserve_sum_order() {
+    let mut table = numeric_grid([
+        CellValue::Null,
+        CellValue::Bool(true),
+        CellValue::String("not yet recorded".into()),
+        CellValue::Float(1e16),
+        CellValue::Float(1.0),
+        CellValue::Float(-1e16),
+        CellValue::String(" 4.5 ".into()),
+        CellValue::Float(f64::INFINITY),
+        CellValue::Float(f64::NEG_INFINITY),
+        CellValue::Float(-0.0),
+    ]);
+    table.set(6, 0, CellValue::String(" 5.25 ".into()));
+    for (formula, first) in [
+        ("AVERAGE(A$1:A1)", Some(3)),
+        ("MITTELWERT ( A3 : $A$2 )", Some(1)),
+        ("AVERAGE(A$1:A99999999)", Some(0)),
+        ("AVERAGE(A$20:A20)", None),
+        ("AVERAGE(XXX$1:XXX1)", None),
+    ] {
+        let actual = fill_running_aggregate(formula, &table).unwrap();
+        let (normal, bad) = fill_formula_template(formula, &table);
+        assert!(bad.is_none());
+        assert_eq!(actual.first().map(|(row, _)| *row), first);
+        assert_eq!(actual.len(), normal.len(), "{formula}");
+        for ((r, value), (expected_row, expected)) in actual.into_iter().zip(normal) {
+            assert_eq!(r, expected_row);
+            assert!(
+                value.to_bits() == expected.to_bits() || value.is_nan() && expected.is_nan(),
+                "{formula} row {r}: received {value}, expected {expected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn running_blank_column_exports_as_numbers_and_is_one_undo_step() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("complete-invoices.csv");
+    std::fs::write(
+        &input,
+        "invoice,approval\nINV-1,\nINV-2,false\nINV-3,paid\nINV-4,\n",
+    )
+    .unwrap();
+    let table = CsvReader.read_file(&input).unwrap();
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = table;
+    tab.new_col_name = "Missing approvals so far".into();
+    tab.new_col_formula = "=COUNTBLANK(B$1:B1)".into();
+    tab.insert_col_at = Some(0);
+    add_formula_column(&mut app);
+    let table = &mut app.tabs[0].table;
+    let values = [1, 1, 1, 2];
+    for (row, expected) in values.into_iter().enumerate() {
+        assert_eq!(table.get(row, 0), Some(&CellValue::Int(expected)));
+    }
+    let export = dir.path().join("approval-check.xlsx");
+    ExcelReader.write_file(&export, table).unwrap();
+    let report = ExcelReader.read_file(&export).unwrap();
+    assert_eq!(report.columns[0].name, "Missing approvals so far");
+    for (row, expected) in values.into_iter().enumerate() {
+        assert_eq!(
+            data::evaluate_formula(&format!("A{}", row + 1), &report),
+            Some(expected as f64)
+        );
+    }
+    assert_eq!(table.undo_stack.len(), 1);
+    assert!(table.undo());
+    assert_eq!(table.col_count(), 2);
+    assert_eq!(table.get(1, 1), Some(&CellValue::Bool(false)));
+}
+
+#[test]
+fn running_blank_benchmark_agrees_with_full_receipt_counts() {
+    const ROWS: usize = 4_000;
+    let mut table = numeric_grid((0..ROWS).map(|i| {
+        if i % 9 == 0 {
+            CellValue::Null
+        } else if i % 11 == 0 {
+            CellValue::String("".into())
+        } else {
+            CellValue::String(format!("INV-{i}"))
+        }
+    }));
+    table.set(0, 0, CellValue::String("INV-0".into()));
+    let mut count = 0usize;
+    let expected: Vec<_> = (0..ROWS)
+        .map(|i| {
+            count += usize::from(i != 0 && (i % 9 == 0 || i % 11 == 0));
+            (i, count as f64)
+        })
+        .collect();
+    let formula = "COUNTBLANK(A$1:A1)";
+    let uncached = || {
+        let now = std::time::Instant::now();
+        let (value, bad) = fill_formula_template(formula, &table);
+        let time = now.elapsed().as_nanos();
+        assert!(bad.is_none());
+        (value, time)
+    };
+    let incremental = || {
+        let now = std::time::Instant::now();
+        let value = fill_running_aggregate(formula, &table).unwrap();
+        (value, now.elapsed().as_nanos())
+    };
+    let (mut baseline, mut candidate) = ([0; 3], [0; 3]);
+    for i in 0..3 {
+        let ((from_scratch, base_time), (running, running_time)) = if i % 2 == 0 {
+            (uncached(), incremental())
+        } else {
+            let running = incremental();
+            (uncached(), running)
+        };
+        assert_eq!(from_scratch, expected);
+        assert_eq!(running, expected);
+        baseline[i] = base_time;
+        candidate[i] = running_time;
+    }
+    baseline.sort_unstable();
+    candidate.sort_unstable();
+    println!(
+        "running_blank_bench rows={ROWS} baseline_ns={} incremental_ns={} samples=3",
+        baseline[1], candidate[1]
     );
 }
 
