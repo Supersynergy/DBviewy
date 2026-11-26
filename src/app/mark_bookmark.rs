@@ -124,8 +124,8 @@ impl OctaApp {
         self.jump_to_cell(bm.row, bm.col.unwrap_or(0));
     }
 
-    /// Select `(row, col)` in the active tab and scroll it into view. Shared
-    /// by bookmark jump and the edit audit trail's jump button.
+    /// Select one cell in the active tab and reveal its row. The ribbon,
+    /// status bar, bookmarks, edit history and search share this path.
     ///
     /// The vertical scroll goes through `TableViewState::scroll_to_row`
     /// rather than a guessed pixel offset: the row height is only known
@@ -137,16 +137,17 @@ impl OctaApp {
         let Some(tab) = self.tabs.get_mut(self.active_tab) else {
             return;
         };
-        if row >= tab.table.row_count() {
+        if row >= tab.table.row_count() || col >= tab.table.col_count() {
             return;
         }
         tab.table_state.selected_cell = Some((row, col));
         tab.table_state.selected_rows.clear();
         tab.table_state.selected_cols.clear();
         tab.table_state.selected_cells.clear();
-        if let Some(display_idx) = tab.filtered_rows.iter().position(|&r| r == row) {
-            tab.table_state.scroll_to_row(display_idx);
-        }
+        let Some(display_idx) = tab.filtered_rows.iter().position(|&r| r == row) else {
+            return;
+        };
+        tab.table_state.scroll_to_row(display_idx);
         if col < tab.table_state.col_widths.len() {
             let col_left: f32 = tab.table_state.col_widths[..col].iter().sum();
             tab.table_state.set_scroll_x(col_left);

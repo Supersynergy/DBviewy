@@ -276,7 +276,9 @@ Jumps and extends:
 - **Ctrl+Arrow** extends the row or column block by one in that direction.
 
 Use the navigation field in the bottom status bar (**Ctrl+G**) to jump to a
-cell by `R5:C3`, `R5`, `C3`, a row number, or a column name.
+cell by `R5:C3`, `R5`, `C3`, a row number, or a column name. Go to,
+highlight search and problem navigation reveal the selected visible row
+even after zooming or resizing rows. A jump does not clear your filter.
 
 ## Zoom
 

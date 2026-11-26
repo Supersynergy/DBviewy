@@ -21,6 +21,9 @@ operations.
   jump to a cell, `R5` to jump to a row, `C3` for a column, or a
   column name (e.g. `created_at`) to jump to that column's first
   cell.
+- **Go to**, highlight search and problem navigation bring the selected
+  visible row into view even after zooming or resizing rows. A jump does
+  not clear an active filter.
 
 ## Selection
 

@@ -300,8 +300,6 @@ impl OctaApp {
     /// bar. Both sets are already cached on the tab and rebuilt by
     /// `recompute_filter`, so this costs one ordering pass and no scanning.
     pub(crate) fn jump_to_problem(&mut self, forward: bool) {
-        let row_height =
-            (self.settings.font_size * self.zoom_percent as f32 / 100.0 * 2.0).max(26.0);
         let Some(tab) = self.tabs.get_mut(self.active_tab) else {
             return;
         };
@@ -330,25 +328,10 @@ impl OctaApp {
         };
 
         tab.view_mode = octa::data::ViewMode::Table;
-        tab.table_state.selected_cell = Some(next);
-        tab.table_state.selected_rows.clear();
-        tab.table_state.selected_cols.clear();
-        // Scroll by display position, not data row, so the view follows the
-        // filter the same way the multi-search jump does.
-        let display = tab
-            .filtered_rows
-            .iter()
-            .position(|&r| r == next.0)
-            .unwrap_or(next.0);
-        tab.table_state.set_scroll_y(display as f32 * row_height);
-        if next.1 < tab.table_state.col_widths.len() {
-            let col_left: f32 = tab.table_state.col_widths[..next.1].iter().sum();
-            tab.table_state.set_scroll_x(col_left);
-        }
-
         let total = octa::data::problem_nav::visible_problem_count(&problems, &tab.filtered_rows);
         let pos = octa::data::problem_nav::problem_position(&problems, &tab.filtered_rows, next)
             .unwrap_or(1);
+        self.jump_to_cell(next.0, next.1);
         self.status_message = Some((
             octa::i18n::t("problems.counter")
                 .replace("{n}", &pos.to_string())

@@ -187,16 +187,7 @@ impl OctaApp {
         }
 
         if let Some((row, col)) = status_action.navigate_to {
-            let tab = &mut self.tabs[self.active_tab];
-            tab.table_state.selected_cell = Some((row, col));
-            tab.table_state.selected_rows.clear();
-            tab.table_state.selected_cols.clear();
-            // Auto-scroll to the target cell
-            let row_height =
-                (self.settings.font_size * self.zoom_percent as f32 / 100.0 * 2.0).max(26.0);
-            tab.table_state.set_scroll_y(row as f32 * row_height);
-            let col_left: f32 = tab.table_state.col_widths[..col].iter().sum();
-            tab.table_state.set_scroll_x(col_left);
+            self.jump_to_cell(row, col);
         }
 
         if status_action.kraken_summoned {
@@ -210,3 +201,7 @@ impl OctaApp {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "grid_jump_tests.rs"]
+mod grid_jump_tests;

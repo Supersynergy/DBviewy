@@ -248,8 +248,6 @@ impl OctaApp {
     /// No-op when there is no pending jump or no matches. Mirrors the cell-jump
     /// path used by the status-bar navigation box.
     pub(crate) fn apply_table_search_jump(&mut self) {
-        let row_height =
-            (self.settings.font_size * self.zoom_percent as f32 / 100.0 * 2.0).max(26.0);
         let tab = &mut self.tabs[self.active_tab];
         let Some(dir) = tab.search_nav.pending_jump.take() else {
             return;
@@ -263,12 +261,7 @@ impl OctaApp {
             super::state::NavDir::Prev => (tab.search_nav.current + count - 1) % count,
         };
         let (row, col) = tab.search_cell_matches[tab.search_nav.current];
-        tab.table_state.selected_cell = Some((row, col));
-        tab.table_state.selected_rows.clear();
-        tab.table_state.selected_cols.clear();
-        tab.table_state.set_scroll_y(row as f32 * row_height);
-        let col_left: f32 = tab.table_state.col_widths[..col].iter().sum();
-        tab.table_state.set_scroll_x(col_left);
+        self.jump_to_cell(row, col);
     }
 
     /// The Find & Replace box's text and replacement, while it is active.
