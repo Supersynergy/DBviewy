@@ -194,8 +194,14 @@ A cell computed by a formula shows the value Excel last calculated, and the
 formula behind it comes along: **hover the cell** to see it, or open the
 **Record** view (F4), which lists it beside the field.
 
-Saving writes values, not formulas. Turn on **Settings > Saving files > Write
-options > Excel > Keep Excel formulas when saving** to write the formula back
+**Save** in an existing XLSX keeps the other sheets and formulas in place.
+To correct an existing date, enter `2024-03-15` or
+`2024-03-15 13:30:00.125` without a timezone offset. The workbook keeps the
+cell's style and date system. Use **Export workbook** to add new date formats
+or to change the type of a date cell.
+
+Exporting writes values, not formulas, by default. Turn on **Settings > Saving files >
+Write options > Excel > Keep Excel formulas when saving** to write the formula back
 instead. It is off by default for a reason worth knowing: Excel recalculates a
 formula when it opens the file, so the number in the saved workbook can end up
 different from the one Octa showed you.

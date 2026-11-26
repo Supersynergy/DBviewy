@@ -722,6 +722,8 @@ file. Renaming the tab (right-click it) still overrides the label.
 **Save** updates the active sheet in an opened `.xlsx`. **Save As** to another
 `.xlsx` with **All rows** copies the whole workbook and applies the active
 tab's cell edits. Other sheets, formulas and cell styles travel with the copy.
+Existing dates and timestamps can be corrected without changing the cell's
+format or the workbook's date system.
 Formula cells show cached results until a spreadsheet application opens the
 file and recalculates it. On macOS, the saved workbook keeps its Finder tags.
 

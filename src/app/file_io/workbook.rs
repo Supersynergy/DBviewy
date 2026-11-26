@@ -10,6 +10,9 @@ use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::Path;
 
+#[path = "workbook_dates.rs"]
+mod dates;
+
 #[path = "workbook_sparse.rs"]
 mod sparse;
 
@@ -131,6 +134,7 @@ fn replace_cell(
     body: &str,
     address: &str,
     value: &CellValue,
+    date_1904: bool,
 ) -> Result<String> {
     for attribute in tag.attributes() {
         ensure!(
@@ -152,23 +156,41 @@ fn replace_cell(
         "Formula or unsupported cell contents at {address}"
     );
     let style = attr(tag, "s")?.map(|s| s.parse()).transpose()?;
+    if dates::calendar_value(value) {
+        let kind = attr(tag, "t")?;
+        let iso = kind.as_deref() == Some("d");
+        ensure!(
+            iso || (matches!(kind.as_deref(), None | Some("n")) && style.is_some()),
+            "No existing date format at {address}"
+        );
+        return Ok(cell_xml(
+            address,
+            style,
+            Some(dates::encode(value, address, iso, date_1904)?),
+        ));
+    }
     scalar_cell(address, style, value)
 }
 
 fn scalar_cell(address: &str, style: Option<u32>, value: &CellValue) -> Result<String> {
+    let encoded = (!matches!(value, CellValue::Null))
+        .then(|| cell_value(value))
+        .transpose()?;
+    Ok(cell_xml(address, style, encoded))
+}
+
+fn cell_xml(address: &str, style: Option<u32>, encoded: Option<(&str, String)>) -> String {
     let mut out = format!("<c r=\"{address}\"");
     if let Some(id) = style {
         out.push_str(&format!(" s=\"{id}\""));
     }
-    if matches!(value, CellValue::Null) {
-        // Keep the address and its style so the cleared cell can be typed
-        // into again, without retaining its old value or scalar type.
-        out.push_str("/>");
-    } else {
-        let (kind, contents) = cell_value(value)?;
+    if let Some((kind, contents)) = encoded {
         out.push_str(&format!(" t=\"{kind}\">{contents}</c>"));
+    } else {
+        // Keep the address and style, but not the old value or scalar type.
+        out.push_str("/>");
     }
-    Ok(out)
+    out
 }
 
 struct XmlChange {
@@ -177,7 +199,7 @@ struct XmlChange {
     cell: String,
 }
 
-fn patch(xml: &str, mut changes: HashMap<String, &CellValue>) -> Result<String> {
+fn patch(xml: &str, mut changes: HashMap<String, &CellValue>, date_1904: bool) -> Result<String> {
     let mut reader = Reader::from_str(xml);
     let mut splices = Vec::with_capacity(changes.len());
     let mut stack = Vec::new();
@@ -211,7 +233,7 @@ fn patch(xml: &str, mut changes: HashMap<String, &CellValue>) -> Result<String> 
                     splices.push(XmlChange {
                         start,
                         end: reader.buffer_position() as usize,
-                        cell: replace_cell(e, body, &address, value)?,
+                        cell: replace_cell(e, body, &address, value, date_1904)?,
                     });
                 } else if matches!(event, Event::Start(_)) {
                     stack.push(name.as_ref().to_owned());
@@ -346,7 +368,12 @@ fn same_value(a: &CellValue, b: &CellValue) -> bool {
         (CellValue::Int(i), CellValue::Float(f)) | (CellValue::Float(f), CellValue::Int(i)) => {
             i.unsigned_abs() <= 999_999_999_999_999 && *i as f64 == *f
         }
-        _ => a == b,
+        _ => {
+            a == b
+                || dates::parse(a)
+                    .zip(dates::parse(b))
+                    .is_some_and(|(a, b)| a == b)
+        }
     }
 }
 
@@ -459,16 +486,28 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
         let original = table
             .original_value(r, c)
             .context("Edit outside the worksheet")?;
+        if dates::calendar_value(original) {
+            ensure!(
+                dates::calendar_value(value),
+                "Use a date or timestamp for an existing date cell"
+            );
+        } else {
+            ensure!(
+                !dates::calendar_value(value),
+                "New date formats require a separate workbook export"
+            );
+        }
         ensure!(
-            matches!(
-                original,
-                CellValue::Null
-                    | CellValue::Bool(_)
-                    | CellValue::Int(_)
-                    | CellValue::Float(_)
-                    | CellValue::String(_)
-            ),
-            "Editing a date or time in place requires an Excel editor"
+            dates::calendar_value(original)
+                || matches!(
+                    original,
+                    CellValue::Null
+                        | CellValue::Bool(_)
+                        | CellValue::Int(_)
+                        | CellValue::Float(_)
+                        | CellValue::String(_)
+                ),
+            "Editing a clock time or duration in place requires an Excel editor"
         );
         ensure!(
             !base.formulas.contains_key(&(r, c)),
@@ -529,7 +568,9 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
         member.starts_with("xl/worksheets/") && !member.contains(".."),
         "Unsupported worksheet path"
     );
-    let xml = patch(&part(&mut archive, &member)?, changes)?;
+    let date_1904 = changes.values().any(|value| dates::calendar_value(value))
+        && dates::uses_1904_epoch(&workbook)?;
+    let xml = patch(&part(&mut archive, &member)?, changes, date_1904)?;
     octa::formats::write_atomically(&destination_path, |tmp| {
         let mut output = zip::ZipWriter::new(File::create_new(tmp)?);
         output.set_raw_comment(archive.comment().into())?;

@@ -334,7 +334,12 @@ Parquet's compression and encoding choices use the defaults of the
 
 For an opened `.xlsx`, **Save** can update or clear text, numbers and
 booleans, or fill blanks in existing rows within the loaded data area.
-Clearing a value keeps the cell's address and style. **Save As** to another
+Clearing one of these values keeps the cell's address and style. To correct
+an existing date, enter `2024-03-15` or a timestamp such as
+`2024-03-15 13:30:00.125`. Use local clock time without a timezone offset.
+The workbook keeps its date system and cell format. Use **Export workbook**
+if you need to create a new date format or change an existing date to
+a different type. **Save As** to another
 `.xlsx` with **All rows**
 copies the workbook and applies those same edits. The other worksheets,
 formulas and filters remain intact.

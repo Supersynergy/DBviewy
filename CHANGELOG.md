@@ -17,6 +17,7 @@
 - Count workdays and calculate deadlines with holidays and custom weekends.
 - Reuse totals for repeated criteria when filling a formula column over fixed ranges.
 - Count or total invoices by date range, including XLSX timestamps on the last day.
+- Correct existing XLSX dates and timestamps without changing the cell format or date system.
 
 - Integrate Octa 0.22.1, keeping DBviewy's workbook preservation, per-session
   crash markers, assistant integrations, and local table interface.

@@ -140,7 +140,8 @@ fn inserts_sparse_cells_in_numeric_column_order() {
             changes
                 .into_iter()
                 .map(|(r, v)| (r.to_owned(), v))
-                .collect()
+                .collect(),
+            false,
         )
         .unwrap(),
         r#"<worksheet><sheetData><row r="7" ht="16">
@@ -175,7 +176,7 @@ fn refuses_to_guess_sparse_row_layout() {
         (r#"<row r="2"/>"#, "existing worksheet rows"),
     ] {
         let xml = format!("<worksheet><sheetData>{data}</sheetData></worksheet>");
-        let err = patch(&xml, HashMap::from([("B2".into(), &value)])).unwrap_err();
+        let err = patch(&xml, HashMap::from([("B2".into(), &value)]), false).unwrap_err();
         assert!(err.to_string().contains(error), "{data}: {err:#}");
     }
 }
@@ -204,7 +205,7 @@ fn rejects_missing_cells_in_merged_and_formula_ranges() {
         let xml = format!(
             r#"<worksheet><sheetData><row r="2">{data}</row></sheetData>{extras}</worksheet>"#
         );
-        let err = patch(&xml, HashMap::from([("B2".into(), &value)])).unwrap_err();
+        let err = patch(&xml, HashMap::from([("B2".into(), &value)]), false).unwrap_err();
         assert!(err.to_string().contains(error), "{xml}: {err:#}");
     }
 }
@@ -665,4 +666,220 @@ fn stale_nonblank_trailing_row_is_not_accepted_after_another_edit() {
     assert!(error.to_string().contains("Reopen it"), "{error:#}");
     assert_eq!(std::fs::read(&path).unwrap(), externally_saved);
     assert_eq!(old.edits.get(&(0, 0)), Some(&CellValue::Int(66)));
+}
+
+fn calendar_fixture() -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("schedule.xlsx");
+    let mut workbook = Workbook::new();
+    workbook
+        .add_worksheet()
+        .set_name("Overview")
+        .unwrap()
+        .write_string(0, 0, "Keep this sheet")
+        .unwrap();
+    let sheet = workbook
+        .add_worksheet()
+        .set_name("Invoice schedule")
+        .unwrap();
+    let format = Format::new()
+        .set_num_format("yyyy-mm-dd hh:mm:ss.000")
+        .set_bold();
+    for (c, header) in ["Due date", "Amount", "Day"].into_iter().enumerate() {
+        sheet.write_string(0, c as u16, header).unwrap();
+    }
+    for (row, serial) in [(1, 45_361.5), (2, 45_362.0)] {
+        sheet
+            .write_number_with_format(row, 0, serial, &format)
+            .unwrap();
+        sheet.write_number(row, 1, 70).unwrap();
+    }
+    sheet
+        .write_formula(1, 2, Formula::new("=DAY(A2)").set_result("10"))
+        .unwrap();
+    sheet.autofilter(0, 0, 2, 2).unwrap();
+    workbook.save(&path).unwrap();
+    (dir, path)
+}
+
+#[test]
+fn existing_datetime_keeps_the_workbook_when_saving_again_from_the_same_tab() {
+    use crate::app::state::OctaApp;
+    use octa::data::BinaryDisplayMode;
+    use octa::ui::{
+        settings::{AppSettings, IconVariant},
+        table_view::commit_cell_text,
+    };
+    let (_dir, path) = calendar_fixture();
+    let mut before = members(&path);
+    let mut app = OctaApp::new(vec![], AppSettings::default(), IconVariant::Rose);
+    app.load_file(path.clone());
+    let idx = app
+        .tabs
+        .iter()
+        .position(|tab| tab.sheet_name.as_deref() == Some("Invoice schedule"))
+        .unwrap();
+    assert!(commit_cell_text(
+        &mut app.tabs[idx].table,
+        0,
+        0,
+        "2024-03-15T18:45:03.125".into(),
+        BinaryDisplayMode::default()
+    ));
+    app.save_tab(idx);
+    assert!(
+        !app.tabs[idx].table.is_modified(),
+        "{:?}",
+        app.status_message
+    );
+    let after = ExcelReader.read_table(&path, "Invoice schedule").unwrap();
+    assert_eq!(
+        after.get(0, 0),
+        Some(&CellValue::DateTime("2024-03-15 18:45:03.125".into()))
+    );
+    assert_eq!(after.formulas, app.tabs[idx].table.formulas);
+    assert!(commit_cell_text(
+        &mut app.tabs[idx].table,
+        1,
+        0,
+        "2024-03-18".into(),
+        BinaryDisplayMode::default()
+    ));
+    app.save_tab(idx);
+    assert!(
+        !app.tabs[idx].table.is_modified(),
+        "{:?}",
+        app.status_message
+    );
+    let saved = ExcelReader.read_table(&path, "Invoice schedule").unwrap();
+    assert_eq!(
+        saved.get(1, 0),
+        Some(&CellValue::DateTime("2024-03-18 00:00:00".into()))
+    );
+    assert_eq!(saved.get(0, 0), after.get(0, 0));
+
+    let mut after = members(&path);
+    let member = "xl/worksheets/sheet2.xml";
+    let initial = String::from_utf8(before.remove(member).unwrap()).unwrap();
+    let edited = String::from_utf8(after.remove(member).unwrap()).unwrap();
+    let old = r#"<c r="A2" s="1"><v>45361.5</v></c>"#;
+    let start = edited.find(r#"<c r="A2" s="1" t="n"><v>"#).unwrap();
+    let end = start + edited[start..].find("</c>").unwrap() + "</c>".len();
+    let first = &edited[start..end];
+    assert!(initial.contains(old));
+    assert_eq!(
+        edited,
+        initial.replace(old, first).replace(
+            r#"<c r="A3" s="1"><v>45362</v></c>"#,
+            r#"<c r="A3" s="1" t="n"><v>45369</v></c>"#,
+        )
+    );
+    assert_eq!(after, before);
+}
+
+#[test]
+fn legacy_1904_date_edits_preserve_the_epoch_and_reject_unrepresentable_dates() {
+    let (_dir, path) = calendar_fixture();
+    let parts = members(&path);
+    let mut book = zip::ZipWriter::new(File::create(&path).unwrap());
+    for (name, bytes) in &parts {
+        book.start_file(name, zip::write::SimpleFileOptions::default())
+            .unwrap();
+        if name == "xl/workbook.xml" {
+            let xml = std::str::from_utf8(bytes).unwrap();
+            assert_eq!(xml.matches("<workbookPr ").count(), 1);
+            book.write_all(
+                xml.replace(
+                    "<workbookPr ",
+                    r#"<ss:workbookPr xmlns:ss="http://schemas.openxmlformats.org/spreadsheetml/2006/main" date1904="1" "#,
+                )
+                    .as_bytes(),
+            )
+            .unwrap();
+        } else {
+            book.write_all(bytes).unwrap();
+        }
+    }
+    book.finish().unwrap();
+    let mut table = ExcelReader.read_table(&path, "Invoice schedule").unwrap();
+    table.set(0, 0, CellValue::DateTime("2011-07-05 06:00:00".into()));
+    save(&path, Some("Invoice schedule"), &table).unwrap();
+    let parts = members(&path);
+    let edited = std::str::from_utf8(&parts["xl/worksheets/sheet2.xml"]).unwrap();
+    assert!(edited.contains(r#"<c r="A2" s="1" t="n"><v>39267.25</v></c>"#));
+    assert!(
+        std::str::from_utf8(&parts["xl/workbook.xml"])
+            .unwrap()
+            .contains("date1904=\"1\"")
+    );
+    let mut reopened = ExcelReader.read_table(&path, "Invoice schedule").unwrap();
+    assert_eq!(
+        reopened.get(0, 0),
+        Some(&CellValue::DateTime("2011-07-05 06:00:00".into()))
+    );
+    let saved = std::fs::read(&path).unwrap();
+    reopened.set(1, 0, CellValue::Date("1904-01-01".into()));
+    let error = save(&path, Some("Invoice schedule"), &reopened).unwrap_err();
+    assert!(format!("{error:#}").contains("outside the workbook's calendar"));
+    assert_eq!(std::fs::read(&path).unwrap(), saved);
+}
+
+#[test]
+fn ambiguous_workbook_date_system_is_not_guessed() {
+    let valid =
+        r#"<workbook><workbookPr date1904="true"/><extLst><workbookPr/></extLst></workbook>"#;
+    assert!(dates::uses_1904_epoch(valid).unwrap());
+    for (xml, message) in [
+        (
+            r#"<workbook><workbookPr date1904="false"/><workbookPr date1904="true"/></workbook>"#,
+            "Ambiguous",
+        ),
+        (
+            r#"<workbook><extLst><workbookPr date1904="true"/></extLst></workbook>"#,
+            "Nested",
+        ),
+        (
+            r#"<workbook><workbookPr date1904="&#49;"/></workbook>"#,
+            "Unrecognised",
+        ),
+    ] {
+        let error = dates::uses_1904_epoch(xml).unwrap_err();
+        assert!(format!("{error:#}").contains(message));
+    }
+}
+
+#[test]
+fn bad_date_changes_roll_back_the_entire_xlsx_edit() {
+    let (_dir, path) = calendar_fixture();
+    let before = std::fs::read(&path).unwrap();
+    let base = ExcelReader.read_table(&path, "Invoice schedule").unwrap();
+    for (date, error) in [
+        ("1900-02-29", "Use YYYY-MM-DD"),
+        ("2024-03-31T23:59:59.999999999", "millisecond precision"),
+        ("2024-03-31T23:59:59+02:00", "without an offset"),
+    ] {
+        let mut table = base.clone();
+        table.set(0, 1, CellValue::Int(500));
+        table.set(0, 0, CellValue::DateTime(date.into()));
+        let result = save(&path, Some("Invoice schedule"), &table).unwrap_err();
+        assert!(format!("{result:#}").contains(error), "{result:#}");
+        assert_eq!(std::fs::read(&path).unwrap(), before);
+        assert_eq!(table.edits.len(), 2);
+    }
+    let mut table = base;
+    table.set(0, 1, CellValue::Date("2024-03-31".into()));
+    let result = save(&path, Some("Invoice schedule"), &table).unwrap_err();
+    assert!(format!("{result:#}").contains("New date formats"));
+    assert_eq!(std::fs::read(&path).unwrap(), before);
+}
+
+#[test]
+fn explicit_iso_date_type_is_kept_without_adding_a_style() {
+    let sheet = r#"<worksheet><sheetData><row r="2"><c r="A2" t="d"><v>2024-03-11T08:00:00</v></c></row></sheetData></worksheet>"#;
+    let next = CellValue::DateTime("2024-03-12 09:30".into());
+    let updated = patch(sheet, HashMap::from([("A2".into(), &next)]), true).unwrap();
+    assert_eq!(
+        updated,
+        sheet.replace("2024-03-11T08:00:00", "2024-03-12T09:30:00")
+    );
 }
