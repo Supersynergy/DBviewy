@@ -14,6 +14,7 @@
 - Keep tabs, line breaks and quotes inside cells when copying and pasting tables.
 - Paste and undo large row blocks without repeatedly rebuilding existing edits.
 - Look up a value by row and column with `INDEX` and `MATCH` (`VERGLEICH`).
+- Count workdays and calculate deadlines with holidays and custom weekends.
 
 - Integrate Octa 0.22.1, keeping DBviewy's workbook preservation, per-session
   crash markers, assistant integrations, and local table interface.

@@ -230,6 +230,10 @@ impl<'a> FormulaRows<'a> {
                 }
                 continue;
             }
+            if *byte == b'.' && formula_lex::has_intl_suffix(bytes, i) {
+                i += 5;
+                continue;
+            }
             if byte.is_ascii_digit() || *byte == b'.' {
                 let Some(end) = formula_lex::number_end(bytes, i) else {
                     break; // preserve malformed literals for evaluator rejection

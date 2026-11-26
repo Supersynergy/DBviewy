@@ -4,8 +4,8 @@ use chrono::{DateTime, Datelike, Days, NaiveDate, TimeDelta};
 use super::control::{arguments, unparen};
 use super::{CellValue, Evaluation, FormulaBadCell, FormulaToken as Token, eval_complete, snippet};
 
-const FIRST: NaiveDate = NaiveDate::from_ymd_opt(1900, 1, 1).unwrap();
-const LAST: NaiveDate = NaiveDate::from_ymd_opt(9999, 12, 31).unwrap();
+pub(super) const FIRST: NaiveDate = NaiveDate::from_ymd_opt(1900, 1, 1).unwrap();
+pub(super) const LAST: NaiveDate = NaiveDate::from_ymd_opt(9999, 12, 31).unwrap();
 const MARCH_1900: NaiveDate = NaiveDate::from_ymd_opt(1900, 3, 1).unwrap();
 const MAX_SERIAL: f64 = 2_958_465.0;
 
@@ -35,8 +35,7 @@ pub(super) fn evaluate(
                 return Some((0.0, end));
             }
             let date = normalise_date(whole(year)?, whole(month)?, whole(day)?)?;
-            let days = (date - FIRST).num_days() + 1 + i64::from(date >= MARCH_1900);
-            (days as f64, end)
+            (serial(date), end)
         }
         Calendar::Days => {
             let ([end_date, start_date], end) = arguments(tokens, pos)?;
@@ -78,10 +77,14 @@ pub(super) fn evaluate(
     Some((value, end))
 }
 
-fn whole(value: f64) -> Option<i64> {
+pub(super) fn whole(value: f64) -> Option<i64> {
     (i64::MIN as f64..i64::MAX as f64)
         .contains(&value)
         .then_some(value as i64)
+}
+
+pub(super) fn serial(date: NaiveDate) -> f64 {
+    ((date - FIRST).num_days() + 1 + i64::from(date >= MARCH_1900)) as f64
 }
 
 fn normalise_date(year: i64, month: i64, day: i64) -> Option<NaiveDate> {
@@ -124,7 +127,7 @@ fn iso_date(text: &str) -> Option<NaiveDate> {
     NaiveDate::parse_from_str(text, "%Y-%m-%d").ok()
 }
 
-fn date_argument(tokens: &[Token], context: &mut Evaluation<'_>) -> Option<NaiveDate> {
+pub(super) fn date_argument(tokens: &[Token], context: &mut Evaluation<'_>) -> Option<NaiveDate> {
     let tokens = unparen(tokens);
     if context.table.is_none() {
         // Syntax-only validation must not reject an inactive argument for
@@ -140,28 +143,30 @@ fn date_argument(tokens: &[Token], context: &mut Evaluation<'_>) -> Option<Naive
     match tokens {
         [Token::Text(text)] => iso_date(text).filter(|d| (FIRST..=LAST).contains(d)),
         [Token::Boolean(_)] => None,
-        [Token::CellRef(row, col)] => {
-            let cell = context.table?.get(*row, *col)?;
-            let date = match cell {
-                CellValue::Date(text) | CellValue::String(text) => iso_date(text),
-                CellValue::DateTime(text) => DateTime::parse_from_rfc3339(text)
-                    .ok()
-                    .map(|time| time.date_naive())
-                    .or_else(|| crate::data::time_calc::parse_date(text)),
-                CellValue::Int(value) => from_serial(*value as f64),
-                CellValue::Float(value) => from_serial(*value),
-                _ => None,
-            }
-            .filter(|d| (FIRST..=LAST).contains(d));
-            if date.is_none() && context.bad.is_none() {
-                context.bad = Some(FormulaBadCell {
-                    row: *row,
-                    col: *col,
-                    content: snippet(&cell.to_string()),
-                });
-            }
-            date
-        }
+        [Token::CellRef(row, col)] => date_cell(context, *row, *col),
         _ => from_serial(eval_complete(tokens, context)?),
     }
+}
+
+pub(super) fn date_cell(context: &mut Evaluation<'_>, row: usize, col: usize) -> Option<NaiveDate> {
+    let cell = context.table?.get(row, col)?;
+    let date = match cell {
+        CellValue::Date(text) | CellValue::String(text) => iso_date(text),
+        CellValue::DateTime(text) => DateTime::parse_from_rfc3339(text)
+            .ok()
+            .map(|time| time.date_naive())
+            .or_else(|| crate::data::time_calc::parse_date(text)),
+        CellValue::Int(value) => from_serial(*value as f64),
+        CellValue::Float(value) => from_serial(*value),
+        _ => None,
+    }
+    .filter(|d| (FIRST..=LAST).contains(d));
+    if date.is_none() && context.bad.is_none() {
+        context.bad = Some(FormulaBadCell {
+            row,
+            col,
+            content: snippet(&cell.to_string()),
+        });
+    }
+    date
 }

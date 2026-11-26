@@ -22,6 +22,8 @@ mod lex;
 mod lookup;
 #[path = "formulas_product.rs"]
 mod product;
+#[path = "formulas_workdays.rs"]
+mod workdays;
 use criteria::ConditionalAggregate;
 
 /// Snapshot of one referenced cell that could not be coerced to a number
@@ -191,6 +193,7 @@ enum Function {
     Index,
     Match,
     Calendar(date::Calendar),
+    Workdays(workdays::Kind, bool),
     SumProduct,
     Power,
 }
@@ -286,6 +289,35 @@ fn function_named(name: &str) -> Option<Function> {
         ("TAGE", Function::Calendar(date::Calendar::Days)),
         ("WEEKDAY", Function::Calendar(date::Calendar::Weekday)),
         ("WOCHENTAG", Function::Calendar(date::Calendar::Weekday)),
+        (
+            "NETWORKDAYS",
+            Function::Workdays(workdays::Kind::Count, false),
+        ),
+        (
+            "NETTOARBEITSTAGE",
+            Function::Workdays(workdays::Kind::Count, false),
+        ),
+        (
+            "NETWORKDAYS.INTL",
+            Function::Workdays(workdays::Kind::Count, true),
+        ),
+        (
+            "NETTOARBEITSTAGE.INTL",
+            Function::Workdays(workdays::Kind::Count, true),
+        ),
+        ("WORKDAY", Function::Workdays(workdays::Kind::Offset, false)),
+        (
+            "ARBEITSTAG",
+            Function::Workdays(workdays::Kind::Offset, false),
+        ),
+        (
+            "WORKDAY.INTL",
+            Function::Workdays(workdays::Kind::Offset, true),
+        ),
+        (
+            "ARBEITSTAG.INTL",
+            Function::Workdays(workdays::Kind::Offset, true),
+        ),
         ("SUMPRODUCT", Function::SumProduct),
         ("SUMMENPRODUKT", Function::SumProduct),
         ("POWER", Function::Power),
@@ -432,7 +464,10 @@ fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
                     i += 1;
                 }
                 if !column_fixed && !row_fixed && row_start == i {
-                    let name = &expr[col_start..col_end];
+                    if lex::has_intl_suffix(bytes, i) {
+                        i += 5;
+                    }
+                    let name = &expr[col_start..i];
                     if name.eq_ignore_ascii_case("TRUE") || name.eq_ignore_ascii_case("WAHR") {
                         tokens.push(FormulaToken::Boolean(true));
                     } else if name.eq_ignore_ascii_case("FALSE")
@@ -626,6 +661,9 @@ fn eval_function(
         Function::Index => return lookup::evaluate_index(tokens, pos, context),
         Function::Match => return lookup::evaluate_match(tokens, pos, context),
         Function::Calendar(kind) => return date::evaluate(kind, tokens, pos, context),
+        Function::Workdays(kind, intl) => {
+            return workdays::evaluate(kind, intl, tokens, pos, context);
+        }
         Function::SumProduct => return product::evaluate(tokens, pos, context),
         Function::If => return control::evaluate_if(tokens, pos, context),
         Function::IfError => return control::evaluate_if_error(tokens, pos, context),

@@ -1,4 +1,11 @@
-//! Numeric token boundaries shared by the evaluator and column formula fill.
+//! Token boundaries shared by the evaluator and column formula fill.
+
+pub(crate) fn has_intl_suffix(bytes: &[u8], start: usize) -> bool {
+    bytes
+        .get(start..)
+        .and_then(|tail| tail.get(..5))
+        .is_some_and(|suffix| suffix.eq_ignore_ascii_case(b".INTL"))
+}
 
 fn digits(bytes: &[u8], mut end: usize) -> usize {
     while bytes.get(end).is_some_and(u8::is_ascii_digit) {

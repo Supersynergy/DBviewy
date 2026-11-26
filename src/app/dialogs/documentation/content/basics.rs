@@ -688,6 +688,13 @@ ISO date text or a numeric 1900 serial. DATE returns a serial number.
 The Gregorian calendar has no 29 February 1900; serial 60 is refused.
 German names: DATUM, JAHR, MONAT, TAG, TAGE and WOCHENTAG.
 
+`=NETWORKDAYS(A1,B1,$D$1:$D$12)` counts working days including both
+endpoints. `=WORKDAY(A1,5,$D$1:$D$12)` returns the date serial five
+working days later. The range holds holidays. Saturday and Sunday are
+off by default. In `.INTL` variants the weekend argument comes before
+the holidays; `"0000110"` makes Friday and Saturday days off.
+German names are NETTOARBEITSTAGE and ARBEITSTAG.
+
 When inserting a column via **Columns > Insert column**, you can type a formula
 into the **Formula** field. The formula is treated as a row-1 template and
 applied to every row (e.g. `=SUM(A1:C1)` becomes `=SUM(A3:C3)` on row 3).

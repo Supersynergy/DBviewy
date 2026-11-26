@@ -156,6 +156,26 @@ behaviour. Raw serials from the 1904 system are not supported.
 
 German names: `DATUM`, `JAHR`, `MONAT`, `TAG`, `TAGE` and `WOCHENTAG`.
 
+### Count working days or set a deadline
+
+- `=NETWORKDAYS(A1,B1,$D$1:$D$12)` counts working days from A1 to B1,
+  including both ends if they are working days. The count is negative
+  if the end date comes first.
+- `=WORKDAY(A1,5,$D$1:$D$12)` finds the date five working days after A1.
+  A negative offset goes back in time; zero returns A1's date. The result
+  is an Excel date serial, not a formatted date.
+
+By default Saturday and Sunday are off. The holiday argument accepts
+a date or a cell range. Blank cells and duplicate dates do not add
+holidays. To choose other days off, use `NETWORKDAYS.INTL` or
+`WORKDAY.INTL` with the weekend argument before the holidays. For example,
+`=WORKDAY.INTL(A1,5,"0000110",$D$1:$D$12)` treats Friday and Saturday as
+days off. The seven mask positions start on Monday; `1` means a day off.
+You can also use [Excel's weekend numbers](https://support.microsoft.com/en-us/excel/functions/workday-intl-function),
+such as `7` for Friday and Saturday or `11` for Sunday alone.
+
+German names: `NETTOARBEITSTAGE` and `ARBEITSTAG`, with or without `.INTL`.
+
 ## Choose a result or handle a calculation error
 
 - `=IF(A1="West",B1*0.9,B1)` applies a discount to West only.

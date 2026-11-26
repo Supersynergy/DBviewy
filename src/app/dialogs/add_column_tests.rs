@@ -551,6 +551,35 @@ fn classic_lookup_fill_reuses_fixed_catalogs_without_moving_them() {
 }
 
 #[test]
+fn intl_workday_formulas_shift_dates_but_keep_the_holiday_list_fixed() {
+    use data::CellValue::{Date, Null};
+    let table = data::DataTable {
+        columns: ["start", "finish", "holiday"]
+            .map(|name| data::ColumnInfo {
+                name: name.into(),
+                data_type: "Date32".into(),
+            })
+            .to_vec(),
+        rows: vec![
+            vec![
+                Date("2024-03-08".into()),
+                Date("2024-03-10".into()),
+                Date("2024-03-11".into()),
+            ],
+            vec![Date("2024-03-10".into()), Date("2024-03-12".into()), Null],
+        ],
+        ..data::DataTable::empty()
+    };
+    let (days, bad) =
+        fill_formula_template(r#"NETWORKDAYS.INTL(A1,B1,"0000110",$C$1:$C$2)"#, &table);
+    assert!(bad.is_none());
+    assert_eq!(days, vec![(0, 1.0), (1, 2.0)]);
+    let (deadline, bad) = fill_formula_template(r#"DAY(WORKDAY.INTL(A1,1,7,$C$1:$C$2))"#, &table);
+    assert!(bad.is_none());
+    assert_eq!(deadline, vec![(0, 10.0), (1, 12.0)]);
+}
+
+#[test]
 fn lookup_fill_cache_preserves_types_fallback_and_diagnostics() {
     use data::CellValue::{Bool, Int, Null, String as Text};
     let text = |s: &str| Text(s.into());

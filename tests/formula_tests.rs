@@ -229,6 +229,159 @@ fn calendar_invoice_xlsx_round_trip_keeps_dates_and_numeric_age() {
 }
 
 #[test]
+fn networkdays_counts_both_ends_and_ignores_duplicate_and_weekend_holidays() {
+    let mut table = formula_table();
+    table.set(0, 0, CellValue::Date("2024-03-04".into()));
+    table.set(0, 1, CellValue::DateTime("2024-03-08 19:45:00".into()));
+    table.set(0, 2, CellValue::Date("2024-03-06".into()));
+    table.set(1, 2, CellValue::String("2024-03-06".into()));
+    table.set(2, 2, CellValue::Date("2024-03-09".into()));
+    for (formula, expected) in [
+        ("NETWORKDAYS(A1,B1)", 5.0),
+        ("NETWORKDAYS(A1,A1)", 1.0),
+        ("NETTOARBEITSTAGE(A1;B1;$C$1:$C$999999)", 4.0),
+        ("NETWORKDAYS(B1,A1,C3:C1)", -4.0),
+        (r#"NETWORKDAYS(A1,B1,"2024-03-04")"#, 4.0),
+        (r#"NETWORKDAYS("2024-03-09","2024-03-10")"#, 0.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn workday_finds_signed_deadlines_without_counting_the_start() {
+    let mut table = formula_table();
+    table.set(0, 2, CellValue::Date("2024-03-11".into()));
+    for (formula, expected) in [
+        ("DAY(WORKDAY(DATE(2024,3,8),1,C1))", 12.0),
+        ("TAG(ARBEITSTAG(DATUM(2024;3;12);-1;C1))", 8.0),
+        ("DAY(WORKDAY(DATE(2024,3,9),0,C1))", 9.0),
+        ("DAY(WORKDAY(DATE(2024,3,9),1.9,C1))", 12.0),
+        ("DAY(WORKDAY(DATE(2024,3,10),-1.9,C1))", 8.0),
+        ("WORKDAY(DATE(1900,1,1),1000000)", 1_400_002.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn workday_intl_accepts_weekend_codes_and_monday_first_masks() {
+    let mut table = formula_table();
+    table.set(0, 2, CellValue::String("0000110".into()));
+    for (formula, expected) in [
+        (r#"NETWORKDAYS.INTL("2024-03-08","2024-03-10",7)"#, 1.0),
+        (
+            r#"NETTOARBEITSTAGE.INTL("2024-03-08";"2024-03-10";C1)"#,
+            1.0,
+        ),
+        (r#"NETWORKDAYS.INTL("2024-03-08","2024-03-10",11)"#, 2.0),
+        (r#"NETWORKDAYS.INTL("2024-03-08","2024-03-10",17)"#, 2.0),
+        (r#"NETWORKDAYS.INTL("2024-03-10","2024-03-11",2)"#, 0.0),
+        (r#"NETWORKDAYS.INTL("2024-03-10","2024-03-11",12)"#, 1.0),
+        (
+            r#"NETWORKDAYS.INTL("2024-03-04","2024-03-08","1111111")"#,
+            0.0,
+        ),
+        (r#"NETWORKDAYS.INTL("2024-03-08","2024-03-10",)"#, 1.0),
+        (r#"DAY(workday.intl("2024-03-08",1,"0000110"))"#, 10.0),
+        (r#"TAG(ARBEITSTAG.INTL("2024-03-08";1;7))"#, 10.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn workday_refuses_bad_calendars_serials_and_out_of_range_offsets() {
+    let mut table = formula_table();
+    table.set(0, 2, CellValue::String("not a date".into()));
+    for formula in [
+        "WORKDAY(DATE(9999,12,31),1)",
+        "WORKDAY(DATE(1900,1,1),-1)",
+        "WORKDAY(DATE(2024,3,1),1E90)",
+        "WORKDAY(60,1)",
+        r#"WORKDAY.INTL("2024-03-08",0,"1111111")"#,
+        r#"WORKDAY.INTL("2024-03-08",1,"000011")"#,
+        r#"WORKDAY.INTL("2024-03-08",1,"00001x0")"#,
+        r#"WORKDAY.INTL("2024-03-08",1,8)"#,
+        r#"WORKDAY.INTL("2024-03-08",1,11.5)"#,
+        r#"NETWORKDAYS("2024-03-04","2024-03-08",C1)"#,
+        r#"IFERROR(WORKDAY.INTL("2024-03-08",1+),99)"#,
+        r#"IFERROR(WORKDAY.INTL("2024-03-08",1,7,1,2),99)"#,
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+    assert_eq!(
+        evaluate_formula("IFERROR(WORKDAY(60,1),99)", &table),
+        Some(99.0)
+    );
+    assert_eq!(
+        evaluate_formula(
+            r#"IF(TRUE,17,WORKDAY.INTL("2024-03-08",1,"bad weekend"))"#,
+            &table
+        ),
+        Some(17.0)
+    );
+    let result =
+        evaluate_formula_with_diagnostics(r#"NETWORKDAYS("2024-03-04","2024-03-08",C1)"#, &table);
+    assert_eq!(result.bad_cell.map(|bad| (bad.row, bad.col)), Some((0, 2)));
+}
+
+#[test]
+fn workday_and_networkdays_follow_dates_in_an_xlsx_delivery_report() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::{ExcelDateTime, Format, Workbook};
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("delivery.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet();
+    for (col, name) in ["Ship date", "Holiday", "End date serial", "Workdays"]
+        .into_iter()
+        .enumerate()
+    {
+        sheet.write_string(0, col as u16, name).unwrap();
+    }
+    let date_format = Format::new().set_num_format("yyyy-mm-dd");
+    for (col, date) in [(0, "2024-03-08"), (1, "2024-03-11")] {
+        let date = ExcelDateTime::parse_from_str(date).unwrap();
+        sheet
+            .write_datetime_with_format(1, col, &date, &date_format)
+            .unwrap();
+    }
+    sheet.write_number(1, 2, 0).unwrap();
+    sheet.write_number(1, 3, 0).unwrap();
+    book.save(&path).unwrap();
+    let mut table = ExcelReader.read_file(&path).unwrap();
+    for (col, formula) in [(2, "=WORKDAY(A1,2,B1)"), (3, "=NETWORKDAYS(A1,C1,B1)")] {
+        assert!(commit_cell_text(
+            &mut table,
+            0,
+            col,
+            formula.into(),
+            BinaryDisplayMode::default()
+        ));
+    }
+    let export = dir.path().join("delivery-report.xlsx");
+    ExcelReader.write_file(&export, &table).unwrap();
+    let reopened = ExcelReader.read_file(&export).unwrap();
+    assert_eq!(evaluate_formula("DAY(C1)", &reopened), Some(13.0));
+    assert_eq!(evaluate_formula("D1", &reopened), Some(3.0));
+    assert_eq!(evaluate_formula("DAY(B1)", &reopened), Some(11.0));
+}
+
+#[test]
 fn formula_multiplication() {
     let table = formula_table();
     let result = evaluate_formula("A1*B1", &table);
