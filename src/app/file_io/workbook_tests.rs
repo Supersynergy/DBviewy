@@ -141,7 +141,7 @@ fn inserts_sparse_cells_in_numeric_column_order() {
                 .into_iter()
                 .map(|(r, v)| (r.to_owned(), v))
                 .collect(),
-            false,
+            &PatchTypes::default(),
         )
         .unwrap(),
         r#"<worksheet><sheetData><row r="7" ht="16">
@@ -176,7 +176,12 @@ fn refuses_to_guess_sparse_row_layout() {
         (r#"<row r="2"/>"#, "existing worksheet rows"),
     ] {
         let xml = format!("<worksheet><sheetData>{data}</sheetData></worksheet>");
-        let err = patch(&xml, HashMap::from([("B2".into(), &value)]), false).unwrap_err();
+        let err = patch(
+            &xml,
+            HashMap::from([("B2".into(), &value)]),
+            &PatchTypes::default(),
+        )
+        .unwrap_err();
         assert!(err.to_string().contains(error), "{data}: {err:#}");
     }
 }
@@ -205,7 +210,12 @@ fn rejects_missing_cells_in_merged_and_formula_ranges() {
         let xml = format!(
             r#"<worksheet><sheetData><row r="2">{data}</row></sheetData>{extras}</worksheet>"#
         );
-        let err = patch(&xml, HashMap::from([("B2".into(), &value)]), false).unwrap_err();
+        let err = patch(
+            &xml,
+            HashMap::from([("B2".into(), &value)]),
+            &PatchTypes::default(),
+        )
+        .unwrap_err();
         assert!(err.to_string().contains(error), "{xml}: {err:#}");
     }
 }
@@ -877,9 +887,227 @@ fn bad_date_changes_roll_back_the_entire_xlsx_edit() {
 fn explicit_iso_date_type_is_kept_without_adding_a_style() {
     let sheet = r#"<worksheet><sheetData><row r="2"><c r="A2" t="d"><v>2024-03-11T08:00:00</v></c></row></sheetData></worksheet>"#;
     let next = CellValue::DateTime("2024-03-12 09:30".into());
-    let updated = patch(sheet, HashMap::from([("A2".into(), &next)]), true).unwrap();
+    let updated = patch(
+        sheet,
+        HashMap::from([("A2".into(), &next)]),
+        &PatchTypes {
+            date_1904: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
     assert_eq!(
         updated,
         sheet.replace("2024-03-11T08:00:00", "2024-03-12T09:30:00")
     );
+}
+
+fn timed_workbook(date_1904: bool) -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("shift-summary.xlsx");
+    let mut book = Workbook::new();
+    book.add_worksheet()
+        .set_name("Overview")
+        .unwrap()
+        .write_string(0, 0, "Hours by shift")
+        .unwrap();
+    let sheet = book.add_worksheet().set_name("Shifts").unwrap();
+    for (c, heading) in [
+        "Start",
+        "Elapsed",
+        "Mixed",
+        "Billed hours",
+        "Calculated start",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        sheet.write_string(2, c as u16 + 3, heading).unwrap();
+    }
+    let clock = Format::new().set_num_format("hh:mm:ss.000").set_bold();
+    let elapsed = Format::new().set_num_format("[h]:mm:ss.000").set_italic();
+    for (row, day_fraction, duration) in [(3, 0.25, 1.25), (4, 0.75, 2.0)] {
+        sheet
+            .write_number_with_format(row, 3, day_fraction, &clock)
+            .unwrap();
+        sheet
+            .write_number_with_format(row, 4, duration, &elapsed)
+            .unwrap();
+        sheet
+            .write_formula(
+                row,
+                6,
+                Formula::new(format!("=E{}*24", row + 1)).set_result((duration * 24.0).to_string()),
+            )
+            .unwrap();
+    }
+    sheet.write_number_with_format(3, 5, 0.5, &clock).unwrap();
+    sheet.write_number_with_format(4, 5, 1.5, &elapsed).unwrap();
+    sheet
+        .write_formula_with_format(3, 7, Formula::new("=D4").set_result("0.25"), &clock)
+        .unwrap();
+    sheet.autofilter(2, 3, 4, 7).unwrap();
+    book.save(&path).unwrap();
+    if date_1904 {
+        let mut parts = members(&path);
+        let xml = parts.get_mut("xl/workbook.xml").unwrap();
+        let text = std::str::from_utf8(xml).unwrap();
+        assert_eq!(text.matches("<workbookPr ").count(), 1);
+        *xml = text
+            .replace("<workbookPr ", "<workbookPr date1904=\"1\" ")
+            .into_bytes();
+        let mut zip = zip::ZipWriter::new(File::create(&path).unwrap());
+        for (name, bytes) in &parts {
+            zip.start_file(name, zip::write::SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(bytes).unwrap();
+        }
+        zip.finish().unwrap();
+    }
+    (dir, path)
+}
+
+#[test]
+fn save_clock_and_elapsed_corrections_keep_styles_and_other_sheet_parts() {
+    use crate::app::state::OctaApp;
+    use octa::data::{
+        BinaryDisplayMode,
+        times::{NANOS_PER_DAY, NANOS_PER_SEC},
+    };
+    use octa::ui::{
+        settings::{AppSettings, IconVariant},
+        table_view::commit_cell_text,
+    };
+    let (_dir, path) = timed_workbook(false);
+    let mut original = members(&path);
+    let mut app = OctaApp::new(vec![], AppSettings::default(), IconVariant::Rose);
+    app.load_file(path.clone());
+    let idx = app
+        .tabs
+        .iter()
+        .position(|tab| tab.sheet_name.as_deref() == Some("Shifts"))
+        .unwrap();
+    let table = &mut app.tabs[idx].table;
+    assert_eq!(table.get(0, 0), Some(&CellValue::Time(NANOS_PER_DAY / 4)));
+    assert_eq!(
+        table.get(0, 1),
+        Some(&CellValue::Duration(30 * 3600 * NANOS_PER_SEC))
+    );
+    for (col, value) in [(0, "23:59:59.999"), (1, "27:30:00.125")] {
+        assert!(commit_cell_text(
+            table,
+            0,
+            col,
+            value.into(),
+            BinaryDisplayMode::default()
+        ));
+    }
+    app.save_tab(idx);
+    assert!(
+        !app.tabs[idx].table.is_modified(),
+        "{:?}",
+        app.status_message
+    );
+    assert!(commit_cell_text(
+        &mut app.tabs[idx].table,
+        0,
+        2,
+        "13:15:00".into(),
+        BinaryDisplayMode::default()
+    ));
+    app.save_tab(idx);
+    assert!(
+        !app.tabs[idx].table.is_modified(),
+        "{:?}",
+        app.status_message
+    );
+
+    let reopened = ExcelReader.read_table(&path, "Shifts").unwrap();
+    assert_eq!(
+        reopened.get(0, 0),
+        Some(&CellValue::Time(NANOS_PER_DAY - 1_000_000))
+    );
+    assert_eq!(
+        reopened.get(0, 1),
+        Some(&CellValue::Duration(99_000 * NANOS_PER_SEC + 125_000_000))
+    );
+    assert_eq!(
+        reopened.get(0, 2),
+        Some(&CellValue::Duration(47_700 * NANOS_PER_SEC))
+    );
+    assert_eq!(reopened.formulas, app.tabs[idx].table.formulas);
+    let mut edited = members(&path);
+    let member = "xl/worksheets/sheet2.xml";
+    let before = String::from_utf8(original.remove(member).unwrap()).unwrap();
+    let after = String::from_utf8(edited.remove(member).unwrap()).unwrap();
+    let mut expected = before;
+    for (address, style, previous) in [("D4", 1, "0.25"), ("E4", 2, "1.25"), ("F4", 1, "0.5")] {
+        let old = format!(r#"<c r="{address}" s="{style}"><v>{previous}</v></c>"#);
+        let new_start = format!(r#"<c r="{address}" s="{style}" t="n"><v>"#);
+        let start = after.find(&new_start).unwrap();
+        let stop = start + after[start..].find("</c>").unwrap() + "</c>".len();
+        assert!(expected.contains(&old), "{old}");
+        expected = expected.replace(&old, &after[start..stop]);
+    }
+    assert_eq!(after, expected);
+    assert_eq!(edited, original);
+}
+
+#[test]
+fn save_negative_elapsed_value_in_existing_1904_workbook_without_epoch_shift() {
+    use octa::data::times::{NANOS_PER_DAY, NANOS_PER_SEC};
+    let (_dir, path) = timed_workbook(true);
+    let mut table = ExcelReader.read_table(&path, "Shifts").unwrap();
+    table.set(0, 1, CellValue::Duration(-90 * 60 * NANOS_PER_SEC));
+    save(&path, Some("Shifts"), &table).unwrap();
+    let reopened = ExcelReader.read_table(&path, "Shifts").unwrap();
+    assert_eq!(
+        reopened.get(0, 1),
+        Some(&CellValue::Duration(-90 * 60 * NANOS_PER_SEC))
+    );
+    assert_eq!(
+        reopened.get(0, 0),
+        Some(&CellValue::Time(NANOS_PER_DAY / 4))
+    );
+    let parts = members(&path);
+    let sheet = std::str::from_utf8(&parts["xl/worksheets/sheet2.xml"]).unwrap();
+    assert!(sheet.contains(r#"<c r="E4" s="2" t="n"><v>-0.0625</v></c>"#));
+    let workbook = std::str::from_utf8(&parts["xl/workbook.xml"]).unwrap();
+    assert!(workbook.contains(r#"date1904="1""#));
+}
+
+#[test]
+fn incompatible_time_edits_leave_the_original_workbook_and_valid_peer_edit_in_place() {
+    use octa::data::times::{NANOS_PER_DAY, NANOS_PER_SEC};
+    let (_dir, path) = timed_workbook(false);
+    let original = std::fs::read(&path).unwrap();
+    let base = ExcelReader.read_table(&path, "Shifts").unwrap();
+    for (col, value, error) in [
+        (0, CellValue::Time(NANOS_PER_DAY), "clock format"),
+        (1, CellValue::Duration(-1_000_000), "existing 1904 workbook"),
+        (
+            1,
+            CellValue::Duration(60 * NANOS_PER_SEC + 1),
+            "millisecond precision",
+        ),
+        (
+            2,
+            CellValue::Duration(NANOS_PER_DAY + NANOS_PER_SEC),
+            "clock format",
+        ),
+        (3, CellValue::Duration(NANOS_PER_SEC), "New time formats"),
+        (
+            4,
+            CellValue::Time(12 * 3600 * NANOS_PER_SEC),
+            "Formula cells",
+        ),
+    ] {
+        let mut table = base.clone();
+        table.set(1, 1, CellValue::Duration(29 * 3600 * NANOS_PER_SEC));
+        table.set(0, col, value);
+        let why = save(&path, Some("Shifts"), &table).unwrap_err();
+        assert!(format!("{why:#}").contains(error), "{why:#}");
+        assert_eq!(table.edits.len(), 2);
+        assert_eq!(std::fs::read(&path).unwrap(), original);
+    }
 }

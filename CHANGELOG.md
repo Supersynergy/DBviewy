@@ -18,6 +18,7 @@
 - Reuse totals for repeated criteria when filling a formula column over fixed ranges.
 - Count or total invoices by date range, including XLSX timestamps on the last day.
 - Correct existing XLSX dates and timestamps without changing the cell format or date system.
+- Save clock-time and duration corrections in the original XLSX without changing their number formats.
 - Check data completeness with `COUNTA`, `COUNTBLANK` and `ISBLANK`, also in German.
 - Fill running averages and counts without rescanning earlier rows.
 

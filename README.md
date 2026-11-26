@@ -76,8 +76,8 @@ for their documentation. Upstream downloads install **Octa**, not DBviewy.
 For supported cell-value edits to an existing `.xlsx` file, DBviewy patches
 the worksheet in the original workbook. Replace or clear text, numbers
 and booleans without removing the cell's style, or fill a blank in an
-existing row within the opened data. You can also correct an existing
-date or timestamp without changing its format. Other sheets, formulas
+existing row within the opened data. You can also correct existing dates,
+clock times and durations without changing their formats. Other sheets, formulas
 and filters stay in place. Excel may recalculate
 formulas after reopening; DBviewy does not recalculate the whole workbook.
 

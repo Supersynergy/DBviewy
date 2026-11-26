@@ -197,8 +197,10 @@ formula behind it comes along: **hover the cell** to see it, or open the
 **Save** in an existing XLSX keeps the other sheets and formulas in place.
 To correct an existing date, enter `2024-03-15` or
 `2024-03-15 13:30:00.125` without a timezone offset. The workbook keeps the
-cell's style and date system. Use **Export workbook** to add new date formats
-or to change the type of a date cell.
+cell's style and date system. To correct a clock time use `13:30:00.125`;
+an elapsed-time cell also accepts a duration such as `27:30:00`.
+Negative durations require an existing 1904 workbook. Use **Export workbook**
+to add a date or time format or to change a cell's type.
 
 Exporting writes values, not formulas, by default. Turn on **Settings > Saving files >
 Write options > Excel > Keep Excel formulas when saving** to write the formula back

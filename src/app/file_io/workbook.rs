@@ -16,6 +16,15 @@ mod dates;
 #[path = "workbook_sparse.rs"]
 mod sparse;
 
+#[path = "workbook_times.rs"]
+mod times;
+
+#[derive(Default)]
+struct PatchTypes {
+    date_1904: bool,
+    times: HashMap<String, times::TimeCell>,
+}
+
 pub(super) fn whole_xlsx(
     table: &DataTable,
     target: &Path,
@@ -134,7 +143,7 @@ fn replace_cell(
     body: &str,
     address: &str,
     value: &CellValue,
-    date_1904: bool,
+    types: &PatchTypes,
 ) -> Result<String> {
     for attribute in tag.attributes() {
         ensure!(
@@ -166,7 +175,22 @@ fn replace_cell(
         return Ok(cell_xml(
             address,
             style,
-            Some(dates::encode(value, address, iso, date_1904)?),
+            Some(dates::encode(value, address, iso, types.date_1904)?),
+        ));
+    }
+    if times::is_time(value) {
+        ensure!(
+            scalar && style.is_some() && matches!(attr(tag, "t")?.as_deref(), None | Some("n")),
+            "No existing numeric time format at {address}"
+        );
+        let kind = types
+            .times
+            .get(address)
+            .context("Time format could not be verified")?;
+        return Ok(cell_xml(
+            address,
+            style,
+            Some(kind.encode(value, address, types.date_1904)?),
         ));
     }
     scalar_cell(address, style, value)
@@ -199,7 +223,11 @@ struct XmlChange {
     cell: String,
 }
 
-fn patch(xml: &str, mut changes: HashMap<String, &CellValue>, date_1904: bool) -> Result<String> {
+fn patch(
+    xml: &str,
+    mut changes: HashMap<String, &CellValue>,
+    types: &PatchTypes,
+) -> Result<String> {
     let mut reader = Reader::from_str(xml);
     let mut splices = Vec::with_capacity(changes.len());
     let mut stack = Vec::new();
@@ -233,7 +261,7 @@ fn patch(xml: &str, mut changes: HashMap<String, &CellValue>, date_1904: bool) -
                     splices.push(XmlChange {
                         start,
                         end: reader.buffer_position() as usize,
-                        cell: replace_cell(e, body, &address, value, date_1904)?,
+                        cell: replace_cell(e, body, &address, value, types)?,
                     });
                 } else if matches!(event, Event::Start(_)) {
                     stack.push(name.as_ref().to_owned());
@@ -452,7 +480,23 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
         None if sheets.len() == 1 => &sheets[0],
         None => bail!("Select a named worksheet before saving"),
     };
-    let origin = book.worksheet_range(name)?.start();
+    let raw = book.worksheet_range(name)?;
+    let origin = raw.start();
+    // Retain only the source format of edited time cells before releasing
+    // the raw range. The table reader can promote a clock value to a
+    // Duration to make a mixed column editable, but its style is unchanged.
+    let original_times: HashMap<_, _> = table
+        .edits
+        .iter()
+        .filter_map(|(&(r, c), value)| {
+            if !times::is_time(value) {
+                return None;
+            }
+            let kind = times::TimeCell::from_raw(raw.get((r.checked_add(1)?, c))?)?;
+            Some(((r, c), kind))
+        })
+        .collect();
+    drop(raw);
     drop(book);
     let base = ExcelReader.read_table(source, name)?;
     // The reader trims trailing rows containing no values. A previous
@@ -478,6 +522,7 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
     );
 
     let mut changes = HashMap::new();
+    let mut types = PatchTypes::default();
     for (&(r, c), value) in &table.edits {
         ensure!(
             r < table.row_count() && c < table.col_count(),
@@ -491,14 +536,24 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
                 dates::calendar_value(value),
                 "Use a date or timestamp for an existing date cell"
             );
+        } else if times::is_time(original) {
+            ensure!(
+                times::same_family(original, value),
+                "Keep the existing clock or duration type, or use a separate export"
+            );
         } else {
             ensure!(
                 !dates::calendar_value(value),
                 "New date formats require a separate workbook export"
             );
+            ensure!(
+                !times::is_time(value),
+                "New time formats require a separate workbook export"
+            );
         }
         ensure!(
             dates::calendar_value(original)
+                || times::is_time(original)
                 || matches!(
                     original,
                     CellValue::Null
@@ -507,7 +562,7 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
                         | CellValue::Float(_)
                         | CellValue::String(_)
                 ),
-            "Editing a clock time or duration in place requires an Excel editor"
+            "This cell type requires a separate workbook export"
         );
         ensure!(
             !base.formulas.contains_key(&(r, c)),
@@ -521,6 +576,13 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
             row + u32::try_from(r)? + 1,
             u16::try_from(col as usize + c)?,
         );
+        if times::is_time(value) {
+            let kind = original_times
+                .get(&(r, c))
+                .copied()
+                .with_context(|| format!("No existing numeric time format at {addr}"))?;
+            types.times.insert(addr.clone(), kind);
+        }
         changes.insert(addr, value);
     }
     let commit = |destination: File| -> Result<()> {
@@ -568,9 +630,10 @@ pub(super) fn save(path: &Path, sheet: Option<&str>, table: &DataTable) -> Resul
         member.starts_with("xl/worksheets/") && !member.contains(".."),
         "Unsupported worksheet path"
     );
-    let date_1904 = changes.values().any(|value| dates::calendar_value(value))
-        && dates::uses_1904_epoch(&workbook)?;
-    let xml = patch(&part(&mut archive, &member)?, changes, date_1904)?;
+    types.date_1904 = changes.values().any(|value| {
+        dates::calendar_value(value) || matches!(value, CellValue::Duration(ns) if *ns < 0)
+    }) && dates::uses_1904_epoch(&workbook)?;
+    let xml = patch(&part(&mut archive, &member)?, changes, &types)?;
     octa::formats::write_atomically(&destination_path, |tmp| {
         let mut output = zip::ZipWriter::new(File::create_new(tmp)?);
         output.set_raw_comment(archive.comment().into())?;

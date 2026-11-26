@@ -337,9 +337,12 @@ booleans, or fill blanks in existing rows within the loaded data area.
 Clearing one of these values keeps the cell's address and style. To correct
 an existing date, enter `2024-03-15` or a timestamp such as
 `2024-03-15 13:30:00.125`. Use local clock time without a timezone offset.
-The workbook keeps its date system and cell format. Use **Export workbook**
-if you need to create a new date format or change an existing date to
-a different type. **Save As** to another
+The workbook keeps its date system and cell format. You can also correct
+a numeric clock time such as `13:30:00.125` or an elapsed time such as
+`27:30:00` in an existing duration format. Time values can use milliseconds.
+Negative durations require a workbook already using the 1904 date system.
+Use **Export workbook** if you need a new date or time format, or if you
+need to change a cell's type. **Save As** to another
 `.xlsx` with **All rows**
 copies the workbook and applies those same edits. The other worksheets,
 formulas and filters remain intact.
