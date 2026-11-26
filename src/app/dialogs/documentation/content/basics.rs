@@ -704,6 +704,15 @@ position starting at 1; pass 0 for an exact match. INDEX also accepts
 one position for a single-row or single-column range, and never spills
 into other cells.
 
+**Shift hours.** With start in A1 and finish in B1, use
+`=24*MOD(TIMEVALUE(B1)-TIMEVALUE(A1),1)` for a shift shorter than 24 hours.
+From 22:30 to 06:15 it returns 7.75 hours. Equal times return zero.
+TIMEVALUE accepts a clock cell, timestamp or text such as "6:15 AM".
+It takes the written time from a timestamp, not UTC, and refuses durations.
+TIME builds a fraction of a day. HOUR, MINUTE and SECOND extract
+parts of a time; for a duration of 27:15 the hour part is 3, not 27.
+German names: ZEIT, ZEITWERT, STUNDE, MINUTE, SEKUNDE and REST.
+
 **Calendar dates.** Use `=YEAR(A1)`, `=MONTH(A1)` or `=DAY(A1)` to
 extract a date part. `=DAYS(DATE(2024,3,31),A1)` counts days from A1
 to 31 March; `=WEEKDAY(A1,2)` numbers Monday as 1. Use a date cell,

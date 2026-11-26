@@ -1,5 +1,5 @@
 //! Gregorian calendar functions for the numeric formula evaluator.
-use chrono::{DateTime, Datelike, Days, NaiveDate, TimeDelta, Timelike};
+use chrono::{DateTime, Datelike, Days, NaiveDate, NaiveDateTime, TimeDelta, Timelike};
 
 use super::control::{arguments, unparen};
 use super::{CellValue, Evaluation, FormulaBadCell, FormulaToken as Token, eval_complete, snippet};
@@ -87,36 +87,36 @@ pub(super) fn serial(date: NaiveDate) -> f64 {
     ((date - FIRST).num_days() + 1 + i64::from(date >= MARCH_1900)) as f64
 }
 
+/// Parse a date or timestamp without shifting an explicit UTC offset.
+pub(super) fn local_datetime(text: &str) -> Option<(NaiveDateTime, bool)> {
+    let text = text.trim();
+    let offset = text
+        .as_bytes()
+        .get(11..)
+        .is_some_and(|clock| clock.iter().any(|b| matches!(b, b'+' | b'-' | b'Z' | b'z')));
+    if !offset {
+        return crate::data::time_calc::parse_any(text);
+    }
+    let time = DateTime::parse_from_rfc3339(text).ok().or_else(|| {
+        [
+            "%Y-%m-%d %H:%M:%S%.f%z",
+            "%Y-%m-%dT%H:%M:%S%.f%z",
+            "%Y-%m-%d %H:%M%z",
+            "%Y-%m-%dT%H:%M%z",
+        ]
+        .iter()
+        .find_map(|format| DateTime::parse_from_str(text, format).ok())
+    })?;
+    Some((time.naive_local(), true))
+}
+
 /// The serial used by numeric criteria, including a timestamp's local
 /// clock time. Plain strings do not participate in this coercion.
 pub(super) fn criterion_serial(cell: &CellValue) -> Option<f64> {
     let (day, fraction) = match cell {
         CellValue::Date(text) => (iso_date(text)?, 0.0),
         CellValue::DateTime(text) => {
-            let text = text.trim();
-            let offset = text
-                .as_bytes()
-                .get(11..)
-                .is_some_and(|clock| clock.iter().any(|b| matches!(b, b'+' | b'-' | b'Z' | b'z')));
-            let time = if offset {
-                // Parse offsets before entering the generic date parser,
-                // which would normalise to UTC and can move the date.
-                DateTime::parse_from_rfc3339(text)
-                    .ok()
-                    .or_else(|| {
-                        [
-                            "%Y-%m-%d %H:%M:%S%.f%z",
-                            "%Y-%m-%dT%H:%M:%S%.f%z",
-                            "%Y-%m-%d %H:%M%z",
-                            "%Y-%m-%dT%H:%M%z",
-                        ]
-                        .iter()
-                        .find_map(|format| DateTime::parse_from_str(text, format).ok())
-                    })?
-                    .naive_local()
-            } else {
-                crate::data::time_calc::cell_to_datetime(cell)?.0
-            };
+            let (time, _) = local_datetime(text)?;
             let ns = time.nanosecond();
             // Excel serials do not represent leap seconds.
             if ns >= 1_000_000_000 {

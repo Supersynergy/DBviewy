@@ -340,6 +340,213 @@ fn calendar_invoice_xlsx_round_trip_keeps_dates_and_numeric_age() {
 }
 
 #[test]
+fn time_builds_excel_day_fractions_and_wraps_overflow() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("TIME(12,0,0)", 0.5),
+        ("ZEIT(27;0;0)", 0.125),
+        ("TIME(0,750,0)", 45_000.0 / 86_400.0),
+        ("TIME(0,0,2000)", 2_000.0 / 86_400.0),
+        ("TIME(23,59,60)", 0.0),
+        ("TIME(A1+2,0.5,0.8)", 0.5),
+        ("TIME(32767,32767,32767)", 36787.0 / 86_400.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+    for formula in [
+        "TIME(-1,0,0)",
+        "TIME(0,32768,0)",
+        "TIME(0,0,1E300)",
+        "TIME(1,2)",
+        "TIME(,2,0)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}
+
+#[test]
+fn clock_parts_use_local_time_and_support_elapsed_and_serials() {
+    use octa::data::times::{NANOS_PER_SEC, parse_time};
+    let mut table = formula_table();
+    table.set(0, 0, CellValue::Time(parse_time("23:45:06.998").unwrap()));
+    table.set(
+        0,
+        1,
+        CellValue::DateTime("2026-11-26T00:01:02.234+13:00".into()),
+    );
+    table.set(0, 2, CellValue::Duration(98_109 * NANOS_PER_SEC));
+    table.set(1, 0, CellValue::Float(45_000.0 + 86_399.0 / 86_400.0));
+    table.set(1, 1, CellValue::Date("2026-11-26".into()));
+    for (formula, expected) in [
+        ("STUNDE(($A$1))", 23.0),
+        ("MINUTE(A1)", 45.0),
+        ("SEKUNDE(A1)", 6.0),
+        ("HOUR(B1)", 0.0),
+        ("MINUTE(B1)", 1.0),
+        ("SECOND(B1)", 2.0),
+        ("HOUR(C1)", 3.0),
+        ("MINUTE(C1)", 15.0),
+        ("SECOND(C1)", 9.0),
+        ("SECOND(A2)", 59.0),
+        ("HOUR(B2)", 0.0),
+        ("HOUR(0.9999999999999999)", 23.0),
+        ("SECOND(0.9999999999999999)", 59.0),
+        ("SECOND(TIME(0,0,59)-0.00000000001)", 58.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+    for second in 0..60 {
+        let formula = format!("SECOND(TIME(23,59,{second}))");
+        assert_eq!(
+            evaluate_formula(&formula, &table),
+            Some(f64::from(second)),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn timevalue_reads_clock_text_but_refuses_duration_and_bad_references() {
+    use octa::data::times::{NANOS_PER_DAY, parse_time};
+    let mut table = formula_table();
+    table.set(0, 0, CellValue::String(" 6:45 PM ".into()));
+    table.set(0, 1, CellValue::Time(NANOS_PER_DAY - 1));
+    table.set(0, 2, CellValue::Duration(NANOS_PER_DAY + 1));
+    table.set(1, 0, CellValue::Duration(-1));
+    table.set(
+        1,
+        1,
+        CellValue::DateTime("2026-11-26 01:23:45.678+0200".into()),
+    );
+    for (formula, clock) in [
+        ("TIMEVALUE(A1)", "18:45"),
+        ("TIMEVALUE(B1)", "23:59:59.999999999"),
+        ("ZEITWERT(B2)", "01:23:45.678"),
+        (r#"TIMEVALUE(("12:00 AM"))"#, "00:00"),
+        (r#"TIMEVALUE("2026-11-26T01:23:45.678")"#, "01:23:45.678"),
+    ] {
+        let expected = parse_time(clock).unwrap() as f64 / NANOS_PER_DAY as f64;
+        assert!(
+            (evaluate_formula(formula, &table).unwrap() - expected).abs() < 1e-15,
+            "{formula}"
+        );
+    }
+    let rejected = evaluate_formula_with_diagnostics("TIMEVALUE(C1)", &table);
+    assert!(rejected.value.is_none());
+    assert_eq!(rejected.bad_cell.map(|c| (c.row, c.col)), Some((0, 2)));
+    for formula in [
+        "TIMEVALUE(0.5)",
+        "TIMEVALUE(A9000)",
+        "HOUR(A2)",
+        "SECOND(-0.1)",
+        "HOUR(TRUE)",
+        r#"TIMEVALUE("24:00")"#,
+        r#"TIMEVALUE("2026-11-26")"#,
+        r#"TIMEVALUE("2026-11-26T23:59:60Z")"#,
+        r#"TIMEVALUE("2026-02-30T00:01:00Z")"#,
+        "HOUR(A1:B1)",
+        "MINUTE(A1,B1)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}
+
+#[test]
+fn mod_keeps_the_divisor_sign_and_validates_lazy_branches() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("MOD(3,2)", 1.0),
+        ("MOD(-3,2)", 1.0),
+        ("MOD(3,-2)", -1.0),
+        ("REST(-3;-2)", -1.0),
+        ("MOD(-6,2)", 0.0),
+        ("MOD(1E300,2)", 0.0),
+        ("MOD(-1E-20,1)", 1.0_f64.next_down()),
+        ("MOD(1E-20,-1)", (-1.0_f64).next_up()),
+        ("IFERROR(MOD(2,0),42)", 42.0),
+        ("IF(TRUE,7,TIMEVALUE(A100))", 7.0),
+        ("IF(TRUE,7,HOUR(MOD(2,0)))", 7.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+    for formula in [
+        "MOD(3,0)",
+        "MOD(3,-0)",
+        "MOD(3,)",
+        "MOD(3,2,1)",
+        "IF(TRUE,7,TIMEVALUE())",
+        "IF(TRUE,7,MINUTE(A1:B1))",
+        "IF(TRUE,7,TIME(12,,0))",
+        "IF(TRUE,7,MOD(1,))",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}
+
+#[test]
+fn overnight_shift_xlsx_round_trip_keeps_clocks_and_numeric_hours() {
+    use octa::data::times::parse_time;
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::{Format, Workbook};
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("shifts.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet().set_name("Shifts").unwrap();
+    sheet.write_string(0, 0, "Start").unwrap();
+    sheet.write_string(0, 1, "Finish").unwrap();
+    sheet.write_string(0, 2, "Hours").unwrap();
+    let clock = Format::new().set_num_format("hh:mm:ss");
+    sheet
+        .write_number_with_format(1, 0, 22.5 / 24.0, &clock)
+        .unwrap();
+    sheet
+        .write_number_with_format(1, 1, 6.25 / 24.0, &clock)
+        .unwrap();
+    sheet.write_number(1, 2, 0).unwrap();
+    book.save(&source).unwrap();
+
+    let clocks = [
+        CellValue::Time(parse_time("22:30").unwrap()),
+        CellValue::Time(parse_time("06:15").unwrap()),
+    ];
+    let mut table = ExcelReader.read_file(&source).unwrap();
+    for (col, value) in clocks.iter().enumerate() {
+        assert_eq!(table.get(0, col), Some(value));
+    }
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        2,
+        "=24*MOD(TIMEVALUE(B1)-TIMEVALUE(A1),1)".into(),
+        BinaryDisplayMode::default(),
+    ));
+    assert!((evaluate_formula("C1", &table).unwrap() - 7.75).abs() < 1e-12);
+    let report = dir.path().join("shift-hours.xlsx");
+    ExcelReader.write_file(&report, &table).unwrap();
+    let reopened = ExcelReader.read_file(&report).unwrap();
+    for (col, value) in clocks.iter().enumerate() {
+        assert_eq!(reopened.get(0, col), Some(value));
+    }
+    assert!(
+        matches!(reopened.get(0, 2), Some(CellValue::Float(hours)) if (hours - 7.75).abs() < 1e-12)
+    );
+}
+
+#[test]
 fn networkdays_counts_both_ends_and_ignores_duplicate_and_weekend_holidays() {
     let mut table = formula_table();
     table.set(0, 0, CellValue::Date("2024-03-04".into()));

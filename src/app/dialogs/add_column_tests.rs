@@ -721,6 +721,42 @@ fn classic_lookup_fill_reuses_fixed_catalogs_without_moving_them() {
 }
 
 #[test]
+fn shift_report_fills_overnight_hours_and_can_be_undone() {
+    use data::CellValue::Time;
+    use data::times::parse_time;
+    let time = |s| Time(parse_time(s).unwrap());
+    let mut app = workbook_app();
+    let rows = vec![
+        vec![time("22:30"), time("06:15")],
+        vec![time("09:00"), time("17:00")],
+        vec![time("12:00"), time("12:00")],
+    ];
+    app.tabs[0].table = data::DataTable {
+        columns: ["Start", "Finish"]
+            .map(|name| data::ColumnInfo {
+                name: name.into(),
+                data_type: "Time64(Microsecond)".into(),
+            })
+            .to_vec(),
+        rows: rows.clone(),
+        ..data::DataTable::empty()
+    };
+    app.tabs[0].new_col_name = "Hours".into();
+    app.tabs[0].new_col_formula = "=24*REST(ZEITWERT(B1)-ZEITWERT(A1);1)".into();
+    add_formula_column(&mut app);
+    let table = &mut app.tabs[0].table;
+    assert_eq!(table.col_count(), 3);
+    for (formula, expected) in [("C1", 7.75), ("C2", 8.0), ("C3", 0.0)] {
+        let hours = data::evaluate_formula(formula, table).unwrap();
+        assert!((hours - expected).abs() < 1e-12, "{formula}: {hours}");
+    }
+    assert_eq!(table.undo_stack.len(), 1);
+    table.undo();
+    assert_eq!(table.col_count(), 2);
+    assert_eq!(table.rows, rows);
+}
+
+#[test]
 fn german_counta_fills_relative_rows_without_shifting_its_function_name() {
     use data::CellValue::{Bool, Int, Null, String as Text};
     let mut app = workbook_app();

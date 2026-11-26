@@ -563,7 +563,7 @@ pub(crate) fn cell_to_datetime(v: &CellValue) -> Option<(NaiveDateTime, bool)> {
     }
 }
 
-fn parse_any(s: &str) -> Option<(NaiveDateTime, bool)> {
+pub(crate) fn parse_any(s: &str) -> Option<(NaiveDateTime, bool)> {
     let t = s.trim();
     const DT_FORMATS: &[&str] = &[
         "%Y-%m-%d %H:%M:%S%.f",

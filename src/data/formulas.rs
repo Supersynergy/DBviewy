@@ -24,6 +24,8 @@ mod lookup;
 mod presence;
 #[path = "formulas_product.rs"]
 mod product;
+#[path = "formulas_time.rs"]
+mod time;
 #[path = "formulas_workdays.rs"]
 mod workdays;
 use criteria::ConditionalAggregate;
@@ -196,6 +198,7 @@ enum Function {
     Index,
     Match,
     Calendar(date::Calendar),
+    Clock(time::Clock),
     Workdays(workdays::Kind, bool),
     SumProduct,
     Power,
@@ -310,6 +313,17 @@ fn function_named(name: &str) -> Option<Function> {
         ("TAGE", Function::Calendar(date::Calendar::Days)),
         ("WEEKDAY", Function::Calendar(date::Calendar::Weekday)),
         ("WOCHENTAG", Function::Calendar(date::Calendar::Weekday)),
+        ("TIME", Function::Clock(time::Clock::Time)),
+        ("ZEIT", Function::Clock(time::Clock::Time)),
+        ("TIMEVALUE", Function::Clock(time::Clock::TimeValue)),
+        ("ZEITWERT", Function::Clock(time::Clock::TimeValue)),
+        ("HOUR", Function::Clock(time::Clock::Hour)),
+        ("STUNDE", Function::Clock(time::Clock::Hour)),
+        ("MINUTE", Function::Clock(time::Clock::Minute)),
+        ("SECOND", Function::Clock(time::Clock::Second)),
+        ("SEKUNDE", Function::Clock(time::Clock::Second)),
+        ("MOD", Function::Clock(time::Clock::Modulo)),
+        ("REST", Function::Clock(time::Clock::Modulo)),
         (
             "NETWORKDAYS",
             Function::Workdays(workdays::Kind::Count, false),
@@ -685,6 +699,7 @@ fn eval_function(
         Function::Index => return lookup::evaluate_index(tokens, pos, context),
         Function::Match => return lookup::evaluate_match(tokens, pos, context),
         Function::Calendar(kind) => return date::evaluate(kind, tokens, pos, context),
+        Function::Clock(kind) => return time::evaluate(kind, tokens, pos, context),
         Function::Presence(kind) => return presence::evaluate(kind, tokens, pos, context),
         Function::Workdays(kind, intl) => {
             return workdays::evaluate(kind, intl, tokens, pos, context);

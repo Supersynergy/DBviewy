@@ -171,6 +171,31 @@ inside the call. The German name is `SUMMENPRODUKT`.
   of the decimal point. For example, `ROUND(125, -1)` returns `130`.
   Halfway values round away from zero, so `ROUND(-1.475, 2)` returns `-1.48`.
 
+## Calculate shift hours across midnight
+
+With a start time in A1 and a finish time in B1, use:
+
+```text
+=24*MOD(TIMEVALUE(B1)-TIMEVALUE(A1),1)
+```
+
+From 22:30 to 06:15 the result is 7.75 hours. Use this formula for
+shifts shorter than 24 hours; equal start and finish times return zero.
+`TIMEVALUE` returns a fraction of a day from a clock cell, timestamp
+or text such as `18:45` or `6:45 PM`. For timestamps with an offset it
+uses the written clock time, not UTC. It does not take an elapsed duration.
+
+- `TIME(12,30,0)` builds a day fraction. Inputs from 0 to 32,767 are
+  truncated to whole units; overflow carries into the next unit and
+  wraps at midnight.
+- `HOUR`, `MINUTE` and `SECOND` extract parts from clock values and
+  nonnegative numeric day fractions. For a nonnegative elapsed duration
+  such as 27:15:00, the hour part is 3, not 27.
+- `MOD(number,divisor)` returns a remainder with the divisor's sign.
+  A zero divisor has no numeric result.
+
+German names: `ZEIT`, `ZEITWERT`, `STUNDE`, `MINUTE`, `SEKUNDE` and `REST`.
+
 ## Report by date
 
 - `=YEAR(A1)`, `=MONTH(A1)` and `=DAY(A1)` extract parts of an invoice date.
