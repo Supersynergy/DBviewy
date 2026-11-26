@@ -243,23 +243,9 @@ impl OctaApp {
 
         // A block bigger than the table grows it, as a spreadsheet does; one
         // smaller leaves the cells past it as they are.
-        if tab.paste_can_grow() {
-            let rows_needed = start_row + parsed_rows.len();
-            let cols_needed = start_col + parsed_rows.iter().map(Vec::len).max().unwrap_or(0);
-            while tab.table.col_count() < cols_needed {
-                let name = tab
-                    .table
-                    .unique_column_name(&format!("col{}", tab.table.col_count() + 1));
-                let at = tab.table.col_count();
-                tab.table.insert_column(at, name, "Utf8".to_string());
-            }
-            // ponytail: one insert_row per row, each rebuilding the edit
-            // overlay; a bulk append if pasting many thousand rows into a
-            // heavily edited table ever gets slow.
-            while tab.table.row_count() < rows_needed {
-                tab.table.insert_row(tab.table.row_count());
-            }
-        }
+        let rows_needed = start_row + parsed_rows.len();
+        let cols_needed = start_col + parsed_rows.iter().map(Vec::len).max().unwrap_or(0);
+        grow_paste_target(tab, rows_needed, cols_needed);
 
         for (ri, row_cells) in parsed_rows.iter().enumerate() {
             let target_row = start_row + ri;
@@ -377,6 +363,77 @@ impl OctaApp {
             },
         );
     }
+}
+
+/// Extend the grid only when its source allows it. Both paste routes
+/// coalesce growth and cell edits into one undo entry.
+pub(super) fn grow_paste_target(
+    tab: &mut super::state::TabState,
+    rows_needed: usize,
+    cols_needed: usize,
+) {
+    if tab.paste_can_grow() {
+        while tab.table.col_count() < cols_needed {
+            let name = tab
+                .table
+                .unique_column_name(&format!("col{}", tab.table.col_count() + 1));
+            let at = tab.table.col_count();
+            tab.table.insert_column(at, name, "Utf8".to_string());
+        }
+        append_paste_rows(&mut tab.table, rows_needed);
+    }
+}
+
+fn append_paste_rows(table: &mut data::DataTable, rows_needed: usize) {
+    let first = table.row_count();
+    let extra = rows_needed.saturating_sub(first);
+    match extra {
+        0 => return,
+        1 => return table.insert_row(first),
+        _ => {}
+    }
+    // Keep the existing structural flags and undo entries, but park the
+    // row-indexed overlays while appending. Reindex them at most once,
+    // not once per new row.
+    let edits = std::mem::take(&mut table.edits);
+    let marks = std::mem::take(&mut table.marks);
+    let hidden = std::mem::take(&mut table.hidden_rows);
+    for row in first..rows_needed {
+        table.insert_row(row);
+    }
+    let shift = |row| if row < first { row } else { row + extra };
+    table.edits = if edits.keys().any(|&(row, _)| row >= first) {
+        edits
+            .into_iter()
+            .map(|((r, c), value)| ((shift(r), c), value))
+            .collect()
+    } else {
+        edits
+    };
+    use data::MarkKey::{Cell, Column, Row};
+    table.marks = if marks
+        .keys()
+        .any(|k| matches!(k, Cell(r, _) | Row(r) if *r >= first))
+    {
+        marks
+            .into_iter()
+            .map(|(key, color)| {
+                let key = match key {
+                    Cell(r, c) => Cell(shift(r), c),
+                    Row(r) => Row(shift(r)),
+                    k @ Column(_) => k,
+                };
+                (key, color)
+            })
+            .collect()
+    } else {
+        marks
+    };
+    table.hidden_rows = if hidden.iter().any(|&r| r >= first) {
+        hidden.into_iter().map(shift).collect()
+    } else {
+        hidden
+    };
 }
 
 /// Escape a cell value for a Markdown table cell: pipes break the column

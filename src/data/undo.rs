@@ -112,7 +112,22 @@ impl DataTable {
                 unreachable!()
             };
             let mut redone: Vec<UndoAction> = Vec::with_capacity(children.len());
-            for child in children.into_iter().rev() {
+            let mut children = children.into_iter();
+            while let Some(child) = children.next_back() {
+                if self.db_meta.is_none()
+                    && let UndoAction::InsertRow { index } = &child
+                    && index.checked_add(1) == Some(self.rows.len())
+                {
+                    let extra = children.as_slice().iter().rev().zip((0..*index).rev())
+                        .take_while(|(action, row)| matches!(action, UndoAction::InsertRow { index } if index==row))
+                        .count();
+                    if extra != 0 {
+                        self.replay_appended_rows(*index - extra..self.rows.len(), true);
+                        redone.push(child);
+                        redone.extend(children.by_ref().rev().take(extra));
+                        continue;
+                    }
+                }
                 self.undo_stack.push(child);
                 self.undo();
                 if let Some(done) = self.redo_stack.pop() {
@@ -297,7 +312,22 @@ impl DataTable {
                 unreachable!()
             };
             let mut undone: Vec<UndoAction> = Vec::with_capacity(children.len());
-            for child in children.into_iter() {
+            let mut children = children.into_iter();
+            while let Some(child) = children.next() {
+                if self.db_meta.is_none()
+                    && let UndoAction::InsertRow { index } = &child
+                    && *index == self.rows.len()
+                {
+                    let extra = children.as_slice().iter().zip(*index + 1..)
+                        .take_while(|(action, row)| matches!(action, UndoAction::InsertRow { index } if index==row))
+                        .count();
+                    if extra != 0 {
+                        self.replay_appended_rows(*index..*index + extra + 1, false);
+                        undone.push(child);
+                        undone.extend(children.by_ref().take(extra));
+                        continue;
+                    }
+                }
                 self.redo_stack.push(child);
                 self.redo();
                 if let Some(done) = self.undo_stack.pop() {
@@ -457,6 +487,43 @@ impl DataTable {
             true
         } else {
             false
+        }
+    }
+
+    /// Replay a consecutive, file-backed tail run as one resize. The row
+    /// actions themselves keep their original positions in the history.
+    fn replay_appended_rows(&mut self, run: std::ops::Range<usize>, undo: bool) {
+        if undo {
+            self.rows.truncate(run.start);
+        } else {
+            let cols = self.columns.len();
+            self.rows
+                .resize_with(run.end, || vec![CellValue::Null; cols]);
+        }
+        let remap = |row| {
+            if row < run.start {
+                Some(row)
+            } else if undo {
+                (row >= run.end).then(|| row - run.len())
+            } else {
+                Some(row + run.len())
+            }
+        };
+        if self.edits.keys().any(|&(r, _)| r >= run.start) {
+            if undo && self.edits.keys().all(|&(r, _)| r < run.end) {
+                self.edits.retain(|&(r, _), _| r < run.start);
+            } else {
+                self.edits = std::mem::take(&mut self.edits)
+                    .into_iter()
+                    .filter_map(|((r, c), value)| Some(((remap(r)?, c), value)))
+                    .collect();
+            }
+        }
+        if self.hidden_rows.iter().any(|&r| r >= run.start) {
+            self.hidden_rows = std::mem::take(&mut self.hidden_rows)
+                .into_iter()
+                .filter_map(remap)
+                .collect();
         }
     }
 

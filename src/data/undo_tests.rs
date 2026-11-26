@@ -30,6 +30,60 @@ fn batch_undo_is_one_step() {
 }
 
 #[test]
+fn batched_appended_rows_match_the_same_actions_replayed_individually() {
+    for with_db in [false, true] {
+        let mut table = one_col(&["a", "b", "c"]);
+        if with_db {
+            table.db_meta = Some(DbRowMeta {
+                table_name: "source".into(),
+                schema: None,
+                row_tags: vec![Some(10), Some(20), Some(30)],
+                original: Default::default(),
+                original_columns: vec!["a".into()],
+            });
+        }
+        table.set(2, 0, CellValue::String("prior edit".into()));
+        table.hide_rows([1]);
+        let start = table.undo_stack.len();
+        table.insert_row(1); // middle insertion must keep the normal path
+        table.insert_row(4);
+        table.insert_row(5);
+        table.set(5, 0, CellValue::String("pasted".into()));
+        table.hide_rows([4]);
+        // The public state can also hold a coordinate beyond the loaded grid.
+        // Its translation must match the pre-existing history path.
+        table
+            .edits
+            .insert((8, 0), CellValue::String("later".into()));
+        table.hidden_rows.insert(8);
+        let count = table.undo_stack.len() - start;
+
+        let mut batch = table.clone();
+        batch.coalesce_undo_since(start);
+        let assert_same = |batch: &DataTable, singles: &DataTable| {
+            assert_eq!(batch.rows, singles.rows);
+            assert_eq!(batch.edits, singles.edits);
+            assert_eq!(batch.hidden_rows, singles.hidden_rows);
+            assert_eq!(batch.marks, singles.marks);
+            assert_eq!(
+                batch.db_meta.as_ref().map(|m| &m.row_tags),
+                singles.db_meta.as_ref().map(|m| &m.row_tags)
+            );
+        };
+        assert!(batch.undo());
+        for _ in 0..count {
+            assert!(table.undo());
+        }
+        assert_same(&batch, &table);
+        assert!(batch.redo());
+        for _ in 0..count {
+            assert!(table.redo());
+        }
+        assert_same(&batch, &table);
+    }
+}
+
+#[test]
 fn coalesce_noop_for_zero_or_one() {
     let mut t = one_col(&["x"]);
     let start = t.undo_stack.len();

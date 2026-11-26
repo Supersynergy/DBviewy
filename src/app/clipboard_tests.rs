@@ -296,3 +296,66 @@ fn quoted_grid_notes_survive_csv_save_and_reopen() {
     assert_eq!(reopened.get(0, 0), Some(&CellValue::String("INV-1".into())));
     assert_eq!(reopened.get(1, 2), Some(&CellValue::String("keep".into())));
 }
+
+#[test]
+fn large_sheet_paste_and_history_keep_existing_grid() {
+    use octa::data::{CellValue, MarkColor, MarkKey};
+    use std::fmt::Write as _;
+    use std::time::Instant;
+
+    const EXISTING: usize = 3_000;
+    const PASTE: usize = 4_500;
+    let mut app = app(100);
+    app.open_new_table_tab(2, EXISTING);
+    let tab = app.active_tab;
+    for row in 0..EXISTING {
+        app.tabs[tab]
+            .table
+            .set(row, 0, CellValue::String(format!("old-{row}")));
+        app.tabs[tab]
+            .table
+            .set(row, 1, CellValue::String(format!("note-{row}")));
+    }
+    let mark = MarkKey::Cell(EXISTING - 2, 0);
+    app.tabs[tab].table.set_mark(mark.clone(), MarkColor::Green);
+    app.tabs[tab].table.hide_rows([8]);
+    let undo_before = app.tabs[tab].table.undo_stack.len();
+    app.tabs[tab].table_state.selected_cell = Some((EXISTING - 1, 0));
+    let mut clipboard = String::new();
+    for row in 0..PASTE {
+        writeln!(clipboard, "sku-{row}\tready").unwrap();
+    }
+    let start = Instant::now();
+    app.paste_text_into_table(&clipboard);
+    let paste = start.elapsed();
+    assert_eq!(shape(&app), (EXISTING + PASTE - 1, 2));
+    assert_eq!(cell(&app, EXISTING - 1, 0), "sku-0");
+    assert_eq!(cell(&app, EXISTING + PASTE - 2, 0), "sku-4499");
+    assert_eq!(app.tabs[tab].table.undo_stack.len(), undo_before + 1);
+
+    let start = Instant::now();
+    assert!(app.tabs[tab].table.undo());
+    let undo = start.elapsed();
+    assert_eq!(shape(&app), (EXISTING, 2));
+    assert_eq!(cell(&app, EXISTING - 1, 0), "old-2999");
+    assert_eq!(app.tabs[tab].table.edits.len(), EXISTING * 2);
+    assert_eq!(app.tabs[tab].table.undo_stack.len(), undo_before);
+
+    let start = Instant::now();
+    assert!(app.tabs[tab].table.redo());
+    let redo = start.elapsed();
+    assert_eq!(shape(&app), (EXISTING + PASTE - 1, 2));
+    assert_eq!(cell(&app, EXISTING + PASTE - 2, 1), "ready");
+    assert_eq!(cell(&app, 8, 1), "note-8");
+    assert_eq!(
+        app.tabs[tab].table.marks.get(&mark),
+        Some(&MarkColor::Green)
+    );
+    assert!(app.tabs[tab].table.hidden_rows.contains(&8));
+    eprintln!(
+        "BULK_GRID existing={EXISTING} incoming={PASTE} paste_us={} undo_us={} redo_us={}",
+        paste.as_micros(),
+        undo.as_micros(),
+        redo.as_micros()
+    );
+}
