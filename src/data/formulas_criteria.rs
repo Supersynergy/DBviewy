@@ -4,6 +4,8 @@ use std::borrow::Cow;
 
 use regex::{Regex, RegexBuilder};
 
+use super::super::times::NANOS_PER_DAY;
+
 use super::{
     CellValue, Comparison as Compare, DataTable, Evaluation, FormulaToken as Token, aggregate_cell,
     date, eval_expression,
@@ -14,6 +16,8 @@ pub(super) enum ConditionalAggregate {
     Count,
     Sum,
     Average,
+    Min,
+    Max,
 }
 
 #[derive(Clone, Copy)]
@@ -111,8 +115,8 @@ pub(super) fn evaluate(
     Some((value, pos + 1))
 }
 
-/// Plural forms pair equal-size rectangles by relative position. Sum and
-/// average take the result rectangle first, unlike their singular forms.
+/// Plural forms pair equal-size rectangles by relative position. All
+/// forms except COUNTIFS take the result rectangle first.
 pub(super) fn evaluate_many(
     aggregate: ConditionalAggregate,
     tokens: &[Token],
@@ -191,7 +195,7 @@ fn aggregate_matching(
     output: Option<Rectangle>,
     mut matches: impl FnMut(usize, usize) -> bool,
 ) -> Option<f64> {
-    let mut total = 0.0;
+    let mut total: f64 = 0.0;
     let mut count = 0usize;
     if cols > 0 {
         for r in 0..rows {
@@ -207,7 +211,12 @@ fn aggregate_matching(
                         .and_then(|(row, col)| aggregate_cell(table, row, col))
                         .filter(|value| value.is_finite());
                     let Some(value) = value else { continue };
-                    total += value;
+                    total = match aggregate {
+                        ConditionalAggregate::Min if count > 0 => total.min(value),
+                        ConditionalAggregate::Max if count > 0 => total.max(value),
+                        ConditionalAggregate::Min | ConditionalAggregate::Max => value,
+                        _ => total + value,
+                    };
                 }
                 count += 1;
             }
@@ -215,7 +224,7 @@ fn aggregate_matching(
     }
     let value = match aggregate {
         ConditionalAggregate::Count => count as f64,
-        ConditionalAggregate::Sum => total,
+        ConditionalAggregate::Sum | ConditionalAggregate::Min | ConditionalAggregate::Max => total,
         ConditionalAggregate::Average if count > 0 => total / count as f64,
         ConditionalAggregate::Average => return None,
     };
@@ -290,9 +299,10 @@ fn criterion_piece<'a, 't: 'a>(
             CellValue::Null => CriterionInput::Number(0.0),
             CellValue::Bool(value) => CriterionInput::Boolean(*value),
             CellValue::String(value) => CriterionInput::Text(value.as_str().into()),
-            cell @ (CellValue::Date(_) | CellValue::DateTime(_)) => {
-                CriterionInput::Number(date::criterion_serial(cell)?)
-            }
+            cell @ (CellValue::Date(_)
+            | CellValue::DateTime(_)
+            | CellValue::Time(_)
+            | CellValue::Duration(_)) => CriterionInput::Number(typed_serial(cell)?),
             _ => return None,
         },
         _ => {
@@ -301,6 +311,17 @@ fn criterion_piece<'a, 't: 'a>(
         }
     };
     Some((input, pos + 1))
+}
+
+fn typed_serial(cell: &CellValue) -> Option<f64> {
+    match cell {
+        CellValue::Date(_) | CellValue::DateTime(_) => date::criterion_serial(cell),
+        CellValue::Time(ns) if (0..NANOS_PER_DAY).contains(ns) => {
+            Some(*ns as f64 / NANOS_PER_DAY as f64)
+        }
+        CellValue::Duration(ns) => Some(*ns as f64 / NANOS_PER_DAY as f64),
+        _ => None,
+    }
 }
 
 impl Compare {
@@ -374,8 +395,7 @@ impl Condition {
                     CellValue::Int(value) => Some(*value as f64),
                     CellValue::Float(value) => Some(*value),
                     CellValue::String(value) => value.trim().parse().ok(),
-                    CellValue::Date(_) | CellValue::DateTime(_) => date::criterion_serial(cell),
-                    _ => None,
+                    cell => typed_serial(cell),
                 };
                 number
                     .filter(|value| value.is_finite())

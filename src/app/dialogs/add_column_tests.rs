@@ -1281,3 +1281,76 @@ fn ifs_formula_column_combines_tests_and_keeps_threshold_anchored() {
     assert_eq!(tab.table.col_count(), 3);
     assert_eq!(tab.table.get(0, 0), Some(&Int(120)));
 }
+
+#[test]
+fn extrema_fill_reuses_only_identical_typed_clock_and_elapsed_criteria() {
+    use data::CellValue::{Duration, Int, Time};
+    use data::times::{NANOS_PER_DAY, parse_time};
+    let evening = Time(parse_time("18:00").unwrap());
+    let night = Time(parse_time("22:00").unwrap());
+    let morning = Time(parse_time("06:00").unwrap());
+    let long = Duration(NANOS_PER_DAY + NANOS_PER_DAY / 8);
+    let short = Duration(NANOS_PER_DAY / 4);
+    let rows = [
+        (6, &evening, &long, &evening, &long),
+        (5, &night, &long, &night, &long),
+        (-4, &night, &long, &morning, &short),
+        (8, &evening, &short, &evening, &long),
+        (100, &morning, &long, &night, &long),
+        (-1, &night, &short, &morning, &short),
+    ]
+    .into_iter()
+    .map(|(n, b, c, d, e)| vec![Int(n), b.clone(), c.clone(), d.clone(), e.clone()])
+    .collect();
+    let table = data::DataTable {
+        columns: ["Orders", "Clock", "Elapsed", "Match clock", "Match length"]
+            .map(|name| data::ColumnInfo {
+                name: name.into(),
+                data_type: "Utf8".into(),
+            })
+            .to_vec(),
+        rows,
+        ..data::DataTable::empty()
+    };
+    let formula = "MAXWENNS($A$1:$A$6;$B$1:$B$6;D1;$C$1:$C$6;E1)";
+    let template = FormulaRows::new(formula);
+    let keys = template.memo_inputs().unwrap();
+    assert_eq!(keys, [(1, 3), (1, 4)]);
+    assert!(
+        FormulaRows::new("MAXIFS($A$1:$A6,$B$1:$B$6,D1)")
+            .memo_inputs()
+            .is_none()
+    );
+    let mut calls = 0;
+    let cached = fill_shifted_template(&template, &table, &keys, |expr, table| {
+        calls += 1;
+        data::evaluate_formula_with_diagnostics(expr, table)
+    });
+    let uncached = fill_shifted_template(
+        &template,
+        &table,
+        &[],
+        data::evaluate_formula_with_diagnostics,
+    );
+    assert_eq!(cached.0, uncached.0);
+    assert!(cached.1.is_none() && uncached.1.is_none());
+    assert_eq!(
+        cached.0,
+        [(0, 6.0), (1, 5.0), (2, 0.0), (3, 6.0), (4, 5.0), (5, 0.0)]
+    );
+    assert_eq!(calls, 3);
+
+    let mut app = workbook_app();
+    app.tabs[0].table = table;
+    app.tabs[0].new_col_name = "Maximum".into();
+    app.tabs[0].new_col_formula = format!("={formula}");
+    add_formula_column(&mut app);
+    let table = &mut app.tabs[0].table;
+    assert_eq!(table.col_count(), 6);
+    for (row, value) in [6, 5, 0, 6, 5, 0].into_iter().enumerate() {
+        assert_eq!(table.get(row, 5), Some(&Int(value)));
+    }
+    assert_eq!(table.undo_stack.len(), 1);
+    table.undo();
+    assert_eq!(table.col_count(), 5);
+}

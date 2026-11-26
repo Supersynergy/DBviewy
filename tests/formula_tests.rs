@@ -2714,3 +2714,186 @@ fn logic_eligibility_and_tiers_survive_xlsx_round_trip() {
     assert!(reloaded.formulas.is_empty());
     assert_eq!(std::fs::read_to_string(input).unwrap(), csv);
 }
+
+#[test]
+fn conditional_extrema_select_numbers_without_summing_or_inventing_zero() {
+    use CellValue::{Bool, Float, Int, Null, String as Text};
+    let mut table = DataTable {
+        rows: vec![
+            vec![Float(12.5), Text("west".into()), Text("Paid".into())],
+            vec![
+                Text(" -3.75 ".into()),
+                Text("West".into()),
+                Text("paid".into()),
+            ],
+            vec![
+                Float(f64::INFINITY),
+                Text("West".into()),
+                Text("paid".into()),
+            ],
+            vec![Null, Text("West".into()), Text("paid".into())],
+            vec![Bool(false), Text("West".into()), Text("paid".into())],
+            vec![Int(99), Text("East".into()), Text("paid".into())],
+            vec![Int(-11), Text("West".into()), Text("Unpaid".into())],
+        ],
+        ..formula_table()
+    };
+    for (formula, expected) in [
+        (r#"MINIFS(A1:A7,B1:B7,"WEST",C1:C7,"p?ID")"#, -3.75),
+        (r#"MAXIFS(A1:A7,B1:B7,"West",C1:C7,"Paid")"#, 12.5),
+        (r#"MAXWENNS(A1:A7;B1:B7;"West";A1:A7;"<0")"#, -3.75),
+        (r#"MINWENNS(A1:A7;B1:B7;"East")"#, 99.0),
+        (r#"MINIFS(A1:A7,B1:B7,"North")"#, 0.0),
+        (r#"MAXIFS(A3:A5,B3:B5,"West")"#, 0.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+    table.set(0, 0, Float(1e308));
+    table.set(1, 0, Float(1e308));
+    for fn_name in ["MINIFS", "MAXIFS"] {
+        let formula = format!(r#"{fn_name}(A1:A2,B1:B2,"West")"#);
+        assert_eq!(evaluate_formula(&formula, &table), Some(1e308), "{formula}");
+    }
+}
+
+#[test]
+fn conditional_extrema_keep_relative_rectangles_and_check_loaded_bounds() {
+    use CellValue::{Int, String as Text};
+    let table = DataTable {
+        rows: vec![
+            vec![Int(-4), Int(8), Text("no".into())],
+            vec![Int(6), Int(-3), Text("yes".into())],
+            vec![Int(20), Int(30), Text("no".into())],
+            vec![Int(40), Int(50), Text("yes".into())],
+        ],
+        row_offset: 1000,
+        total_rows: Some(1_000_000),
+        ..formula_table()
+    };
+    for (formula, value) in [
+        (r#"MINIFS(B2:A1,C3:B2,"yes")"#, 8.0),
+        (r#"MAXIFS(B3:B1,C4:C2,"yes")"#, 30.0),
+        (r#"MINIFS(A1:A999999999999,C1:C999999999999,"yes")"#, 6.0),
+        (r#"MAXIFS(A2:A10,C3:C11,"yes")"#, 20.0),
+        (r#"MAXIFS(A1:A2,C900:C901,"")"#, 0.0),
+        (r#"IFERROR(MINIFS(A1:A2,B1:C1,"yes"),42)"#, 42.0),
+        (r#"IF(FALSE,MAXIFS(A1:A2,B1:C1,"yes"),7)"#, 7.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(value), "{formula}");
+    }
+    for formula in [
+        r#"MINIFS(A1:A2,B1:C1,"yes")"#,
+        "MAXIFS(A1:A2)",
+        "MAXIFS(A1:A2,B1:B2,)",
+        r#"IF(FALSE,MINIFS(A1:A2,B1:B2,),7)"#,
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}
+
+#[test]
+fn conditional_formulas_compare_typed_clocks_and_unwrapped_durations() {
+    use CellValue::{Duration, Int, String as Text, Time};
+    use octa::data::times::{NANOS_PER_SEC, parse_time};
+    let time = |clock| Time(parse_time(clock).unwrap());
+    let elapsed = |h: i64| Duration(h * 3600 * NANOS_PER_SEC);
+    let table = DataTable {
+        rows: vec![
+            vec![Int(10), time("18:00"), elapsed(27)],
+            vec![Int(-5), time("19:00"), elapsed(8)],
+            vec![Int(30), time("07:00"), elapsed(-2)],
+            vec![Int(20), Text("18:00".into()), elapsed(27)],
+            vec![Int(15), time("18:00"), elapsed(48)],
+        ],
+        ..formula_table()
+    };
+    for (formula, expected) in [
+        ("COUNTIF(B1:B5,TIME(18,0,0))", 2.0),
+        ("COUNTIF(B1:B5,B1)", 2.0),
+        ("COUNTIF(C1:C5,C1)", 2.0),
+        (r#"COUNTIF(B1:B5,">="&B1)"#, 3.0),
+        (r#"COUNTIF(C1:C5,">"&C1)"#, 1.0),
+        (r#"MAXIFS(A1:A5,B1:B5,">="&TIME(18,0,0),C1:C5,">1")"#, 15.0),
+        (r#"MINIFS(A1:A5,B1:B5,">"&TIME(18,0,0))"#, -5.0),
+        (r#"MINIFS(A1:A5,C1:C5,"<0")"#, 30.0),
+        (r#"SUMIFS(A1:A5,B1:B5,">="&TIME(18,0,0),C1:C5,">1")"#, 25.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn evening_extrema_report_round_trips_xlsx_clocks_and_numeric_results() {
+    use octa::data::times::parse_time;
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::{Format, Workbook};
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("shift-orders.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet().set_name("Orders").unwrap();
+    for (col, label) in [
+        "Region",
+        "Clock",
+        "Orders",
+        "West evening min",
+        "West evening max",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        sheet.write_string(0, col as u16, label).unwrap();
+    }
+    let format = Format::new().set_num_format("hh:mm:ss");
+    for (row, (region, hour, orders)) in [
+        ("West", 7.0, 900),
+        ("West", 19.25, 12),
+        ("East", 20.0, 990),
+        ("West", 23.0, 3),
+        ("West", 20.25, 17),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let row = row as u32 + 1;
+        sheet.write_string(row, 0, region).unwrap();
+        sheet
+            .write_number_with_format(row, 1, hour / 24.0, &format)
+            .unwrap();
+        sheet.write_number(row, 2, orders).unwrap();
+    }
+    sheet.write_number(1, 3, 0).unwrap();
+    sheet.write_number(1, 4, 0).unwrap();
+    book.save(&source).unwrap();
+
+    let mut table = ExcelReader.read_file(&source).unwrap();
+    for (col, name, expected) in [(3, "MINIFS", 3), (4, "MAXIFS", 17)] {
+        let formula = format!(r#"={name}(C1:C5,A1:A5,"West",B1:B5,">="&TIME(18,0,0))"#);
+        assert!(commit_cell_text(
+            &mut table,
+            0,
+            col,
+            formula,
+            BinaryDisplayMode::default()
+        ));
+        assert_eq!(table.get(0, col), Some(&CellValue::Int(expected)));
+    }
+    let report = dir.path().join("west-evening.xlsx");
+    ExcelReader.write_file(&report, &table).unwrap();
+    let reopened = ExcelReader.read_file(&report).unwrap();
+    assert_eq!(
+        reopened.get(1, 1),
+        Some(&CellValue::Time(parse_time("19:15").unwrap()))
+    );
+    assert_eq!(evaluate_formula("D1", &reopened), Some(3.0));
+    assert_eq!(evaluate_formula("E1", &reopened), Some(17.0));
+}

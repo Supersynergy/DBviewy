@@ -287,7 +287,8 @@ impl<'a> FormulaRows<'a> {
                 arg == 1
             }
             "COUNTIFS" | "ZÄHLENWENNS" => arg % 2 == 1,
-            "SUMIFS" | "SUMMEWENNS" | "AVERAGEIFS" | "MITTELWERTWENNS" => arg >= 2 && arg % 2 == 0,
+            "SUMIFS" | "SUMMEWENNS" | "AVERAGEIFS" | "MITTELWERTWENNS" | "MINIFS" | "MINWENNS"
+            | "MAXIFS" | "MAXWENNS" => arg >= 2 && arg % 2 == 0,
             _ => false,
         };
         // Scan just the top-level arguments. Doubled quotes toggle twice,
@@ -505,6 +506,8 @@ enum FormulaMemoCell<'a> {
     Text(&'a str),
     Date(&'a str),
     DateTime(&'a str),
+    Time(i64),
+    Duration(i64),
 }
 
 impl<'a> FormulaMemoCell<'a> {
@@ -521,6 +524,8 @@ impl<'a> FormulaMemoCell<'a> {
             Some(CellValue::String(value)) if value.len() <= 256 => Some(Self::Text(value)),
             Some(CellValue::Date(value)) if value.len() <= 256 => Some(Self::Date(value)),
             Some(CellValue::DateTime(value)) if value.len() <= 256 => Some(Self::DateTime(value)),
+            Some(CellValue::Time(ns)) => Some(Self::Time(*ns)),
+            Some(CellValue::Duration(ns)) => Some(Self::Duration(*ns)),
             _ => None,
         }
     }

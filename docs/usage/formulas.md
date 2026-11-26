@@ -116,16 +116,19 @@ The German names `ZÄHLENWENN`, `SUMMEWENN` and `MITTELWERTWENN` also work.
 | `=COUNTIFS(A1:A100,"West",B1:B100,"Paid")` | Count paid records in West. |
 | `=SUMIFS(C1:C100,A1:A100,"West",B1:B100,"Paid")` | Total their amounts from column C. |
 | `=AVERAGEIFS(C1:C100,A1:A100,"West",C1:C100,">="&D1)` | Average West amounts at or above the threshold in D1. |
+| `=MINIFS(C1:C100,A1:A100,"West",B1:B100,"Paid")` | Find the smallest paid amount in West. |
+| `=MAXIFS(C1:C100,A1:A100,"West",B1:B100,"Paid")` | Find the largest paid amount in West. |
 
 Every condition must match. Each range must have the same height and
 width, but ranges may start in different places. A single cell is a
-one-cell range. Use up to 127 range/criterion pairs. For `SUMIFS` and
-`AVERAGEIFS`, put the value range first, unlike the singular forms.
+one-cell range. Use up to 127 range/criterion pairs. Except for
+`COUNTIFS`, put the value range first.
 
 Only positions loaded in every range are considered. `COUNTIFS` and
-`SUMIFS` return zero if nothing matches; `AVERAGEIFS` returns no number
-if no matching values are numeric. The German names are
-`ZÄHLENWENNS`, `SUMMEWENNS` and `MITTELWERTWENNS`.
+`SUMIFS` return zero if nothing matches. `MINIFS` and `MAXIFS` use finite
+numeric values (including numeric text) and return zero if there are none.
+`AVERAGEIFS` returns no number in that case. The German names are
+`ZÄHLENWENNS`, `SUMMEWENNS`, `MITTELWERTWENNS`, `MINWENNS` and `MAXWENNS`.
 
 To fill group totals into a new column, fix the source ranges and let
 the criterion cells advance with each row. For example,
@@ -148,6 +151,21 @@ numbers, including the time of day as a fraction. A typed date in D1 also
 works as a threshold with `">="&D1`. Timestamps with an offset use their
 displayed date and time, without converting to UTC. Plain text such as
 `"2024-03-01"` is not converted to a date in a numeric comparison.
+
+### Compare clock readings and elapsed time
+
+With region in A, clock time in B and order count in C, find the highest
+order count recorded in West from 18:00 onwards:
+
+```text
+=MAXIFS(C1:C100,A1:A100,"West",B1:B100,">="&TIME(18,0,0))
+```
+
+Typed clocks and elapsed durations are compared as fractions of a day.
+For a duration, one day is `1` and values above that are not wrapped.
+Use a typed cell as a criterion, or use `TIME(18,0,0)` or
+`TIMEVALUE("18:00")` for a clock threshold. Plain clock text is not
+coerced to a number during a comparison.
 
 ### Weighted totals and averages
 

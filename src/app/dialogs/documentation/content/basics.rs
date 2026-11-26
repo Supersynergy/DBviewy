@@ -658,12 +658,18 @@ but neither treats a space or zero as blank. `IF(ISBLANK(C1),1,0)`
 flags only a truly empty cell. The German names are ANZAHL2,
 ANZAHLLEEREZELLEN and ISTLEER. Unloaded rows do not count as blanks.
 
-Use `COUNTIFS`, `SUMIFS` or `AVERAGEIFS` when every criterion must match.
-For example, `=SUMIFS(C1:C20,A1:A20,"West",B1:B20,"Paid")` adds amounts
-from C only for paid records in West. Give each range the same height
-and width. For SUMIFS and AVERAGEIFS, give the value range first.
-When filling a column, fix the source ranges and let the criterion cells
-move with each row. Repeated region and status pairs can reuse their total.
+Use COUNTIFS, SUMIFS, AVERAGEIFS, MINIFS or MAXIFS when every criterion
+must match. `=MINIFS(C1:C20,A1:A20,"West",B1:B20,"Paid")` finds West's
+smallest paid amount. Give each range the same height and width.
+Except for COUNTIFS, give the value range first. MINIFS and MAXIFS
+return zero if no matching value is numeric. German names: MINWENNS
+and MAXWENNS. When filling a column, fix the source ranges and let the
+criterion cells move. Repeated criteria can reuse the result.
+
+With clock times in B, `=MAXIFS(C1:C20,A1:A20,"West",B1:B20,">="&TIME(18,0,0))`
+finds the largest West value from 18:00 onwards. Clock and elapsed-time
+cells compare as fractions of a day. An elapsed duration can exceed 1;
+it does not wrap.
 
 For a monthly invoice total with dates in A and amounts in B, use
 `=SUMIFS(B1:B100,A1:A100,">="&DATE(2024,3,1),A1:A100,"<"&DATE(2024,4,1))`.

@@ -395,6 +395,22 @@ fn function_named(name: &str) -> Option<Function> {
             "MITTELWERTWENNS",
             Function::ConditionalMany(ConditionalAggregate::Average),
         ),
+        (
+            "MINIFS",
+            Function::ConditionalMany(ConditionalAggregate::Min),
+        ),
+        (
+            "MINWENNS",
+            Function::ConditionalMany(ConditionalAggregate::Min),
+        ),
+        (
+            "MAXIFS",
+            Function::ConditionalMany(ConditionalAggregate::Max),
+        ),
+        (
+            "MAXWENNS",
+            Function::ConditionalMany(ConditionalAggregate::Max),
+        ),
     ];
     NAMES
         .iter()

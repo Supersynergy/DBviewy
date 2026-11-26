@@ -20,6 +20,7 @@
 - Correct existing XLSX dates and timestamps without changing the cell format or date system.
 - Save clock-time and duration corrections in the original XLSX without changing their number formats.
 - Calculate shift hours across midnight with `TIMEVALUE` and `MOD`, or extract clock parts.
+- Find minimum and maximum amounts with `MINIFS` and `MAXIFS`, including clock and duration criteria.
 - Reveal the correct row when navigating filtered tables with zoomed or resized rows.
 - Fill down typed values within the visible selection, with one Undo.
 - Check data completeness with `COUNTA`, `COUNTBLANK` and `ISBLANK`, also in German.
