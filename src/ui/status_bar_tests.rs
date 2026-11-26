@@ -37,7 +37,7 @@ fn frame_with_pill(
     Option<egui::Color32>,
 ) {
     let state = TableViewState::default();
-    let (rows, cells) = (HashSet::new(), HashSet::new());
+    let hidden_columns = HashSet::new();
     let raw = egui::RawInput {
         events,
         screen_rect: Some(egui::Rect::from_min_size(
@@ -65,8 +65,8 @@ fn frame_with_pill(
             column_filter_count: 0,
             first_filtered_col: None,
             hidden_row_count: 0,
-            selected_rows: &rows,
-            selected_cells: &cells,
+            visible_rows: &[],
+            hidden_columns: &hidden_columns,
         };
         action = draw_status_bar(ui, cx, &mut String::new());
     });
@@ -161,4 +161,209 @@ fn the_zoom_is_always_shown_and_its_buttons_zoom() {
             "click at {pos:?} from {zoom}% by {step}"
         );
     }
+}
+
+struct SelectionBar {
+    table: DataTable,
+    state: TableViewState,
+    visible_rows: [usize; 3],
+    hidden_columns: HashSet<usize>,
+}
+
+impl SelectionBar {
+    fn new() -> Self {
+        use crate::data::{CellValue as V, ColumnInfo};
+        Self {
+            table: DataTable {
+                columns: ["Amount", "Note", "Folded"]
+                    .map(|n| ColumnInfo {
+                        name: n.into(),
+                        data_type: "Float64".into(),
+                    })
+                    .to_vec(),
+                rows: vec![
+                    vec![V::Float(0.1), V::String("Ready".into()), V::Int(1000)],
+                    vec![V::Int(900), V::Null, V::Int(4000)],
+                    vec![V::Float(0.2), V::Null, V::Int(2000)],
+                    vec![V::Float(0.3), V::String("Paid".into()), V::Int(3000)],
+                ],
+                ..DataTable::empty()
+            },
+            state: TableViewState::default(),
+            visible_rows: [0, 2, 3],
+            hidden_columns: HashSet::from([2]),
+        }
+    }
+
+    fn stats(&self) -> Option<SelectionStats> {
+        visible_selection_stats(
+            &self.table,
+            &self.state,
+            &self.visible_rows,
+            &self.hidden_columns,
+        )
+    }
+
+    fn frame(
+        &self,
+        ctx: &egui::Context,
+        width: f32,
+        zoom: u32,
+        events: Vec<egui::Event>,
+    ) -> egui::FullOutput {
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(width, 640.0),
+            )),
+            events,
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| {
+            egui::Panel::bottom("selection_test_status")
+                .exact_size(28.0)
+                .show(ui, |ui| {
+                    draw_status_bar(
+                        ui,
+                        StatusBarCtx {
+                            table: &self.table,
+                            state: &self.state,
+                            theme_mode: ThemeMode::Dark,
+                            filtered_count: self.visible_rows.len(),
+                            search_active: true,
+                            nav_focus_requested: false,
+                            zoom_percent: zoom,
+                            zoom_step: 25,
+                            readonly: false,
+                            live_pill: pill(LiveState::Unavailable),
+                            busy: false,
+                            busy_hint: None,
+                            busy_cancellable: false,
+                            column_filter_count: 1,
+                            first_filtered_col: Some(0),
+                            hidden_row_count: 0,
+                            visible_rows: &self.visible_rows,
+                            hidden_columns: &self.hidden_columns,
+                        },
+                        &mut String::new(),
+                    );
+                });
+        });
+        output.textures_delta.clear();
+        output
+    }
+}
+
+#[test]
+fn stats_count_only_visible_rows_and_columns_in_each_selection_mode() {
+    let mut bar = SelectionBar::new();
+    bar.state.selected_cols.extend([0, 2]);
+    let stats = bar.stats().unwrap();
+    assert_eq!((stats.count, stats.numeric_count), (3, 3));
+    assert_eq!(
+        (stats.sum, stats.avg, stats.min, stats.max),
+        (0.6, 0.2, 0.1, 0.3)
+    );
+
+    bar.state.selected_cols.clear();
+    bar.state.selected_rows.extend([0, 1, 3, 999]);
+    let stats = bar.stats().unwrap();
+    assert_eq!((stats.count, stats.numeric_count, stats.sum), (4, 2, 0.4));
+
+    bar.state.selected_rows.clear();
+    bar.state
+        .selected_cells
+        .extend([(0, 0), (1, 0), (2, 0), (0, 2), (3, 1), (3, 99)]);
+    let stats = bar.stats().unwrap();
+    assert_eq!((stats.count, stats.numeric_count, stats.sum), (3, 2, 0.3));
+}
+
+#[test]
+fn two_visible_blank_cells_show_count_zero_but_a_single_cell_has_no_summary() {
+    let mut bar = SelectionBar::new();
+    bar.table.rows[0][1] = crate::data::CellValue::Null;
+    bar.state.selected_cells.extend([(0, 1), (2, 1)]);
+    let stats = bar.stats().unwrap();
+    assert_eq!((stats.count, stats.numeric_count), (0, 0));
+    bar.state.selected_cells.remove(&(2, 1));
+    bar.state.selected_cells.insert((1, 1));
+    assert!(bar.stats().is_none());
+}
+
+#[test]
+fn compact_summary_follows_go_to_and_keyboard_opens_its_visible_scope() {
+    use crate::i18n::t;
+    use egui::accesskit::{Action, ActionRequest, TreeId};
+
+    fn text(output: &egui::FullOutput, wanted: &str) -> Option<egui::Rect> {
+        output.shapes.iter().find_map(|s| {
+            let egui::Shape::Text(t) = &s.shape else {
+                return None;
+            };
+            let bounds = t.visual_bounding_rect();
+            (t.galley.text() == wanted && s.clip_rect.intersects(bounds)).then_some(bounds)
+        })
+    }
+    let mut bar = SelectionBar::new();
+    bar.state.selected_cols.insert(0);
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    let caption = format!("{} 3  {} 0.600", t("status_bar.count"), t("status_bar.sum"));
+    let nav = t("status_bar.nav_hint");
+    let min = format!("{} 0.100", t("status_bar.min"));
+    let scope = t("status_bar.visible_selection_hint");
+    let before = bar.frame(&ctx, 1000.0, 100, vec![]);
+    assert!(text(&before, &min).is_none());
+    let caption_at = text(&before, &caption).expect("summary was drawn");
+    let nav_at = text(&before, &nav).expect("Go to was drawn");
+    assert!(caption_at.left() >= nav_at.right());
+    let tree = before.platform_output.accesskit_update.as_ref().unwrap();
+    let (button, _) = tree
+        .nodes
+        .iter()
+        .find(|(_, node)| {
+            node.label() == Some(caption.as_str()) && node.supports_action(Action::Focus)
+        })
+        .expect("a named, focusable summary control");
+    let focused = bar.frame(
+        &ctx,
+        1000.0,
+        100,
+        vec![egui::Event::AccessKitActionRequest(ActionRequest {
+            action: Action::Focus,
+            target_tree: TreeId::ROOT,
+            target_node: *button,
+            data: None,
+        })],
+    );
+    assert_eq!(
+        focused
+            .platform_output
+            .accesskit_update
+            .as_ref()
+            .unwrap()
+            .focus,
+        *button
+    );
+    let key = |key| egui::Event::Key {
+        key,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: egui::Modifiers::NONE,
+    };
+    bar.frame(&ctx, 1000.0, 100, vec![key(egui::Key::Enter)]);
+    let open = bar.frame(&ctx, 1000.0, 100, vec![]);
+    assert!(text(&open, &scope).is_some());
+    assert!(text(&open, &min).is_some());
+    bar.frame(&ctx, 1000.0, 100, vec![key(egui::Key::Escape)]);
+    let closed = bar.frame(&ctx, 1000.0, 100, vec![]);
+    assert!(text(&closed, &scope).is_none());
+
+    let narrow_ctx = egui::Context::default();
+    let narrow = bar.frame(&narrow_ctx, 440.0, 200, vec![]);
+    assert!(
+        text(&narrow, "200%").is_some(),
+        "zoom stays pinned in a narrow window"
+    );
 }

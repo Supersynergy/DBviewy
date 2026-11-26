@@ -1403,16 +1403,14 @@ Nothing is written until you click Apply.
 
 pub const SELECTION_STATS: &str = r#"# Selection Stats
 
-Selecting more than one cell adds a pill to the status bar that
-summarises the selection:
+Selecting more than one cell shows **Count** in the status bar, plus
+**Sum** if the selection contains numbers. Open the summary next to
+the navigation box for **Avg**, **Min** and **Max**.
 
-- For numeric cells: **Count**, **Sum**, **Avg**, **Min**, **Max**.
-- For mixed or non-numeric selections: just **Count**.
-
-Selection sources fall through in the same order the clipboard
-uses: a multi-cell selection (Ctrl+Arrow) takes priority, then row
-selections, then column selections. Single-cell selections fall
-back to the existing Cell / Type info pill instead.
+Statistics cover loaded cells in the visible selection. Filtered or
+hidden rows and folded columns do not contribute. Count excludes empty
+cells. The other statistics ignore non-numeric values. A single cell
+continues to show its address and type.
 "#;
 
 pub const TABLE_TOOLS: &str = r#"# Table Tools

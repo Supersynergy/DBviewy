@@ -114,11 +114,12 @@ impl OctaApp {
             .min()
             .copied();
         let hidden_row_count = self.tabs[self.active_tab].table.hidden_rows.len();
-        let selected_rows = self.tabs[self.active_tab].table_state.selected_rows.clone();
-        let selected_cells = self.tabs[self.active_tab]
-            .table_state
-            .selected_cells
-            .clone();
+        let tab = &self.tabs[self.active_tab];
+        let visible_rows = if tab.view_mode == octa::data::ViewMode::Table {
+            tab.filtered_rows.as_slice()
+        } else {
+            &[]
+        };
         let readonly = self.is_readonly();
         let (live_text, live_hint, live_state) = self.live_pill(self.active_tab);
 
@@ -149,8 +150,8 @@ impl OctaApp {
                         column_filter_count,
                         first_filtered_col,
                         hidden_row_count,
-                        selected_rows: &selected_rows,
-                        selected_cells: &selected_cells,
+                        visible_rows,
+                        hidden_columns: &tab.hidden_columns,
                     },
                     &mut self.nav_input,
                 )

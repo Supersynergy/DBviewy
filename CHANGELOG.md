@@ -23,6 +23,7 @@
 - Find minimum and maximum amounts with `MINIFS` and `MAXIFS`, including clock and duration criteria.
 - Reveal the correct row when navigating filtered tables with zoomed or resized rows.
 - Fill down typed values within the visible selection, with one Undo.
+- Keep selection statistics compact and exclude hidden rows and columns.
 - Check data completeness with `COUNTA`, `COUNTBLANK` and `ISBLANK`, also in German.
 - Fill running averages and counts without rescanning earlier rows.
 

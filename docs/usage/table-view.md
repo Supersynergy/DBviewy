@@ -107,6 +107,14 @@ else the single cell. Cells outside a free multi-cell selection count as
 empty. HTML is not offered, because the clipboard can only carry plain text
 here. Each format has an unbound shortcut under **Settings > Shortcuts**.
 
+### Selection statistics
+
+The status bar shows **Count** and, for numeric values, **Sum** next to
+the navigation box. Open that summary for **Avg**, **Min** and **Max**.
+It covers the selected cells in the loaded, visible part of the table.
+Filtered or hidden rows and folded columns do not contribute. **Count**
+excludes empty cells; the numeric statistics ignore non-numeric values.
+
 ## Invisible characters
 
 **View -> Show invisible characters** marks the whitespace inside text

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use egui::{self, Align, Color32, Layout, RichText, Ui};
 
 use super::table_view::TableViewState;
@@ -207,6 +209,98 @@ fn format_float(n: f64) -> String {
     }
 }
 
+/// Use the same visible rows as the grid. Source row indices in that
+/// slice are ascending: sort moves the records, not the display indices.
+fn visible_selection_stats(
+    table: &DataTable,
+    state: &TableViewState,
+    visible_rows: &[usize],
+    hidden_columns: &HashSet<usize>,
+) -> Option<SelectionStats> {
+    let visible_column = |col| col < table.col_count() && !hidden_columns.contains(&col);
+    if !state.selected_cells.is_empty() {
+        return summarise_multiple(
+            table,
+            state.selected_cells.iter().copied().filter(|&(row, col)| {
+                visible_column(col) && visible_rows.binary_search(&row).is_ok()
+            }),
+        );
+    }
+    if !state.selected_rows.is_empty() {
+        return summarise_multiple(
+            table,
+            visible_rows
+                .iter()
+                .copied()
+                .filter(|row| state.selected_rows.contains(row))
+                .flat_map(|row| {
+                    (0..table.col_count())
+                        .filter(move |&col| visible_column(col))
+                        .map(move |col| (row, col))
+                }),
+        );
+    }
+    summarise_multiple(
+        table,
+        state
+            .selected_cols
+            .iter()
+            .copied()
+            .filter(|&col| visible_column(col))
+            .flat_map(|col| visible_rows.iter().copied().map(move |row| (row, col))),
+    )
+}
+
+fn summarise_multiple(
+    table: &DataTable,
+    mut cells: impl Iterator<Item = (usize, usize)>,
+) -> Option<SelectionStats> {
+    // Selection size and non-empty value count are different. Two blank
+    // picks still yield a selection summary with Count 0.
+    let first = cells.next()?;
+    let second = cells.next()?;
+    Some(compute_selection_stats(
+        table,
+        [first, second].into_iter().chain(cells),
+    ))
+}
+
+fn draw_selection_stats(ui: &mut Ui, stats: SelectionStats, colors: &ThemeColors) {
+    use crate::i18n::t;
+    let count = format!("{} {}", t("status_bar.count"), format_number(stats.count));
+    let sum = format!("{} {}", t("status_bar.sum"), format_float(stats.sum));
+    let numeric = stats.numeric_count > 0;
+    let scope = t("status_bar.visible_selection_hint");
+    let caption = if numeric {
+        format!("{count}  {sum}")
+    } else {
+        count.clone()
+    };
+    let button = egui::Button::new(
+        RichText::new(caption)
+            .size(11.0)
+            .color(colors.accent)
+            .strong(),
+    )
+    .small();
+    let (response, _) = egui::menu::MenuButton::from_button(button).ui(ui, |ui| {
+        ui.weak(&scope);
+        ui.separator();
+        ui.label(&count);
+        if numeric {
+            ui.label(&sum);
+            for (label, value) in [
+                ("status_bar.avg", stats.avg),
+                ("status_bar.min", stats.min),
+                ("status_bar.max", stats.max),
+            ] {
+                ui.label(format!("{} {}", t(label), format_float(value)));
+            }
+        }
+    });
+    response.on_hover_text(scope);
+}
+
 /// Everything the status bar reads, in one place.
 ///
 /// `readonly` and `busy` sat next to each other in the old sixteen-argument
@@ -237,8 +331,10 @@ pub struct StatusBarCtx<'a> {
     pub first_filtered_col: Option<usize>,
     /// Rows hidden by hand; a chip shows the count and brings them back.
     pub hidden_row_count: usize,
-    pub selected_rows: &'a std::collections::HashSet<usize>,
-    pub selected_cells: &'a std::collections::HashSet<(usize, usize)>,
+    /// Loaded rows in the grid after filtering and hiding, sorted by
+    /// source row index. Empty outside the Table view.
+    pub visible_rows: &'a [usize],
+    pub hidden_columns: &'a HashSet<usize>,
 }
 
 pub fn draw_status_bar(
@@ -265,8 +361,8 @@ pub fn draw_status_bar(
         column_filter_count,
         first_filtered_col,
         hidden_row_count,
-        selected_rows,
-        selected_cells,
+        visible_rows,
+        hidden_columns,
     } = cx;
     let mut action = StatusBarAction::default();
     let colors = ThemeColors::for_mode(theme_mode);
@@ -491,64 +587,6 @@ pub fn draw_status_bar(
                             }
                         }
 
-                        // Selection rollup pill (Excel-style Sum / Count / Avg / Min / Max).
-                        // Shown only when more than one cell is selected; the single-cell
-                        // info above already covers the one-cell case. Selection sources
-                        // resolve in the same priority order the clipboard uses.
-                        let stats_cells: Option<Vec<(usize, usize)>> = if !selected_cells.is_empty()
-                        {
-                            Some(selected_cells.iter().copied().collect())
-                        } else if !selected_rows.is_empty() {
-                            let cols = table.col_count();
-                            Some(
-                                selected_rows
-                                    .iter()
-                                    .flat_map(|&r| (0..cols).map(move |c| (r, c)))
-                                    .collect(),
-                            )
-                        } else if !state.selected_cols.is_empty() {
-                            let rows = table.row_count();
-                            Some(
-                                state
-                                    .selected_cols
-                                    .iter()
-                                    .flat_map(|&c| (0..rows).map(move |r| (r, c)))
-                                    .collect(),
-                            )
-                        } else {
-                            None
-                        };
-                        if let Some(cells) = stats_cells {
-                            let stats = compute_selection_stats(table, cells.into_iter());
-                            if stats.count > 1 {
-                                ui.separator();
-                                let text = if stats.numeric_count > 0 {
-                                    format!(
-                                        "{}={} {}={} {}={} {}={} {}={}",
-                                        crate::i18n::t("status_bar.count"),
-                                        format_number(stats.count),
-                                        crate::i18n::t("status_bar.sum"),
-                                        format_float(stats.sum),
-                                        crate::i18n::t("status_bar.avg"),
-                                        format_float(stats.avg),
-                                        crate::i18n::t("status_bar.min"),
-                                        format_float(stats.min),
-                                        crate::i18n::t("status_bar.max"),
-                                        format_float(stats.max),
-                                    )
-                                } else {
-                                    format!(
-                                        "{}={}",
-                                        crate::i18n::t("status_bar.count"),
-                                        format_number(stats.count)
-                                    )
-                                };
-                                ui.label(
-                                    RichText::new(text).size(11.0).color(colors.accent).strong(),
-                                );
-                            }
-                        }
-
                         ui.separator();
                         let nav_response = ui.add(
                             egui::TextEdit::singleline(nav_input)
@@ -569,6 +607,15 @@ pub fn draw_status_bar(
                                 action.navigate_to = Some(target);
                             }
                             nav_input.clear();
+                        }
+
+                        // Keep the navigation field before the disclosure.
+                        // Summaries must not push it farther off screen.
+                        if let Some(stats) =
+                            visible_selection_stats(table, state, visible_rows, hidden_columns)
+                        {
+                            ui.separator();
+                            draw_selection_stats(ui, stats, &colors);
                         }
                     } else {
                         ui.label(
