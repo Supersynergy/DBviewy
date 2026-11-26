@@ -247,6 +247,7 @@ impl OctaApp {
             tab.new_col_name.clear();
             tab.new_col_type = "String".to_string();
             tab.new_col_formula.clear();
+            tab.new_col_preview = None;
             tab.insert_col_at = tab.table_state.selected_cell.map(|(_, c)| c + 1);
         }
         if !interaction.ctx_delete_columns.is_empty() {

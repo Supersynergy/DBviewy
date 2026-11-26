@@ -20,6 +20,7 @@ impl OctaApp {
             self.tabs[self.active_tab].new_col_name.clear();
             self.tabs[self.active_tab].new_col_type = "String".to_string();
             self.tabs[self.active_tab].new_col_formula.clear();
+            self.tabs[self.active_tab].new_col_preview = None;
             self.tabs[self.active_tab].insert_col_at = self.tabs[self.active_tab]
                 .table_state
                 .selected_cell

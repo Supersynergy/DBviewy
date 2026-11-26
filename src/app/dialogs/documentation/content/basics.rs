@@ -745,7 +745,11 @@ the holidays; `"0000110"` makes Friday and Saturday days off.
 German names are NETTOARBEITSTAGE and ARBEITSTAG.
 
 When inserting a column via **Columns > Insert column**, you can type a formula
-into the **Formula** field. The formula is treated as a row-1 template and
+into the **Formula** field. Open **Preview (sample)** to see results for
+up to the first three loaded rows without changing the table. **Add**
+recalculates the formula for all loaded rows, even if some are filtered out.
+
+The formula is treated as a row-1 template and
 applied to every row (e.g. `=SUM(A1:C1)` becomes `=SUM(A3:C3)` on row 3).
 Put `$` before a row number to keep it fixed: `=ROUND(A1*$B$1,2)` uses
 B1 on every row, and `=SUM(A$1:A1)` creates a running total. A dollar

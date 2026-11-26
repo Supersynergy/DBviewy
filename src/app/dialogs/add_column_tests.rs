@@ -1354,3 +1354,141 @@ fn extrema_fill_reuses_only_identical_typed_clock_and_elapsed_criteria() {
     table.undo();
     assert_eq!(table.col_count(), 5);
 }
+
+#[test]
+fn preview_reads_three_original_rows_with_edits_and_a_nonnumeric_diagnostic() {
+    use data::CellValue::{Int, String as Text};
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = numeric_grid([Int(2), Text("not numeric".into()), Int(5), Int(8)]);
+    tab.table.set(0, 0, Int(3));
+    tab.table.row_offset = 1000;
+    tab.filtered_rows = vec![2, 3];
+    let before = tab.table.undo_stack.len();
+
+    tab.new_col_formula = "=A1+$A$1".into();
+    let preview = FormulaPreview::read(&tab.new_col_formula, &tab.table).unwrap();
+    assert_eq!(preview.values, [Some(6.0), None, Some(8.0)]);
+    let bad = preview.first_bad.as_ref().unwrap();
+    assert_eq!(
+        (bad.row, bad.col, bad.content.as_str()),
+        (1, 0, "not numeric")
+    );
+    assert!(preview.still_matches(tab));
+    assert_eq!(tab.table.col_count(), 1);
+    assert_eq!(tab.table.undo_stack.len(), before);
+    assert_eq!(tab.table.get(0, 0), Some(&Int(3)));
+    assert_eq!(tab.table.edits.len(), 1);
+    assert_eq!(tab.filtered_rows, [2, 3]);
+
+    tab.table.set(0, 0, Int(4));
+    assert!(!preview.still_matches(tab));
+    assert!(tab.new_col_preview.is_none());
+}
+
+#[test]
+fn preview_refuses_empty_input_or_no_loaded_rows_and_keeps_zero_distinct() {
+    let table = numeric_grid([data::CellValue::Int(7), data::CellValue::Int(3)]);
+    for invalid in ["", "  ", "A1 * 2", " =  "] {
+        assert!(FormulaPreview::read(invalid, &table).is_none(), "{invalid}");
+    }
+    assert!(FormulaPreview::read("=7", &data::DataTable::empty()).is_none());
+    assert_eq!(
+        FormulaPreview::read("=0", &table).unwrap().values,
+        [Some(0.0), Some(0.0)]
+    );
+    assert_eq!(
+        FormulaPreview::read("=1/0", &table).unwrap().values,
+        [None, None]
+    );
+}
+
+#[test]
+fn keyboard_preview_reads_sample_then_dismisses_it_when_the_formula_changes() {
+    use egui::accesskit::{Action, ActionRequest, TreeId};
+    use octa::i18n::t;
+
+    fn frame(app: &mut OctaApp, ctx: &egui::Context, events: Vec<egui::Event>) -> egui::FullOutput {
+        let raw = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(960.0, 720.0),
+            )),
+            events,
+            ..Default::default()
+        };
+        let mut out = ctx.run_ui(raw, |ui| render_add_column_dialog(app, ui.ctx()));
+        out.textures_delta.clear();
+        out
+    }
+    fn has(out: &egui::FullOutput, text: &str) -> bool {
+        out.shapes.iter().any(|s| match &s.shape {
+            egui::Shape::Text(shape) => {
+                shape.galley.text() == text && s.clip_rect.intersects(shape.visual_bounding_rect())
+            }
+            _ => false,
+        })
+    }
+
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = numeric_grid([2, 4, 6, 101].map(data::CellValue::Int));
+    tab.filter_dirty = false;
+    tab.show_add_column_dialog = true;
+    tab.new_col_formula = "=A1+$A$1".into();
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    frame(&mut app, &ctx, vec![]);
+    let opened = frame(&mut app, &ctx, vec![]);
+    let name = t("dialog.pv_preview");
+    let tree = opened.platform_output.accesskit_update.as_ref().unwrap();
+    let (button, _) = tree
+        .nodes
+        .iter()
+        .find(|(_, node)| {
+            node.label() == Some(name.as_str()) && node.supports_action(Action::Focus)
+        })
+        .expect("Preview is a named, focusable control");
+    let key = egui::Event::Key {
+        key: egui::Key::Enter,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: egui::Modifiers::NONE,
+    };
+    let focused = frame(
+        &mut app,
+        &ctx,
+        vec![egui::Event::AccessKitActionRequest(ActionRequest {
+            action: Action::Focus,
+            target_tree: TreeId::ROOT,
+            target_node: *button,
+            data: None,
+        })],
+    );
+    assert_eq!(
+        focused
+            .platform_output
+            .accesskit_update
+            .as_ref()
+            .unwrap()
+            .focus,
+        *button
+    );
+    frame(&mut app, &ctx, vec![key]);
+    let sample = frame(&mut app, &ctx, vec![]);
+    let row = t("dialog.formula_row");
+    assert!(has(&sample, &format!("{row} 1: 4")));
+    assert!(has(&sample, &format!("{row} 3: 8")));
+    assert!(!has(&sample, &format!("{row} 4: 103")));
+    let tab = &app.tabs[0];
+    assert!(tab.show_add_column_dialog);
+    assert_eq!(tab.table.col_count(), 1);
+    assert!(tab.table.undo_stack.is_empty());
+
+    app.tabs[0].new_col_formula = "=A1+100".into();
+    let cleared = frame(&mut app, &ctx, vec![]);
+    assert!(!has(&cleared, &format!("{row} 1: 4")));
+    assert!(app.tabs[0].new_col_preview.is_none());
+    assert_eq!(app.tabs[0].table.col_count(), 1);
+}

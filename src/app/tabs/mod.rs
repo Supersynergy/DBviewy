@@ -296,6 +296,7 @@ impl TabState {
             new_col_name: String::new(),
             new_col_type: "String".to_string(),
             new_col_formula: String::new(),
+            new_col_preview: None,
             insert_col_at: None,
             insert_col_at_text: String::new(),
             show_delete_columns_dialog: false,

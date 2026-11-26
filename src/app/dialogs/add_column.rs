@@ -6,7 +6,7 @@ use std::fmt::Write;
 use std::ops::Range;
 
 use eframe::egui;
-use egui::RichText;
+use egui::{RichText, Ui};
 
 use octa::data;
 use octa::ui::settings::{
@@ -14,7 +14,7 @@ use octa::ui::settings::{
 };
 
 use super::super::init::COLUMN_TYPES;
-use super::super::state::OctaApp;
+use super::super::state::{OctaApp, TabState};
 
 // Used by the library evaluator as well. Keep the library's formula API
 // unchanged while ensuring E3 in 1E3 isn't mistaken for a cell to shift.
@@ -167,6 +167,7 @@ pub(crate) fn render_add_column_dialog(app: &mut OctaApp, ctx: &egui::Context) {
                         .hint_text(octa::i18n::t("dialog.formula_hint")),
                 );
             });
+            render_formula_preview(&mut app.tabs[app.active_tab], ui);
             ui.label(
                 RichText::new(octa::i18n::t("dialog.add_column_tip"))
                     .size(10.0)
@@ -195,9 +196,172 @@ pub(crate) fn render_add_column_dialog(app: &mut OctaApp, ctx: &egui::Context) {
         add_formula_column(app);
     }
     if close {
-        app.tabs[app.active_tab].show_add_column_dialog = false;
-        app.tabs[app.active_tab].insert_col_at_text.clear();
+        let tab = &mut app.tabs[app.active_tab];
+        tab.show_add_column_dialog = false;
+        tab.insert_col_at_text.clear();
+        tab.new_col_preview = None;
     }
+}
+
+const PREVIEW_ROWS: usize = 3;
+
+#[derive(Eq, PartialEq)]
+struct PreviewStamp {
+    rows: usize,
+    cols: usize,
+    offset: usize,
+    undo: usize,
+    redo: usize,
+    edits: usize,
+}
+
+impl PreviewStamp {
+    fn new(table: &data::DataTable) -> Self {
+        Self {
+            rows: table.row_count(),
+            cols: table.col_count(),
+            offset: table.row_offset,
+            undo: table.undo_stack.len(),
+            redo: table.redo_stack.len(),
+            edits: table.edits.len(),
+        }
+    }
+}
+
+pub(crate) struct FormulaPreview {
+    input: String,
+    stamp: PreviewStamp,
+    values: Vec<Option<f64>>,
+    first_bad: Option<data::FormulaBadCell>,
+}
+
+fn preview_expression(input: &str) -> Option<&str> {
+    input
+        .trim()
+        .strip_prefix('=')
+        .filter(|f| !f.trim().is_empty())
+}
+
+impl FormulaPreview {
+    fn read(input: &str, table: &data::DataTable) -> Option<Self> {
+        let formula = preview_expression(input)?;
+        let n = table.row_count().min(PREVIEW_ROWS);
+        if n == 0 {
+            return None;
+        }
+        let template = FormulaRows::new(formula);
+        let mut first_bad = None;
+        let mut values = Vec::with_capacity(n);
+        if template.relative.is_empty() {
+            let outcome = data::evaluate_formula_with_diagnostics(formula, table);
+            values.resize(n, outcome.value);
+            first_bad = outcome.bad_cell;
+        } else {
+            let mut shifted = String::with_capacity(formula.len());
+            for row in 0..n {
+                let outcome = template
+                    .at(row, &mut shifted)
+                    .map(|formula| data::evaluate_formula_with_diagnostics(formula, table));
+                values.push(outcome.as_ref().and_then(|o| o.value));
+                if first_bad.is_none() {
+                    first_bad = outcome.and_then(|o| o.bad_cell);
+                }
+            }
+        }
+        Some(Self {
+            input: input.into(),
+            stamp: PreviewStamp::new(table),
+            values,
+            first_bad,
+        })
+    }
+
+    fn still_matches(&self, tab: &TabState) -> bool {
+        self.input == tab.new_col_formula && self.stamp == PreviewStamp::new(&tab.table)
+    }
+}
+
+fn render_formula_preview(tab: &mut TabState, ui: &mut Ui) {
+    use octa::i18n::t;
+    let enabled = preview_expression(&tab.new_col_formula).is_some() && tab.table.row_count() > 0;
+    let hint = t("dialog.formula_preview_hint");
+    let button = ui.add_enabled(enabled, egui::Button::new(t("dialog.pv_preview")).small());
+    let button = if enabled {
+        button.on_hover_text(&hint)
+    } else {
+        let why = if tab.table.row_count() == 0 {
+            t("record.empty")
+        } else {
+            t("dialog.formula_hint")
+        };
+        button.on_disabled_hover_text(octa::ui::menu_entry::disabled_tip(&hint, &why))
+    };
+    let popup_id = egui::Popup::default_response_id(&button);
+    if !enabled
+        || tab.filter_dirty
+        || !tab
+            .new_col_preview
+            .as_ref()
+            .is_some_and(|p| p.still_matches(tab))
+    {
+        tab.new_col_preview = None;
+        egui::Popup::close_id(ui.ctx(), popup_id);
+    }
+    if button.clicked() && !egui::Popup::is_id_open(ui.ctx(), popup_id) {
+        // This is a snapshot, not a pre-calculated column. Add still
+        // evaluates the complete formula against the current table.
+        tab.new_col_preview = FormulaPreview::read(&tab.new_col_formula, &tab.table);
+    }
+    if let Some(preview) = &tab.new_col_preview {
+        egui::Popup::menu(&button).show(|ui| {
+            ui.set_max_width(310.0);
+            ui.add(egui::Label::new(RichText::new(&hint).weak()).wrap());
+            ui.separator();
+            for (row, value) in preview.values.iter().enumerate() {
+                let value = value.map_or_else(|| "-".to_owned(), |n| n.to_string());
+                ui.label(format!("{} {}: {value}", t("dialog.formula_row"), row + 1));
+            }
+            let skipped = preview.values.iter().filter(|v| v.is_none()).count();
+            if skipped > 0 {
+                ui.separator();
+                ui.label(skipped_message(
+                    &tab.table,
+                    skipped,
+                    preview.values.len(),
+                    preview.first_bad.as_ref(),
+                ));
+            }
+        });
+    }
+}
+
+fn skipped_message(
+    table: &data::DataTable,
+    skipped: usize,
+    total: usize,
+    bad: Option<&data::FormulaBadCell>,
+) -> String {
+    use octa::i18n::t;
+    let mut banner = format!(
+        "{} {skipped}/{total} {}.",
+        t("dialog.formula_skipped"),
+        t("dialog.formula_rows")
+    );
+    if let Some(bad) = bad {
+        let name = table
+            .columns
+            .get(bad.col)
+            .map(|c| c.name.as_str())
+            .unwrap_or("?");
+        let first_ref = t("dialog.formula_first_ref");
+        let row = t("dialog.formula_row");
+        let number = bad.row + 1;
+        let content = &bad.content;
+        banner.push_str(&format!(
+            " {first_ref} \"{name}\", {row} {number} = {content:?}"
+        ));
+    }
+    banner
 }
 
 /// Find the decimal row spans once. The evaluator still validates the whole
@@ -620,29 +784,12 @@ fn add_formula_column(app: &mut OctaApp) {
         };
         let skipped = row_count - results.len();
         if skipped > 0 {
-            let mut banner = format!(
-                "{} {}/{} {}.",
-                octa::i18n::t("dialog.formula_skipped"),
+            tab.parse_error_banner = Some(skipped_message(
+                &tab.table,
                 skipped,
                 row_count,
-                octa::i18n::t("dialog.formula_rows"),
-            );
-            if let Some(bad) = first_bad {
-                let name = tab
-                    .table
-                    .columns
-                    .get(bad.col)
-                    .map(|c| c.name.as_str())
-                    .unwrap_or("?");
-                let first_ref = octa::i18n::t("dialog.formula_first_ref");
-                let row = octa::i18n::t("dialog.formula_row");
-                let number = bad.row + 1;
-                let content = bad.content;
-                banner.push_str(&format!(
-                    " {first_ref} \"{name}\", {row} {number} = {content:?}"
-                ));
-            }
-            tab.parse_error_banner = Some(banner);
+                first_bad.as_ref(),
+            ));
         }
     }
     tab.table
@@ -664,6 +811,7 @@ fn add_formula_column(app: &mut OctaApp) {
     tab.filter_dirty = true;
     tab.show_add_column_dialog = false;
     tab.insert_col_at_text.clear();
+    tab.new_col_preview = None;
 }
 
 #[cfg(test)]

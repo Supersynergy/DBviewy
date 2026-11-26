@@ -406,7 +406,10 @@ From [**Columns → Insert column…**](editing.md#inserting-columns):
 3. **Insert at position**: 1-based column position; the default is to append.
 4. **Formula**: start the expression with `=`.
 
-Click **OK** and the new column appears with every row's result.
+Open **Preview (sample)** to check up to the first three loaded rows.
+The sample reports skipped rows without adding a column or changing any
+cells. **Add** evaluates the formula against all loaded rows, even when
+the table is filtered.
 
 ## Limitations
 

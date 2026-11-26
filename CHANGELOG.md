@@ -21,6 +21,7 @@
 - Save clock-time and duration corrections in the original XLSX without changing their number formats.
 - Calculate shift hours across midnight with `TIMEVALUE` and `MOD`, or extract clock parts.
 - Find minimum and maximum amounts with `MINIFS` and `MAXIFS`, including clock and duration criteria.
+- Preview formula results in Insert Column without changing the table.
 - Reveal the correct row when navigating filtered tables with zoomed or resized rows.
 - Fill down typed values within the visible selection, with one Undo.
 - Keep selection statistics compact and exclude hidden rows and columns.
