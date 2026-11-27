@@ -421,7 +421,9 @@ Use **Edit > Fill selection with value...** to put the same input into
 visible selected cells, even if they are not next to each other.
 Check the target count and the before/after examples, then choose
 **Fill**. Invalid values and changes to the target block the operation.
-A blank input does not clear cells. One undo restores the previous
+Pasted line breaks and tabs are kept in text cells. Use **Shift+Enter**
+to type a line break. Inputs larger than 8,192 bytes are rejected, not
+cut short. A blank input does not clear cells. One undo restores the previous
 values; **Cancel** leaves the data alone. Find the action with Ctrl+K.
 
 ## Fill with a series

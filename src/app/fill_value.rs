@@ -6,7 +6,7 @@ use std::time::Instant;
 use eframe::egui;
 use octa::data::{CellValue, ColumnInfo, ViewMode};
 use octa::i18n::t;
-use octa::ui::control_row::{control_line, control_text_edit};
+use octa::ui::control_row::control_line;
 use octa::ui::menu_entry::disabled_tip;
 
 use super::sql_panel::DataStamp;
@@ -49,6 +49,7 @@ pub(crate) struct ValueFill {
     targets: Vec<Target>,
     columns: BTreeMap<usize, ColumnInfo>,
     input: String,
+    input_rejected: bool,
     plan: Result<Plan, Failure>,
     stale: bool,
     focus_set: bool,
@@ -220,6 +221,7 @@ impl ValueFill {
             targets,
             columns,
             input: String::new(),
+            input_rejected: false,
             plan: Err(Failure::Empty),
             stale: false,
             focus_set: false,
@@ -227,7 +229,25 @@ impl ValueFill {
         })
     }
 
+    fn reject_input(&mut self) {
+        self.input_rejected = true;
+        self.plan = Err(Failure::TooLarge);
+    }
+
+    fn accept_edit(&mut self, input: String) {
+        if input.len() > MAX_INPUT {
+            self.reject_input();
+            return;
+        }
+        self.input = input;
+        self.input_rejected = false;
+        self.plan = self.prepare();
+    }
+
     fn prepare(&self) -> Result<Plan, Failure> {
+        if self.input_rejected {
+            return Err(Failure::TooLarge);
+        }
         if self.input.is_empty() {
             return Err(Failure::Empty);
         }
@@ -317,26 +337,51 @@ impl Failure {
     }
 }
 
-fn excerpt(s: &str) -> String {
+fn clipped(s: &str) -> String {
     let mut chars = s.chars();
-    let mut out: String = chars
-        .by_ref()
-        .take(52)
-        .map(|ch| if ch.is_control() { ' ' } else { ch })
-        .collect();
+    let mut out: String = chars.by_ref().take(52).collect();
     if chars.next().is_some() {
         out.push_str("...");
     }
     out
 }
 
+fn excerpt(s: &str) -> String {
+    clipped(s).replace(char::is_control, " ")
+}
+
 fn sample(value: &CellValue) -> String {
     match value {
         CellValue::Null => t("dialog.cf_empty"),
-        CellValue::String(s) | CellValue::Nested(s) => format!("{:?}", excerpt(s)),
+        CellValue::String(s) | CellValue::Nested(s) => format!("{:?}", clipped(s)),
         CellValue::Binary(b) => format!("{:?}", &b[..b.len().min(8)]),
         other => excerpt(&other.to_string()),
     }
+}
+
+fn text_payload(event: &egui::Event) -> Option<&str> {
+    match event {
+        egui::Event::Paste(s)
+        | egui::Event::Text(s)
+        | egui::Event::Ime(egui::ImeEvent::Commit(s))
+        | egui::Event::Ime(egui::ImeEvent::Preedit { text: s, .. }) => Some(s),
+        _ => None,
+    }
+}
+
+fn discard_oversize_edit(ctx: &egui::Context) -> bool {
+    ctx.input_mut(|i| {
+        let mut bytes = 0usize;
+        let over_limit = i.events.iter().filter_map(text_payload).any(|s| {
+            bytes = bytes.saturating_add(s.len());
+            // An IME may send the candidate and its commit in one frame.
+            s.len() > MAX_INPUT || bytes > 2 * MAX_INPUT
+        });
+        if over_limit {
+            i.events.retain(|event| text_payload(event).is_none());
+        }
+        over_limit
+    })
 }
 
 fn modal_id() -> egui::Id {
@@ -442,26 +487,46 @@ impl OctaApp {
             ui.separator();
             let hint = t("fill.value_input_hint");
             let label = ui.label(t("fill.kind")).on_hover_text(&hint);
+            let editable = !st.stale && !read_only;
+            // Bound the draft before egui lays it out, and don't change an
+            // accepted value when any part of the candidate is too large.
+            let discarded = editable && discard_oversize_edit(ctx);
+            let mut draft = st.input.clone();
             let field = ui
-                .add_enabled_ui(!st.stale && !read_only, |ui| {
-                    control_text_edit(
-                        ui,
-                        width,
-                        egui::TextEdit::singleline(&mut st.input)
-                            .id(id.with("value"))
-                            .desired_width(width)
-                            .char_limit(2048),
-                    )
-                    .labelled_by(label.id)
+                .add_enabled_ui(editable, |ui| {
+                    egui::ScrollArea::vertical()
+                        .id_salt(id.with("value_scroll"))
+                        .max_height(60.0)
+                        .auto_shrink([false, true])
+                        .show(ui, |ui| {
+                            ui.add(
+                                egui::TextEdit::multiline(&mut draft)
+                                    .id(id.with("value"))
+                                    .desired_width(ui.available_width())
+                                    .desired_rows(3)
+                                    .return_key(egui::KeyboardShortcut::new(
+                                        egui::Modifiers::SHIFT,
+                                        egui::Key::Enter,
+                                    ))
+                                    .lock_focus(false),
+                            )
+                            .labelled_by(label.id)
+                        })
+                        .inner
                 })
                 .inner
                 .on_hover_text(&hint);
-            if !st.focus_set && !st.stale && !read_only {
+            if !st.focus_set && editable {
                 field.request_focus();
                 st.focus_set = true;
             }
-            if field.changed() {
-                st.plan = st.prepare();
+            if discarded {
+                st.reject_input();
+            } else if field.changed() {
+                st.accept_edit(draft);
+                if st.input_rejected {
+                    ctx.request_repaint();
+                }
             }
             let why = if read_only {
                 Some(t("context_menu.header_row_readonly"))

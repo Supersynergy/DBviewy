@@ -27,6 +27,7 @@
 - Discount regular or dated payments with NPV and XNPV (NBW and XKAPITALWERT).
 - Filter straight from a table cell without reopening the column's value list.
 - Fill selected visible cells with one validated value after reviewing the changes.
+  Pasted text keeps line breaks and tabs; overly long input is rejected without truncation.
 - Select blank cells in the visible table without changing values or filters.
 - Calculate percentiles and quartiles, including p95 response times, with inclusive and exclusive Excel formulas.
 - Measure sample and population spread with standard deviation and variance, including running columns.

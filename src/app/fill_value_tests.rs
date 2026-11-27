@@ -239,12 +239,16 @@ fn frame(
 }
 
 fn key(key: egui::Key) -> egui::Event {
+    key_with(key, egui::Modifiers::NONE)
+}
+
+fn key_with(key: egui::Key, modifiers: egui::Modifiers) -> egui::Event {
     egui::Event::Key {
         key,
         physical_key: None,
         pressed: true,
         repeat: false,
-        modifiers: egui::Modifiers::NONE,
+        modifiers,
     }
 }
 
@@ -269,7 +273,7 @@ fn keyboard_requires_focused_confirmation_and_consumes_the_commit_key() {
     let input = tree
         .nodes
         .iter()
-        .find(|(_, n)| n.role() == Role::TextInput)
+        .find(|(_, n)| n.role() == Role::MultilineTextInput)
         .unwrap()
         .0;
     assert_eq!(tree.focus, input);
@@ -315,5 +319,138 @@ fn escape_discards_the_preview_without_editing() {
     frame(&mut app, &ctx, vec![key(egui::Key::Escape)]);
     assert!(app.value_fill.is_none());
     assert!(!ctx.input(|i| i.key_pressed(egui::Key::Escape)));
+    assert!(app.tabs[0].table.undo_stack.is_empty());
+}
+
+#[test]
+fn pasted_multiline_value_is_previewed_written_and_reopened_without_flattening() {
+    use octa::formats::{FormatReader, csv_reader::CsvReader, excel_reader::ExcelReader};
+
+    let mut app = fixture();
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    let tab = &mut app.tabs[0];
+    tab.search_text = "visible".into();
+    tab.search_scope_col = Some(0);
+    tab.table_state.selected_cells = [(0, 1), (1, 1), (2, 1)].into();
+    app.recompute_filter();
+    app.open_value_fill(&ctx);
+    frame(&mut app, &ctx, vec![]);
+    let literal = "Status: bereit\nQuelle\tWest";
+    let (tree, labels) = frame(&mut app, &ctx, vec![egui::Event::Paste(literal.into())]);
+    assert_eq!(app.value_fill.as_ref().unwrap().input, literal);
+    assert!(
+        labels
+            .iter()
+            .any(|s| s.contains(r"Status: bereit\nQuelle\tWest")),
+        "{labels:?}"
+    );
+    assert!(app.tabs[0].table.edits.is_empty());
+    let (apply, button) = tree
+        .nodes
+        .iter()
+        .find(|(_, n)| n.role() == Role::Button && n.label() == Some(&t("fill.fill")))
+        .unwrap();
+    assert!(!button.is_disabled());
+    frame(&mut app, &ctx, vec![focus(*apply)]);
+    frame(&mut app, &ctx, vec![key(egui::Key::Enter)]);
+    assert!(app.value_fill.is_none());
+    let table = &mut app.tabs[0].table;
+    assert_eq!(table.undo_stack.len(), 1);
+    let dir = tempfile::tempdir().unwrap();
+    let xlsx = dir.path().join("notes.xlsx");
+    let csv = dir.path().join("notes.csv");
+    ExcelReader.write_file(&xlsx, table).unwrap();
+    CsvReader.write_file(&csv, table).unwrap();
+    let sheet = ExcelReader.read_file(&xlsx).unwrap();
+    let mut reader = csv::Reader::from_path(csv).unwrap();
+    let csv_rows = reader.records().collect::<Result<Vec<_>, _>>().unwrap();
+    assert_eq!(csv_rows.len(), 4);
+    let text = C::String(literal.into());
+    for row in [0, 2] {
+        assert_eq!(table.get(row, 1), Some(&text));
+        assert_eq!(sheet.get(row, 1), Some(&text));
+        assert_eq!(csv_rows[row].get(1), Some(literal));
+    }
+    assert_eq!(table.get(1, 1), Some(&C::Null));
+    assert_eq!(sheet.get(1, 1), Some(&C::Null));
+    assert_eq!(csv_rows[1].get(1), Some(""));
+    assert!(table.undo());
+    assert_eq!(table.get(0, 1), Some(&C::Null));
+    assert_eq!(table.get(2, 1), Some(&C::String(String::new())));
+}
+
+#[test]
+fn byte_limit_keeps_the_whole_valid_value_and_disarms_the_old_preview_after_rejection() {
+    let mut app = fixture();
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    app.open_value_fill(&ctx);
+    frame(&mut app, &ctx, vec![]);
+    let exact = "ä".repeat(MAX_INPUT / 2);
+    frame(&mut app, &ctx, vec![egui::Event::Paste(exact.clone())]);
+    let state = app.value_fill.as_ref().unwrap();
+    assert_eq!(state.input, exact);
+    assert_eq!(state.plan.as_ref().unwrap().changed, 1);
+
+    for attempted in [
+        egui::Event::Text("é".into()), // the result of appending would be too large
+        egui::Event::Paste("w".repeat(MAX_INPUT + 1)),
+    ] {
+        let (tree, labels) = frame(&mut app, &ctx, vec![attempted]);
+        let state = app.value_fill.as_ref().unwrap();
+        assert_eq!(state.input, exact);
+        assert_eq!(state.plan.as_ref().unwrap_err(), &Failure::TooLarge);
+        assert!(labels.iter().any(|s| s.contains(&t("fill.value_large"))));
+        assert!(tree.nodes.iter().any(|(_, n)| {
+            n.role() == Role::Button && n.label() == Some(&t("fill.fill")) && n.is_disabled()
+        }));
+        let state = app.value_fill.take().unwrap();
+        assert_eq!(app.apply_value_fill(&state), Err(Failure::TooLarge));
+        app.value_fill = Some(state);
+        assert!(app.tabs[0].table.edits.is_empty());
+    }
+
+    frame(
+        &mut app,
+        &ctx,
+        vec![
+            key_with(egui::Key::A, egui::Modifiers::COMMAND),
+            egui::Event::Paste("short\r\nnote\t!".into()),
+        ],
+    );
+    let state = app.value_fill.as_ref().unwrap();
+    assert_eq!(state.input, "short\r\nnote\t!");
+    assert_eq!(state.plan.as_ref().unwrap().changed, 1);
+    assert!(app.tabs[0].table.edits.is_empty());
+}
+
+#[test]
+fn shift_enter_adds_a_line_and_tab_moves_focus_without_confirming() {
+    let mut app = fixture();
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    app.open_value_fill(&ctx);
+    frame(&mut app, &ctx, vec![]);
+    let (tree, _) = frame(&mut app, &ctx, vec![]);
+    let field = tree.focus;
+    let (tree, _) = frame(
+        &mut app,
+        &ctx,
+        vec![
+            egui::Event::Text("Alpha".into()),
+            key_with(egui::Key::Enter, egui::Modifiers::SHIFT),
+            egui::Event::Text("Beta".into()),
+            key(egui::Key::Enter),
+        ],
+    );
+    assert_eq!(app.value_fill.as_ref().unwrap().input, "Alpha\nBeta");
+    assert_eq!(tree.focus, field);
+    let (tree, _) = frame(&mut app, &ctx, vec![key(egui::Key::Tab)]);
+    assert_ne!(tree.focus, field);
+    assert!(tree.nodes.iter().any(|(id, n)| {
+        *id == tree.focus && n.role() == Role::Button && n.label() == Some(&t("common.cancel"))
+    }));
+    assert_eq!(app.value_fill.as_ref().unwrap().input, "Alpha\nBeta");
     assert!(app.tabs[0].table.undo_stack.is_empty());
 }

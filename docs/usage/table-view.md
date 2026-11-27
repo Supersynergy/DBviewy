@@ -355,13 +355,16 @@ change and up to three before/after examples. Enter a literal value.
 It must fit all selected column types; a bad value prevents the entire
 fill. For example, `001` stays `001` in a text column, and a date like
 `2024-02-29` stays a date in a date column. A blank input does not clear
-cells. Unlike a cell edit, this command does not evaluate formulas.
+cells. In a text column, pasted line breaks and tabs stay part of the
+cell value. Use **Shift+Enter** to type a line break. Unlike a cell edit,
+this command does not evaluate formulas.
 
 Choose **Fill** to apply. Nothing changes if you cancel or if the
 selection, values or permissions changed since opening the preview.
 One undo restores all changed cells. Write-back to a database still
 requires a separate Save. The preview is limited to 50,000 cells and
-a bounded input and snapshot size.
+8,192 bytes per input. Oversized input is rejected, not shortened. Very
+large selections may also exceed the preview's memory limit.
 
 ## Selection stats
 
