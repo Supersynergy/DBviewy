@@ -22,7 +22,12 @@ Three columns per row:
 |-----------|------------------------------------------------------------------------|
 | **Value** | The distinct cell value (or the range, if numeric binning is enabled). |
 | **Count** | How many rows have this value (or fall in this bin).                   |
-| **%**     | `count / total_non_null * 100`, to one decimal place.                  |
+| **%**     | `count / total_non_null * 100`, to one decimal place. The bar below it uses the same 0-100% scale. |
+
+Switching from **All** to **Top 20** does not change the share of an
+individual value. For word counts, the share is the percentage of
+non-empty cells containing that word or pair, so the shares can add up to
+more than 100%. The dialog keeps the exact percentage beside the bar.
 
 For raw value counts, rows are sorted by **Count** descending; ties
 broken alphabetically by **Value** for a deterministic ordering. (When
@@ -38,7 +43,8 @@ values, total non-null cells, and the null count for the column.
 | **All**                                             | Show every distinct value. Watch the row count on high-cardinality columns. |
 
 The selected preset persists per tab, so reopening the dialog on the
-same tab remembers your choice. Top-N applies to **raw value counts
+same tab remembers your choice. The result table keeps its headers as
+you scroll and lays out only the visible rows. Top-N applies to **raw value counts
 only** and is hidden while numeric binning is on, where the bin count
 controls how many rows you get.
 
@@ -128,10 +134,10 @@ Right-click any row (when binning is off) to get:
 
 ## Copy as TSV
 
-The **Copy as TSV** button at the bottom puts the entire visible table
-on the clipboard as three tab-separated columns: `<column>`, `count`,
-`percent`. Useful for pasting into a spreadsheet or another Octa tab
-via the regular paste-into-cells path.
+**Copy as TSV** copies the current report, including rows outside the
+viewport. A Top-N report copies only its top N. The three columns are
+`<column>`, `count` and `percent`. Tabs, quotes and line breaks in
+a value stay inside its field.
 
 ## Command line and MCP
 

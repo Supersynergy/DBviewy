@@ -15,7 +15,7 @@ use egui::RichText;
 use egui_extras::{Column, TableBuilder};
 
 use octa::data::value_frequency::{
-    BinningMode, WordMode, compute_value_frequency, compute_word_frequency,
+    BinningMode, ValueFrequency, WordMode, compute_value_frequency, compute_word_frequency,
 };
 use octa::ui::settings::{
     DialogSize, draw_window_controls, remember_dialog_rect, size_dialog_window,
@@ -53,7 +53,7 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
     let mut words_state = app.tabs[active].value_frequency_words;
     let mut close_requested = false;
     let mut copy_payload: Option<String> = None;
-    let mut filter_to_this: Option<String> = None;
+    let mut grid_actions = FrequencyActions::default();
     let mut run_local = false;
     // On a server tab every Bins value is a query, so the field commits on
     // Enter or when it loses focus; a file tab recounts live as it types.
@@ -307,7 +307,12 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
                         close_requested = true;
                     }
                     if ui.button(octa::i18n::t("dialog.vf_copy_tsv")).clicked() {
-                        copy_payload = Some(build_tsv(&column_name, &freq));
+                        match build_tsv(&column_name, &freq) {
+                            Ok(tsv) => copy_payload = Some(tsv),
+                            Err(err) => {
+                                tracing::error!("Could not copy value frequencies: {err:#}")
+                            }
+                        }
                     }
                     ui.label(
                         RichText::new(format!(
@@ -368,87 +373,7 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
                     return;
                 }
 
-                let total_for_pct = freq.total_non_null.max(1) as f64;
-                let body_height = ui.available_height();
-                // Capture the weak text color before TableBuilder takes the
-                // exclusive borrow on `ui` - looking it up inside the body
-                // closure would re-borrow `ui` and the compiler rejects.
-                let weak_text = ui.visuals().weak_text_color();
-
-                TableBuilder::new(ui)
-                    .sense(egui::Sense::click())
-                    .striped(true)
-                    .resizable(true)
-                    .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
-                    .column(Column::initial(40.0).at_least(32.0))
-                    .column(Column::initial(260.0).at_least(120.0).clip(true))
-                    .column(Column::initial(80.0).at_least(60.0))
-                    .column(Column::initial(80.0).at_least(60.0))
-                    .max_scroll_height(body_height)
-                    .header(24.0, |mut header| {
-                        let headers = [
-                            "#".to_string(),
-                            octa::i18n::t("dialog.vf_col_value"),
-                            octa::i18n::t("dialog.vf_col_count"),
-                            "%".to_string(),
-                        ];
-                        for h in headers {
-                            header.col(|ui| {
-                                ui.label(RichText::new(h).strong());
-                            });
-                        }
-                    })
-                    .body(|mut body| {
-                        for (i, row) in freq.rows.iter().enumerate() {
-                            body.row(22.0, |mut tr| {
-                                tr.col(|ui| {
-                                    ui.label(RichText::new(format!("{}", i + 1)).color(weak_text));
-                                });
-                                let mut value_resp = None;
-                                tr.col(|ui| {
-                                    let resp = ui.add(
-                                        egui::Label::new(row.label.clone())
-                                            .selectable(false)
-                                            .truncate(),
-                                    );
-                                    value_resp = Some(resp);
-                                });
-                                tr.col(|ui| {
-                                    ui.label(format!("{}", row.count));
-                                });
-                                tr.col(|ui| {
-                                    let pct = (row.count as f64 / total_for_pct) * 100.0;
-                                    ui.label(format!("{:.1}%", pct));
-                                });
-                                if let Some(resp) = value_resp
-                                    && !freq.binned
-                                {
-                                    resp.context_menu(|ui| {
-                                        if ui
-                                            .button(octa::i18n::t("dialog.vf_copy_value"))
-                                            .clicked()
-                                        {
-                                            copy_payload = Some(row.label.clone());
-                                            ui.close();
-                                        }
-                                        // A word is not a cell value, so it
-                                        // cannot be the value filter's entry.
-                                        let why = by_words
-                                            .then(|| octa::i18n::t("dialog.vf_filter_not_words"));
-                                        if octa::ui::menu_entry::menu_entry(
-                                            ui,
-                                            &octa::i18n::t("dialog.vf_filter_to_value"),
-                                            "",
-                                            why.as_deref(),
-                                        ) {
-                                            filter_to_this = Some(row.label.clone());
-                                            ui.close();
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                    });
+                draw_frequency_grid(ui, &freq, by_words, &mut grid_actions);
             });
     });
 
@@ -456,12 +381,12 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
         remember_dialog_rect(ctx, dialog_id, build_size, inner.response.rect);
     }
 
-    if let Some(payload) = copy_payload {
+    if let Some(payload) = copy_payload.or(grid_actions.copy_value) {
         ctx.copy_text(payload);
         app.status_message = Some((octa::i18n::t("dialog.vf_copied"), std::time::Instant::now()));
     }
 
-    if let Some(value) = filter_to_this {
+    if let Some(value) = grid_actions.filter_to_this {
         // Add a column filter limiting the active tab to this exact value.
         // Same path as the column-filter dialog's apply step.
         let tab = &mut app.tabs[active];
@@ -496,18 +421,155 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
     }
 }
 
+#[derive(Default)]
+struct FrequencyActions {
+    copy_value: Option<String>,
+    filter_to_this: Option<String>,
+}
+
+/// Only viewport rows are arranged, even in All mode. Horizontal overflow
+/// keeps counts and percentages accessible when labels or user-set widths
+/// are wider than the dialog.
+fn draw_frequency_grid(
+    ui: &mut egui::Ui,
+    freq: &ValueFrequency,
+    by_words: bool,
+    actions: &mut FrequencyActions,
+) -> egui::scroll_area::ScrollAreaOutput<()> {
+    let label_height = ui.text_style_height(&egui::TextStyle::Body);
+    let row_height = (label_height + 12.0).max(28.0);
+    let rank_width = (freq.rows.len().max(1).ilog10() + 1) as f32 * 8.0 + 12.0;
+    let count_width = ((freq.total_non_null.max(1).ilog10() + 1) as f32 * 8.0 + 18.0).max(72.0);
+    let share_width = 100.0;
+    let row_spacing = 4.0 * ui.spacing().item_spacing.x;
+    let value_width =
+        (ui.available_width() - rank_width - count_width - share_width - row_spacing - 18.0)
+            .max(124.0);
+    let weak_text = ui.visuals().weak_text_color();
+
+    egui::ScrollArea::horizontal()
+        .id_salt("frequency_horizontal")
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            TableBuilder::new(ui)
+                .id_salt("frequency_rows")
+                .sense(egui::Sense::click())
+                .striped(true)
+                .resizable(true)
+                .auto_shrink([false, false])
+                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                .column(
+                    Column::initial(rank_width.max(36.0))
+                        .at_least(32.0)
+                        .clip(true),
+                )
+                .column(Column::initial(value_width).at_least(110.0).clip(true))
+                .column(Column::initial(count_width).at_least(60.0).clip(true))
+                .column(Column::initial(share_width).at_least(65.0).clip(true))
+                .header(row_height, |mut header| {
+                    for title in [
+                        "#".to_string(),
+                        octa::i18n::t("dialog.vf_col_value"),
+                        octa::i18n::t("dialog.vf_col_count"),
+                        "%".to_string(),
+                    ] {
+                        header.col(|ui| {
+                            ui.add(egui::Label::new(RichText::new(&title).strong()).truncate())
+                                .on_hover_text(&title);
+                        });
+                    }
+                })
+                .body(|body| {
+                    body.rows(row_height, freq.rows.len(), |mut tr| {
+                        let i = tr.index();
+                        let row = &freq.rows[i];
+                        tr.col(|ui| {
+                            ui.label(RichText::new((i + 1).to_string()).color(weak_text));
+                        });
+                        tr.col(|ui| {
+                            let value = ui
+                                .add(egui::Label::new(&row.label).selectable(false).truncate())
+                                .on_hover_ui(|ui| {
+                                    ui.label(&row.label);
+                                });
+                            if !freq.binned {
+                                value.context_menu(|ui| {
+                                    if ui.button(octa::i18n::t("dialog.vf_copy_value")).clicked() {
+                                        actions.copy_value = Some(row.label.clone());
+                                        ui.close();
+                                    }
+                                    // Words aren't cell values and cannot be used as a value filter.
+                                    let why = by_words
+                                        .then(|| octa::i18n::t("dialog.vf_filter_not_words"));
+                                    if octa::ui::menu_entry::menu_entry(
+                                        ui,
+                                        &octa::i18n::t("dialog.vf_filter_to_value"),
+                                        "",
+                                        why.as_deref(),
+                                    ) {
+                                        actions.filter_to_this = Some(row.label.clone());
+                                        ui.close();
+                                    }
+                                });
+                            }
+                        });
+                        tr.col(|ui| {
+                            ui.label(row.count.to_string());
+                        });
+                        tr.col(|ui| {
+                            draw_percentage(ui, row.count, freq.total_non_null);
+                        });
+                    });
+                })
+        })
+        .inner
+}
+
+fn share(count: usize, total_non_null: usize) -> f64 {
+    count as f64 / total_non_null.max(1) as f64
+}
+
+fn draw_percentage(ui: &mut egui::Ui, count: usize, total_non_null: usize) {
+    let rect = ui.available_rect_before_wrap();
+    let fraction = share(count, total_non_null);
+    ui.label(format!("{:.1}%", fraction * 100.0));
+
+    // The number remains readable without colour. Keep the small track
+    // under it, and keep the same scale for Top N and All.
+    let track = egui::Rect::from_min_max(
+        egui::pos2(rect.left() + 2.0, rect.bottom() - 5.0),
+        egui::pos2(rect.right() - 2.0, rect.bottom() - 2.0),
+    );
+    if track.is_positive() {
+        ui.painter()
+            .rect_filled(track, 1.0, ui.visuals().widgets.inactive.bg_fill);
+        let bar_width = track.width() * fraction.clamp(0.0, 1.0) as f32;
+        if bar_width > 0.0 {
+            let bar = egui::Rect::from_min_size(track.min, egui::vec2(bar_width, track.height()));
+            ui.painter()
+                .rect_filled(bar, 1.0, ui.visuals().selection.stroke.color);
+        }
+    }
+}
+
 /// The Bins field as a bin count; blank or not a positive number is Auto.
 fn parse_bins(buf: &str) -> Option<usize> {
     buf.trim().parse::<usize>().ok().filter(|n| *n > 0)
 }
 
-fn build_tsv(column_name: &str, freq: &octa::data::value_frequency::ValueFrequency) -> String {
-    let mut s = String::new();
-    s.push_str(&format!("{}\tcount\tpercent\n", column_name));
-    let total = freq.total_non_null.max(1) as f64;
+fn build_tsv(column_name: &str, freq: &ValueFrequency) -> anyhow::Result<String> {
+    let mut writer = csv::WriterBuilder::new()
+        .delimiter(b'\t')
+        .from_writer(Vec::new());
+    writer.write_record([column_name, "count", "percent"])?;
     for row in &freq.rows {
-        let pct = (row.count as f64 / total) * 100.0;
-        s.push_str(&format!("{}\t{}\t{:.1}\n", row.label, row.count, pct));
+        let count = row.count.to_string();
+        let percentage = format!("{:.1}", share(row.count, freq.total_non_null) * 100.0);
+        writer.write_record([row.label.as_str(), count.as_str(), percentage.as_str()])?;
     }
-    s
+    Ok(String::from_utf8(writer.into_inner()?)?)
 }
+
+#[cfg(test)]
+#[path = "value_frequency_tests.rs"]
+mod tests;

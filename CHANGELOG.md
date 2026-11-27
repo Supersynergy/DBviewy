@@ -75,6 +75,8 @@
 - Compare paired measurements with CORREL, SLOPE and sample or population
   covariance. Pick X and Y in Formula examples; missing values never shift the
   remaining pairs out of alignment.
+- Read Value Frequency shares as proportionate bars without hiding the
+  exact percentages. Long results scroll with fixed headers.
 - See which columns pair in Row Hash Diff before reading the result. The
   picker numbers each pair and asks for matching counts instead of showing
   misleading differences.
