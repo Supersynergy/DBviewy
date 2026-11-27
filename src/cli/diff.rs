@@ -21,6 +21,8 @@ use octa::data::compare::{self, CompareMode, CompareOptions};
 use octa::data::diff::diff_rows;
 use octa::data::{CellValue, ColumnInfo, DataTable};
 
+use crate::compare_output::CompareOutput;
+
 use super::OutputFormat;
 use super::output::write_table;
 
@@ -60,7 +62,7 @@ pub fn run(
                 CompareMode::Join => compare::compare_join(&a, &b, &on, &options)?,
                 CompareMode::Set => unreachable!(),
             };
-            let out = compare::build_compare_table(&a, &b, &result);
+            let out = CompareOutput::new(&a, &b, &result, mode == CompareMode::Join).to_table();
             write_table(&out, format)?;
             let mut summary = format!(
                 "mode {} - unchanged: {} - changed: {} - only in A: {} - only in B: {}",

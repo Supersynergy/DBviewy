@@ -50,8 +50,10 @@ cells moved.
 ### `join` - key-matched added/removed/changed
 
 Rows are matched by the key column(s) you name with `--diff-on`
-(matched by **name**, so column order is irrelevant). Keys present on
-only one side are tagged `only_in_a` / `only_in_b`; matched keys whose
+(matched by **name**, so column order is irrelevant). Output keeps file A's
+column order and places values from B under their matching headers. If B
+has no column named in A, that field is blank. Ordered mode still uses
+positions. Keys present on only one side are tagged `only_in_a` / `only_in_b`; matched keys whose
 non-key cells differ are tagged `changed`, again with a
 `changed_columns` field. This is the database-style diff: "which `id`s
 were added, removed, or edited".
@@ -71,6 +73,14 @@ the differing fields on a changed row:
 Unchanged rows are **not** printed. A one-line summary (per-mode counts)
 is written to **standard error**, so it does not pollute the parseable
 table on standard output.
+
+## Review the diff in DBviewy
+
+In the **Ordered** and **Join** comparison views, the column headers stay
+visible as you scroll. You can resize columns and hover over a shortened
+cell to read the original text. Right-click the results and choose
+**Copy table** to copy the complete result as tab-separated text, not
+only the rows on screen.
 
 ## Examples
 

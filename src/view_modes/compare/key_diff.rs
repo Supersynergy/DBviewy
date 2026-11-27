@@ -10,27 +10,21 @@
 //!   reporting which rows were added, removed, or changed and exactly which
 //!   columns differ in each changed pair.
 //!
-//! Both flatten their `CompareResult` through `build_compare_table` into a
-//! single annotated table (leading `status` + `changed_columns` columns) which
-//! is rendered as a plain scrollable grid here.
+//! Both borrow result cells on demand, using the same projection as the
+//! CLI. The two summary columns stay ahead of the source columns.
 
 use eframe::egui;
 use egui::{RichText, ScrollArea};
+use egui_extras::{Column, TableBuilder};
 
-use octa::data::compare::{
-    CompareOptions, CompareResult, build_compare_table, compare_join, compare_ordered,
-};
-use octa::data::{CellValue, DataTable};
+use octa::data::DataTable;
+use octa::data::compare::{CompareOptions, CompareResult, compare_join, compare_ordered};
 use octa::i18n::t;
 
 use crate::app::state::TabState;
+use crate::compare_output::CompareOutput;
 use crate::ui;
 use ui::theme::ThemeMode;
-
-/// Cap on rendered result rows. A diff of two huge tables can produce a vast
-/// result; 2000 keeps the grid responsive. The summary line always reports the
-/// true totals so the cap never hides the scale.
-const RESULT_DISPLAY_CAP: usize = 2000;
 
 /// What the last comparison was computed from. The left table counts as
 /// unchanged while its undo, redo and edit counts and its shape stay the
@@ -50,12 +44,12 @@ pub struct KeyDiffKey {
 
 type Generation = (usize, usize, usize, usize, usize, usize);
 
-/// A finished comparison and its flattened table.
+/// A finished comparison. The result cells remain in the source tables.
 pub struct KeyDiffCache {
     key: KeyDiffKey,
     /// egui pass that last used this cache.
     pass: u64,
-    outcome: Result<(CompareResult, DataTable), String>,
+    outcome: Result<CompareResult, String>,
 }
 
 fn generation(t: &DataTable) -> Generation {
@@ -138,10 +132,6 @@ pub fn render(ui: &mut egui::Ui, tab: &mut TabState, theme_mode: ThemeMode, join
         } else {
             Ok(compare_ordered(left, right, &options))
         }
-        .map(|r| {
-            let table = build_compare_table(left, right, &r);
-            (r, table)
-        })
         .map_err(|e| format!("{e:#}"));
         tab.compare_cache = Some(KeyDiffCache { key, pass, outcome });
     }
@@ -149,8 +139,8 @@ pub fn render(ui: &mut egui::Ui, tab: &mut TabState, theme_mode: ThemeMode, join
         return;
     };
     cache.pass = pass;
-    let (result, table) = match &cache.outcome {
-        Ok((result, table)) => (result, table),
+    let result = match &cache.outcome {
+        Ok(result) => result,
         Err(err) => {
             ui.label(RichText::new(err).color(colors.warning));
             return;
@@ -181,7 +171,10 @@ pub fn render(ui: &mut egui::Ui, tab: &mut TabState, theme_mode: ThemeMode, join
         }
     });
     ui.add_space(6.0);
-    draw_result_table(ui, table, &colors);
+    if let Some(right) = tab.compare_right_table.as_deref() {
+        let output = CompareOutput::new(&tab.table, right, result, join);
+        draw_result_table(ui, &output, &colors);
+    }
 }
 
 /// Checkbox list of the left table's columns, used to pick join keys.
@@ -215,117 +208,102 @@ fn draw_key_picker(
     }
 }
 
-/// Render the annotated compare table (status + changed_columns + data cols)
-/// as a scrollable striped grid, colouring the status cell by kind.
-fn draw_result_table(ui: &mut egui::Ui, table: &DataTable, colors: &ui::theme::ThemeColors) {
-    if table.row_count() == 0 {
+fn draw_result_table(ui: &mut egui::Ui, rows: &CompareOutput<'_>, colors: &ui::theme::ThemeColors) {
+    if rows.row_count() == 0 {
         ui.label(RichText::new(t("cmptol.no_differences")).color(colors.success));
         return;
     }
-    let mono = egui::FontId::new(12.0, egui::FontFamily::Monospace);
-    let ncols = table.col_count();
-    let shown = table.row_count().min(RESULT_DISPLAY_CAP);
-
-    // Build plain-text copy payload: header + shown rows, tab-separated.
-    let copy_text = {
-        let header: Vec<&str> = (0..ncols)
-            .map(|c| {
-                table
-                    .columns
-                    .get(c)
-                    .map(|ci| ci.name.as_str())
-                    .unwrap_or("?")
-            })
-            .collect();
-        let mut lines = vec![header.join("\t")];
-        for r in 0..shown {
-            let row: Vec<String> = (0..ncols)
-                .map(|c| match table.get(r, c) {
-                    Some(CellValue::Null) => "-".to_string(),
-                    Some(v) => v.to_string(),
-                    None => String::new(),
-                })
-                .collect();
-            lines.push(row.join("\t"));
-        }
-        lines.join("\n")
-    };
-
-    let scroll = ScrollArea::both()
-        .id_salt("compare_key_diff_scroll")
-        .auto_shrink([false, false])
-        .show(ui, |ui| {
-            egui::Grid::new("compare_key_diff_grid")
-                .num_columns(ncols)
-                .spacing([12.0, 2.0])
-                .striped(true)
-                .show(ui, |ui| {
-                    for c in 0..ncols {
-                        let name = table
-                            .columns
-                            .get(c)
-                            .map(|ci| ci.name.as_str())
-                            .unwrap_or("?");
-                        ui.label(
-                            RichText::new(name)
-                                .font(mono.clone())
-                                .color(colors.text_muted),
-                        );
-                    }
-                    ui.end_row();
-                    for r in 0..shown {
-                        for c in 0..ncols {
-                            let text = match table.get(r, c) {
-                                Some(CellValue::Null) => "-".to_string(),
-                                Some(v) => v.to_string(),
-                                None => String::new(),
-                            };
-                            // Colour the leading `status` cell by kind.
-                            let color = if c == 0 {
-                                status_color(&text, colors)
-                            } else {
-                                colors.text_primary
-                            };
-                            ui.label(RichText::new(text).font(mono.clone()).color(color));
-                        }
-                        ui.end_row();
-                    }
-                });
-            if table.row_count() > RESULT_DISPLAY_CAP {
-                ui.label(
-                    RichText::new(
-                        t("cmptol.more_rows")
-                            .replace("{n}", &(table.row_count() - RESULT_DISPLAY_CAP).to_string()),
-                    )
-                    .color(colors.text_muted),
-                );
-            }
-        });
-
-    let area_resp = ui.interact(
-        scroll.inner_rect,
+    let grid = draw_result_grid(ui, rows, colors);
+    let area = ui.interact(
+        grid.inner_rect,
         ui.make_persistent_id("compare_key_diff_menu"),
         egui::Sense::click(),
     );
-    area_resp.context_menu(|ui| {
-        if ui.button(octa::i18n::t("compare.copy_table")).clicked() {
-            ui.ctx().copy_text(copy_text.clone());
+    let mut copy = area.hovered() && octa::ui::text_selection::copy_pressed(ui.ctx());
+    area.context_menu(|ui| {
+        if ui.button(t("compare.copy_table")).clicked() {
+            copy = true;
             ui.close();
         }
     });
-    if area_resp.hovered() && octa::ui::text_selection::copy_pressed(ui.ctx()) {
-        ui.ctx().copy_text(copy_text);
+    if copy {
+        match rows.to_tsv() {
+            Ok(text) => ui.ctx().copy_text(text),
+            Err(err) => {
+                tracing::error!("Could not copy comparison: {err:#}");
+            }
+        }
     }
 }
 
-/// Map a `status` cell value to a colour.
-fn status_color(status: &str, colors: &ui::theme::ThemeColors) -> egui::Color32 {
-    match status {
-        "only_in_a" => colors.warning,
-        "only_in_b" => colors.accent,
-        "changed_a" | "changed_b" => colors.success,
-        _ => colors.text_primary,
+/// Only viewport rows are laid out. The horizontal scroll owns both header
+/// and body while TableBuilder scrolls only the body vertically.
+fn draw_result_grid(
+    ui: &mut egui::Ui,
+    rows: &CompareOutput<'_>,
+    colors: &ui::theme::ThemeColors,
+) -> egui::scroll_area::ScrollAreaOutput<()> {
+    let height = octa::ui::control_row::control_height(ui).max(20.0);
+    ScrollArea::horizontal()
+        .id_salt("compare_key_diff_horizontal")
+        .auto_shrink([false, false])
+        .show(ui, |ui| {
+            let mut table = TableBuilder::new(ui)
+                .id_salt("compare_key_diff_table")
+                .striped(true)
+                .resizable(true)
+                .auto_shrink([false, false])
+                .cell_layout(egui::Layout::left_to_right(egui::Align::Center));
+            for column in 0..rows.col_count() {
+                let width = rows.header(column).chars().count().clamp(15, 31) as f32 * 8.0;
+                table = table.column(Column::initial(width).at_least(64.0).clip(true));
+            }
+            table
+                .header(height, |mut header| {
+                    for c in 0..rows.col_count() {
+                        header.col(|ui| {
+                            result_label(ui, rows.header(c), colors.text_secondary, true);
+                        });
+                    }
+                })
+                .body(|body| {
+                    body.rows(height, rows.row_count(), |mut slot| {
+                        let Some(row) = rows.row(slot.index()) else {
+                            return;
+                        };
+                        for c in 0..rows.col_count() {
+                            slot.col(|ui| {
+                                let text = row.text(c);
+                                let color = match (c, row.status()) {
+                                    (0, "only_in_a" | "changed_a") => colors.warning,
+                                    (0, "only_in_b" | "changed_b") => colors.accent,
+                                    _ => colors.text_primary,
+                                };
+                                result_label(ui, &text, color, c == 0);
+                            });
+                        }
+                    });
+                })
+        })
+        .inner
+}
+
+fn result_label(ui: &mut egui::Ui, text: &str, color: egui::Color32, strong: bool) {
+    // A newline would make a Label taller than a virtual row. Keep the
+    // unmodified value for the tooltip and clipboard instead of the preview.
+    let preview = if text.contains(['\t', '\r', '\n']) {
+        std::borrow::Cow::Owned(text.replace(['\t', '\r', '\n'], " "))
+    } else {
+        std::borrow::Cow::Borrowed(text)
+    };
+    let mut label = RichText::new(preview.as_ref()).color(color);
+    if strong {
+        label = label.strong();
     }
+    ui.add(egui::Label::new(label).truncate().selectable(false))
+        .on_hover_ui(|ui| {
+            ui.label(text);
+        });
 }
 
 #[cfg(test)]

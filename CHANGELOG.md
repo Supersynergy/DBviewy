@@ -75,6 +75,8 @@
 - Compare paired measurements with CORREL, SLOPE and sample or population
   covariance. Pick X and Y in Formula examples; missing values never shift the
   remaining pairs out of alignment.
+- Review the full ordered or keyed comparison with pinned column headers.
+  Keyed results keep values under the right headings when columns move.
 - Keep zero-padded identifiers such as `0007` as text when opening CSV or
   TSV and converting them to XLSX or Parquet.
 - Check imported text with LEN, EXACT and FIND. SEARCH (SUCHEN) finds text

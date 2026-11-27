@@ -244,7 +244,8 @@ impl OctaApp {
                 let result =
                     octa::data::compare::compare_join(&left, &right, &key_names, &options)?;
                 Ok(CompareOutcome {
-                    table: octa::data::compare::build_compare_table(&left, &right, &result),
+                    table: crate::compare_output::CompareOutput::new(&left, &right, &result, true)
+                        .to_table(),
                     capped,
                     db_label,
                     within_tolerance: result.within_tolerance,

@@ -2,6 +2,7 @@
 
 mod app;
 mod cli;
+mod compare_output;
 #[cfg(target_os = "macos")]
 mod macos_documents;
 mod mcp;

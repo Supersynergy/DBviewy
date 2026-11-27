@@ -93,3 +93,52 @@ fn cli_three_way_merge_keeps_independent_edits_after_a_composite_key_reorder() {
         preserved
     );
 }
+
+#[test]
+fn keyed_cli_projects_reordered_right_columns_but_ordered_keeps_positions() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = dir.path().join("a.csv");
+    let b = dir.path().join("b.csv");
+    std::fs::write(&a, "ID,Qty,Note\nid1,4,old\n").unwrap();
+    std::fs::write(&b, "Qty,ID\n8,id1\n9,new\n").unwrap();
+    for (mode, want) in [
+        (
+            "join",
+            [
+                ["only_in_b", "", "new", "9", ""],
+                ["changed_b", "Qty", "id1", "8", ""],
+            ],
+        ),
+        (
+            "ordered",
+            [
+                ["only_in_b", "", "9", "new", ""],
+                ["changed_b", "ID, Qty", "8", "id1", ""],
+            ],
+        ),
+    ] {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_octa"));
+        cmd.arg("--diff")
+            .arg(&a)
+            .arg(&b)
+            .args(["--diff-mode", mode, "-f", "csv"]);
+        if mode == "join" {
+            cmd.args(["--diff-on", "ID"]);
+        }
+        let out = cmd.output().unwrap();
+        assert!(
+            out.status.success(),
+            "{mode}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let mut rows = csv::Reader::from_reader(out.stdout.as_slice());
+        assert_eq!(
+            rows.headers().unwrap().iter().collect::<Vec<_>>(),
+            ["status", "changed_columns", "ID", "Qty", "Note"]
+        );
+        let actual = rows.records().collect::<Result<Vec<_>, _>>().unwrap();
+        assert_eq!(actual.len(), 3);
+        assert_eq!(actual[0].iter().collect::<Vec<_>>(), want[0]);
+        assert_eq!(actual[2].iter().collect::<Vec<_>>(), want[1]);
+    }
+}
