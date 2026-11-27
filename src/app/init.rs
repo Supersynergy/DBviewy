@@ -331,6 +331,7 @@ impl OctaApp {
             pending_editors: Vec::new(),
             calculated_column_dialog: None,
             classify_dialog: None,
+            value_fill: None,
             fill_series_dialog: None,
             command_search: None,
             cohort_dialog: None,

@@ -223,6 +223,8 @@ find_command = "Pronađi naredbu..."
 find_command_hint = "Pretraži bilo koju naredbu po imenu i pokreni je, i one koje nemaju stavku u izborniku."
 
 [edit_menu]
+fill_value = "Ispuni odabir vrijednošću..."
+fill_value_hint = "Upiši jednu vrijednost u odabrane vidljive ćelije. Jedno poništavanje vraća promjene."
 move_row_drag_hint = "Povuci broj retka iznad ili ispod drugog retka. Desnim klikom možeš ga pomaknuti gore ili dolje."
 filter_to_marked = "Filtriraj na označeno"
 filter_to_marked_clear = "Ukloni filtar na označeno"
@@ -4894,6 +4896,11 @@ billed_warning = "Svako čitanje iz {engine} se naplaćuje. BigQuery i Athena na
 follow_stopped_edits = "Praćenje je stalo. Datoteka je zamijenjena, a ova kartica ima nespremljene izmjene koje bi ponovno učitavanje izgubilo."
 
 [fill]
+value_input_hint = "Unesi vrijednost. Prazno polje ne briše ćelije."
+value_bad_type = "Stupac {column} ({type}) ne prihvaća ovu vrijednost."
+value_large = "Vrijednost ili odabir je prevelik."
+value_stale = "Cilj se promijenio. Ponovno otvori dijalog."
+value_will_change = "Ćelije koje će se promijeniti: {count}"
 title = "Ispuni niz"
 kind = "Ispuni s"
 kind_hint = "Čime se ćelije ispunjavaju. DBviewy je to pogodio iz prvih odabranih ćelija."

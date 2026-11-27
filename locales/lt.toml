@@ -223,6 +223,8 @@ find_command = "Rasti komandą..."
 find_command_hint = "Ieškok bet kurios komandos pagal pavadinimą ir paleisk ją, net ir tų, kurių nėra meniu."
 
 [edit_menu]
+fill_value = "Užpildyti pasirinkimą reikšme..."
+fill_value_hint = "Įrašyk vieną reikšmę į matomus pasirinktus langelius. Pildymą galima atšaukti vienu veiksmu."
 move_row_drag_hint = "Nuvilk eilutės numerį virš kitos eilutės arba po ja. Dešiniuoju pelės mygtuku gali perkelti eilutę aukštyn arba žemyn."
 filter_to_marked = "Filtruoti iki pažymėtų"
 filter_to_marked_clear = "Išvalyti filtrą iki pažymėtų"
@@ -4894,6 +4896,11 @@ billed_warning = "Kiekvienas {engine} skaitymas apmokestinamas. BigQuery ir Athe
 follow_stopped_edits = "Sekimas sustojo. Failas buvo pakeistas, o šioje kortelėje yra neišsaugotų pakeitimų, kuriuos prarastų perkrovimas."
 
 [fill]
+value_input_hint = "Įvesk reikšmę. Tuščias laukas langelių neišvalo."
+value_bad_type = "Stulpelis {column} ({type}) nepriima šios reikšmės."
+value_large = "Reikšmė arba pasirinkimas per dideli."
+value_stale = "Paskirtis pasikeitė. Atverk dialogą iš naujo."
+value_will_change = "Keičiami langeliai: {count}"
 title = "Užpildyti seką"
 kind = "Pildyti"
 kind_hint = "Kuo užpildomi langeliai. DBviewy tai atspėjo iš pirmų pažymėtų langelių."

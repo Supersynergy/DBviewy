@@ -216,6 +216,8 @@ find_command = "コマンドを探す..."
 find_command_hint = "どのコマンドでも名前で探して実行できる。メニューにないコマンドも含む。"
 
 [edit_menu]
+fill_value = "選択範囲を同じ値で埋める..."
+fill_value_hint = "選択範囲の表示セルに同じ値を入れます。1回の取り消しで元に戻せます。"
 move_row_drag_hint = "行番号を別の行の上か下にドラッグします。右クリックでも上下に移動できます。"
 filter_to_marked = "マークした部分に絞り込む"
 filter_to_marked_clear = "マークによる絞り込みを解除"
@@ -4885,6 +4887,11 @@ billed_warning = "{engine}は読み込むたびに課金されます。BigQuery�
 follow_stopped_edits = "追跡を止めました。ファイルが置き換えられ、このタブには再読み込みで失われる未保存の編集があります。"
 
 [fill]
+value_input_hint = "値を入力してください。空欄のままではセルは消去されません。"
+value_bad_type = "列 {column} ({type}) にはこの値を入力できません。"
+value_large = "値または選択範囲が大きすぎます。"
+value_stale = "対象が変わりました。ダイアログを開き直してください。"
+value_will_change = "変更されるセル: {count}"
 title = "連続データを入力"
 kind = "入力する内容"
 kind_hint = "セルを何で埋めるか。DBviewy が最初に選んだセルから推測した。"

@@ -216,6 +216,8 @@ find_command = "Cerca una ordre..."
 find_command_hint = "Cerca qualsevol ordre pel nom i executa-la, també les que no tenen entrada al menú."
 
 [edit_menu]
+fill_value = "Omple la selecció amb un valor..."
+fill_value_hint = "Posa un valor a les cel·les visibles seleccionades. Una acció de desfer ho reverteix."
 move_row_drag_hint = "Arrossega el número de fila i deixa'l anar sobre o sota una altra fila. Amb el botó dret també la pots pujar o baixar."
 filter_to_marked = "Filtra pel que està marcat"
 filter_to_marked_clear = "Treu el filtre pel que està marcat"
@@ -4816,6 +4818,11 @@ billed_warning = "Cada lectura de {engine} es factura. BigQuery i Athena facture
 follow_stopped_edits = "S'ha deixat de seguir. El fitxer s'ha substituït i aquesta pestanya té canvis sense desar que una recàrrega perdria."
 
 [fill]
+value_input_hint = "Introdueix un valor. Un camp buit no esborra cel·les."
+value_bad_type = "La columna {column} ({type}) no admet aquest valor."
+value_large = "El valor o la selecció és massa gran."
+value_stale = "La destinació ha canviat. Torna a obrir el diàleg."
+value_will_change = "Cel·les que canviaran: {count}"
 title = "Omple una sèrie"
 kind = "Omple amb"
 kind_hint = "Amb què s'omplen les cel·les. L'DBviewy ho ha endevinat a partir de les primeres cel·les seleccionades."

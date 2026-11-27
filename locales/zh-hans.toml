@@ -216,6 +216,8 @@ find_command = "查找命令..."
 find_command_hint = "按名称搜索任意命令并运行，包括没有菜单项的命令。"
 
 [edit_menu]
+fill_value = "用同一个值填充所选单元格..."
+fill_value_hint = "将一个值填入所选的可见单元格。一次撤销即可还原。"
 move_row_drag_hint = "将行号拖到另一行的上方或下方，也可右键单击来上移或下移。"
 filter_to_marked = "筛选到已标记项"
 filter_to_marked_clear = "清除标记筛选"
@@ -4885,6 +4887,11 @@ billed_warning = "每次读取 {engine} 都会计费。BigQuery 和 Athena 按�
 follow_stopped_edits = "已停止跟随。文件被替换了，而此标签页有未保存的编辑，重新加载会丢失它们。"
 
 [fill]
+value_input_hint = "请输入一个值。留空不会清除单元格。"
+value_bad_type = "列 {column} ({type}) 不接受此值。"
+value_large = "值或选区过大。"
+value_stale = "目标已更改。请重新打开对话框。"
+value_will_change = "将修改的单元格：{count}"
 title = "填充序列"
 kind = "填充内容"
 kind_hint = "用什么填充单元格。DBviewy 根据最先选中的几个单元格猜出来的。"

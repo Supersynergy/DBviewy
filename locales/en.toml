@@ -223,6 +223,8 @@ find_command = "Find a command..."
 find_command_hint = "Search every command by name and run it, also the ones that have no menu entry."
 
 [edit_menu]
+fill_value = "Fill selection with value..."
+fill_value_hint = "Put one value into the visible selected cells. One undo reverses the fill."
 move_row_drag_hint = "Drag the row number. Drop above or below another row, or right-click to move up or down."
 filter_to_marked = "Filter to marked"
 filter_to_marked_clear = "Clear filter to marked"
@@ -4893,6 +4895,11 @@ billed_warning = "Every read of {engine} is billed. BigQuery and Athena bill the
 follow_stopped_edits = "Stopped following. The file was replaced, and this tab has unsaved edits that a reload would lose."
 
 [fill]
+value_input_hint = "Enter a value. An empty field does not clear cells."
+value_bad_type = "Column {column} ({type}) does not accept this value."
+value_large = "The value or selection is too large."
+value_stale = "The target changed. Reopen the dialog."
+value_will_change = "Cells that will change: {count}"
 title = "Fill series"
 kind = "Fill with"
 kind_hint = "What the cells are filled with. DBviewy guessed it from the first selected cells."

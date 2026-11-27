@@ -216,6 +216,8 @@ find_command = "Befehl suchen..."
 find_command_hint = "Such jeden Befehl nach Namen und führ ihn aus, auch die ohne Menüeintrag."
 
 [edit_menu]
+fill_value = "Auswahl mit Wert füllen..."
+fill_value_hint = "Trägt einen Wert in die sichtbaren ausgewählten Zellen ein. Ein Rückgängig-Schritt reicht."
 move_row_drag_hint = "Ziehe die Zeilennummer über oder unter eine andere Zeile. Per Rechtsklick kannst du sie auch nach oben oder unten verschieben."
 filter_to_marked = "Auf Markierte filtern"
 filter_to_marked_clear = "Filter auf Markierte aufheben"
@@ -4897,6 +4899,11 @@ billed_warning = "Jedes Lesen von {engine} kostet Geld. BigQuery und Athena rech
 follow_stopped_edits = "Das Verfolgen wurde beendet. Die Datei wurde ersetzt, und dieser Tab hat ungespeicherte Änderungen, die ein Neuladen verlieren würde."
 
 [fill]
+value_input_hint = "Gib einen Wert ein. Ein leeres Feld löscht keine Zellen."
+value_bad_type = "Die Spalte {column} ({type}) akzeptiert diesen Wert nicht."
+value_large = "Der Wert oder die Auswahl ist zu groß."
+value_stale = "Das Ziel hat sich geändert. Öffne den Dialog erneut."
+value_will_change = "Zellen, die sich ändern: {count}"
 title = "Reihe ausfüllen"
 kind = "Füllen mit"
 kind_hint = "Womit die Zellen gefüllt werden. DBviewy hat es aus den ersten markierten Zellen geraten."

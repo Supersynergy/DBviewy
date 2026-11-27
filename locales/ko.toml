@@ -216,6 +216,8 @@ find_command = "명령 찾기..."
 find_command_hint = "이름으로 어떤 명령이든 찾아 실행해. 메뉴에 없는 명령도 돼."
 
 [edit_menu]
+fill_value = "선택 영역을 값으로 채우기..."
+fill_value_hint = "선택한 표시 셀에 같은 값을 넣습니다. 한 번 실행 취소하면 되돌릴 수 있습니다."
 move_row_drag_hint = "행 번호를 다른 행 위나 아래로 끌어 놓으세요. 오른쪽 클릭으로도 위아래로 옮길 수 있습니다."
 filter_to_marked = "표시한 항목만 보기"
 filter_to_marked_clear = "표시 항목 필터 해제"
@@ -4885,6 +4887,11 @@ billed_warning = "{engine}은 읽을 때마다 요금이 부과돼요. BigQuery�
 follow_stopped_edits = "따라가기를 멈췄어요. 파일이 교체됐고, 이 탭에는 다시 불러오면 사라질 저장하지 않은 편집이 있어요."
 
 [fill]
+value_input_hint = "값을 입력하세요. 빈 입력란은 셀을 지우지 않습니다."
+value_bad_type = "열 {column} ({type})에는 이 값을 넣을 수 없습니다."
+value_large = "값이나 선택 영역이 너무 큽니다."
+value_stale = "대상이 바뀌었습니다. 대화 상자를 다시 여세요."
+value_will_change = "변경될 셀: {count}개"
 title = "연속 데이터 채우기"
 kind = "채울 내용"
 kind_hint = "셀을 무엇으로 채울지. Octa가 처음 선택한 셀을 보고 짐작했어."

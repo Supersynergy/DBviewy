@@ -267,6 +267,7 @@ impl OctaApp {
                 })
             }),
             SA::FilterToCellValue => self.selected_cell_filter().err().map(t),
+            SA::FillSelectedValue => self.fill_value_unavailable(),
             SA::SaveDbSql | SA::RunSqlOnServer => need_db(),
             SA::ToggleFollow
             | SA::OpenFileVersions

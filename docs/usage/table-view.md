@@ -342,6 +342,27 @@ filter, value frequency, number format). The full list is on the
 On a cell that holds raw bytes, **View contents...** shows what is inside:
 see [Binary cells](binary-cells.md).
 
+## Fill a selection with one value
+
+Select cells or column headers and choose **Edit > Fill selection with
+value...**. The same action is available in **Find a command**. This
+works with scattered cells, including the result of **Select blank
+cells**. A filter or hidden column does not add targets, and selecting
+row headers alone does not authorise writing into whole rows.
+
+The preview shows the selected scope, the number of cells that will
+change and up to three before/after examples. Enter a literal value.
+It must fit all selected column types; a bad value prevents the entire
+fill. For example, `001` stays `001` in a text column, and a date like
+`2024-02-29` stays a date in a date column. A blank input does not clear
+cells. Unlike a cell edit, this command does not evaluate formulas.
+
+Choose **Fill** to apply. Nothing changes if you cancel or if the
+selection, values or permissions changed since opening the preview.
+One undo restores all changed cells. Write-back to a database still
+requires a separate Save. The preview is limited to 50,000 cells and
+a bounded input and snapshot size.
+
 ## Selection stats
 
 Selecting more than one cell adds a pill to the right side of the

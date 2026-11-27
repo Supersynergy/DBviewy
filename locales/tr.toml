@@ -216,6 +216,8 @@ find_command = "Komut bul..."
 find_command_hint = "Herhangi bir komutu adıyla ara ve çalıştır, menüde yeri olmayanları da."
 
 [edit_menu]
+fill_value = "Seçimi değerle doldur..."
+fill_value_hint = "Görünen seçili hücrelere tek bir değer yaz. Tek bir geri alma işlemi doldurmayı geri çevirir."
 move_row_drag_hint = "Satır numarasını başka bir satırın üstüne veya altına sürükle. Sağ tıklayarak satırı yukarı veya aşağı taşıyabilirsin."
 filter_to_marked = "İşaretlenenlere filtrele"
 filter_to_marked_clear = "İşaretlenen filtresini temizle"
@@ -4897,6 +4899,11 @@ billed_warning = "{engine} üzerindeki her okuma ücretlendirilir. BigQuery ve A
 follow_stopped_edits = "İzleme durdu. Dosya değiştirildi ve bu sekmede yeniden yüklemenin kaybedeceği kaydedilmemiş değişiklikler var."
 
 [fill]
+value_input_hint = "Bir değer gir. Boş alan hücreleri temizlemez."
+value_bad_type = "{column} ({type}) sütunu bu değeri kabul etmiyor."
+value_large = "Değer veya seçim çok büyük."
+value_stale = "Hedef değişti. İletişim kutusunu yeniden aç."
+value_will_change = "Değişecek hücreler: {count}"
 title = "Seri doldur"
 kind = "Doldurma türü"
 kind_hint = "Hücrelerin neyle doldurulacağı. DBviewy bunu ilk seçili hücrelerden tahmin etti."

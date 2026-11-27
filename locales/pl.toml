@@ -216,6 +216,8 @@ find_command = "Znajdź polecenie..."
 find_command_hint = "Wyszukaj dowolne polecenie po nazwie i uruchom je, także te bez pozycji w menu."
 
 [edit_menu]
+fill_value = "Wypełnij zaznaczenie wartością..."
+fill_value_hint = "Wstaw jedną wartość do widocznych zaznaczonych komórek. Jedno cofnięcie odwróci wypełnienie."
 move_row_drag_hint = "Przeciągnij numer wiersza nad inny wiersz lub pod niego. Kliknij prawym przyciskiem, aby przesunąć wiersz w górę lub w dół."
 filter_to_marked = "Filtruj do oznaczonych"
 filter_to_marked_clear = "Wyczyść filtr do oznaczonych"
@@ -4897,6 +4899,11 @@ billed_warning = "Każdy odczyt z {engine} jest płatny. BigQuery i Athena nalic
 follow_stopped_edits = "Śledzenie zatrzymane. Plik został zastąpiony, a ta karta ma niezapisane zmiany, które utraciłoby ponowne wczytanie."
 
 [fill]
+value_input_hint = "Wpisz wartość. Puste pole nie czyści komórek."
+value_bad_type = "Kolumna {column} ({type}) nie przyjmuje tej wartości."
+value_large = "Wartość lub zaznaczenie jest za duże."
+value_stale = "Cel się zmienił. Otwórz okno ponownie."
+value_will_change = "Komórki do zmiany: {count}"
 title = "Wypełnij serią"
 kind = "Rodzaj wypełnienia"
 kind_hint = "Czym zostaną wypełnione komórki. DBviewy zgadł to z pierwszych zaznaczonych komórek."

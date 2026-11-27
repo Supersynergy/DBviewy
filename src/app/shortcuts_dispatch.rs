@@ -34,7 +34,7 @@ impl OctaApp {
         {
             return;
         }
-        if self.replace_review.is_some() {
+        if self.replace_review.is_some() || self.value_fill.is_some() {
             return;
         }
         let tab = &self.tabs[self.active_tab];
@@ -55,6 +55,15 @@ impl OctaApp {
         }
         let shortcuts = self.settings.shortcuts.clone();
         let action_fired = |a: SA| ctx.input(|i| shortcuts.triggered(a, i));
+
+        if action_fired(SA::FillSelectedValue)
+            && (!ctx.egui_wants_keyboard_input() || octa::ui::shortcuts::command_firing())
+        {
+            self.open_value_fill(ctx);
+            if self.value_fill.is_some() {
+                return;
+            }
+        }
 
         // A remapped Copy / Cut binding becomes the event egui itself listens
         // for, before any panel renders. The winit layer only turns the

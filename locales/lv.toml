@@ -223,6 +223,8 @@ find_command = "Atrast komandu..."
 find_command_hint = "Meklē jebkuru komandu pēc nosaukuma un palaid to, arī tās, kurām nav izvēlnes vienuma."
 
 [edit_menu]
+fill_value = "Aizpildīt atlasi ar vērtību..."
+fill_value_hint = "Ieraksti vienu vērtību redzamajās atlasītajās šūnās. Aizpildi var atsaukt ar vienu darbību."
 move_row_drag_hint = "Velc rindas numuru virs citas rindas vai zem tās. Ar labo klikšķi rindu var pārvietot uz augšu vai leju."
 filter_to_marked = "Filtrēt līdz iezīmētajiem"
 filter_to_marked_clear = "Notīrīt filtru līdz iezīmētajiem"
@@ -4894,6 +4896,11 @@ billed_warning = "Katrs {engine} lasījums tiek apmaksāts. BigQuery un Athena r
 follow_stopped_edits = "Sekošana beidzās. Fails tika aizvietots, un šajā cilnē ir nesaglabātas izmaiņas, ko pārlāde zaudētu."
 
 [fill]
+value_input_hint = "Ievadi vērtību. Tukšs lauks šūnas neiztīra."
+value_bad_type = "Kolonna {column} ({type}) nepieņem šo vērtību."
+value_large = "Vērtība vai atlase ir pārāk liela."
+value_stale = "Mērķis ir mainījies. Atver dialogu vēlreiz."
+value_will_change = "Šūnas, kas mainīsies: {count}"
 title = "Aizpildīt virkni"
 kind = "Aizpildīt ar"
 kind_hint = "Ar ko šūnas tiek aizpildītas. DBviewy to uzminēja pēc pirmajām atlasītajām šūnām."

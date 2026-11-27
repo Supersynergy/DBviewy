@@ -227,6 +227,8 @@ find_command = "Găsește o comandă..."
 find_command_hint = "Caută orice comandă după nume și rulează-o, inclusiv pe cele fără intrare în meniu."
 
 [edit_menu]
+fill_value = "Umple selecția cu o valoare..."
+fill_value_hint = "Pune o valoare în celulele vizibile selectate. O singură anulare revine la valorile anterioare."
 move_row_drag_hint = "Trage numărul rândului deasupra sau dedesubtul altui rând. Cu clic dreapta îl poți muta în sus sau în jos."
 filter_to_marked = "Filtrează la ce este marcat"
 filter_to_marked_clear = "Elimină filtrul la ce este marcat"
@@ -4899,6 +4901,11 @@ billed_warning = "Fiecare citire din {engine} se taxează. BigQuery și Athena t
 follow_stopped_edits = "Urmărirea s-a oprit. Fișierul a fost înlocuit, iar această filă are modificări nesalvate pe care o reîncărcare le-ar pierde."
 
 [fill]
+value_input_hint = "Introdu o valoare. Un câmp gol nu șterge celulele."
+value_bad_type = "Coloana {column} ({type}) nu acceptă această valoare."
+value_large = "Valoarea sau selecția este prea mare."
+value_stale = "Destinația s-a schimbat. Redeschide dialogul."
+value_will_change = "Celule care se vor schimba: {count}"
 title = "Umple o serie"
 kind = "Umple cu"
 kind_hint = "Cu ce se umplu celulele. DBviewy a ghicit din primele celule selectate."

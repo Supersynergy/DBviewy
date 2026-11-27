@@ -34,6 +34,7 @@ pub(crate) mod edit_ops;
 pub(crate) mod enrich;
 pub(crate) mod file_io;
 mod fill_down;
+mod fill_value;
 pub(crate) mod find_replace;
 mod replace_review;
 pub(crate) mod flag_guard;

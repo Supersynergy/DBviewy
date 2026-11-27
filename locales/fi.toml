@@ -216,6 +216,8 @@ find_command = "Etsi komento..."
 find_command_hint = "Etsi mikä tahansa komento nimellä ja suorita se, myös ne, joilla ei ole valikkokohtaa."
 
 [edit_menu]
+fill_value = "Täytä valinta arvolla..."
+fill_value_hint = "Lisää yksi arvo näkyviin valittuihin soluihin. Yksi kumoaminen peruu täytön."
 move_row_drag_hint = "Vedä rivinumero toisen rivin ylä- tai alapuolelle. Voit myös siirtää riviä hiiren kakkospainikkeella."
 filter_to_marked = "Suodata merkittyihin"
 filter_to_marked_clear = "Poista merkittyihin suodatus"
@@ -4897,6 +4899,11 @@ billed_warning = "Jokainen {engine}-lukeminen laskutetaan. BigQuery ja Athena la
 follow_stopped_edits = "Seuranta päättyi. Tiedosto korvattiin, ja tällä välilehdellä on tallentamattomia muutoksia, jotka uudelleenlataus menettäisi."
 
 [fill]
+value_input_hint = "Anna arvo. Tyhjä kenttä ei tyhjennä soluja."
+value_bad_type = "Sarake {column} ({type}) ei hyväksy tätä arvoa."
+value_large = "Arvo tai valinta on liian suuri."
+value_stale = "Kohde muuttui. Avaa valintaikkuna uudelleen."
+value_will_change = "Muuttuvat solut: {count}"
 title = "Täytä sarja"
 kind = "Täytä"
 kind_hint = "Millä solut täytetään. DBviewy arvasi sen ensimmäisistä valituista soluista."

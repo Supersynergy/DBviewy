@@ -216,6 +216,8 @@ find_command = "Find en kommando..."
 find_command_hint = "Søg efter enhver kommando ved navn og kør den, også dem uden et menupunkt."
 
 [edit_menu]
+fill_value = "Udfyld markering med værdi..."
+fill_value_hint = "Udfyld de synlige markerede celler med én værdi. Ét fortryd ruller ændringen tilbage."
 move_row_drag_hint = "Træk rækkenummeret over eller under en anden række. Højreklik for at flytte rækken op eller ned."
 filter_to_marked = "Filtrér til markerede"
 filter_to_marked_clear = "Ryd filteret til markerede"
@@ -4897,6 +4899,11 @@ billed_warning = "Hver læsning af {engine} faktureres. BigQuery og Athena faktu
 follow_stopped_edits = "Holdt op med at følge. Filen blev erstattet, og denne fane har ugemte ændringer, som en genindlæsning ville miste."
 
 [fill]
+value_input_hint = "Indtast en værdi. Et tomt felt rydder ikke celler."
+value_bad_type = "Kolonnen {column} ({type}) kan ikke bruge denne værdi."
+value_large = "Værdien eller markeringen er for stor."
+value_stale = "Målet er ændret. Åbn dialogen igen."
+value_will_change = "Celler, der ændres: {count}"
 title = "Udfyld serie"
 kind = "Udfyld med"
 kind_hint = "Hvad cellerne udfyldes med. DBviewy har gættet det ud fra de første valgte celler."

@@ -216,6 +216,8 @@ find_command = "Encontrar um comando..."
 find_command_hint = "Procure qualquer comando pelo nome e execute, inclusive os que não têm entrada no menu."
 
 [edit_menu]
+fill_value = "Preencher seleção com valor..."
+fill_value_hint = "Insira um valor nas células visíveis selecionadas. Uma ação de desfazer reverte o preenchimento."
 move_row_drag_hint = "Arrasta o número da linha para cima ou para baixo de outra linha. Também podes movê-la com o botão direito."
 filter_to_marked = "Filtrar pelo que está marcado"
 filter_to_marked_clear = "Limpar o filtro pelo que está marcado"
@@ -4816,6 +4818,11 @@ billed_warning = "Cada leitura de {engine} é cobrada. BigQuery e Athena cobram 
 follow_stopped_edits = "O acompanhamento parou. O arquivo foi substituído, e esta aba tem alterações não salvas que um recarregamento perderia."
 
 [fill]
+value_input_hint = "Digite um valor. Um campo vazio não apaga as células."
+value_bad_type = "A coluna {column} ({type}) não aceita este valor."
+value_large = "O valor ou a seleção é grande demais."
+value_stale = "O destino mudou. Abra a caixa de diálogo novamente."
+value_will_change = "Células que serão alteradas: {count}"
 title = "Preencher série"
 kind = "Preencher com"
 kind_hint = "Com o que as células são preenchidas. O DBviewy adivinhou a partir das primeiras células selecionadas."

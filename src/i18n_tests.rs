@@ -344,6 +344,7 @@ fn locales_do_not_carry_untranslated_english_sentences() {
 const OPENS_SOMETHING: &[&str] = &[
     "live.auto_refresh",           // the Auto-refresh dialog
     "edit_menu.fill_series",       // the Fill series dialog
+    "edit_menu.fill_value",        // the Fill selection dialog
     "help_menu.find_command",      // the Find a command box
     "analyse_menu.cohorts",        // the Cohorts dialog
     "analyse_menu.funnel",         // the Funnel dialog

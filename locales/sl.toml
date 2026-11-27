@@ -223,6 +223,8 @@ find_command = "Poišči ukaz..."
 find_command_hint = "Poišči kateri koli ukaz po imenu in ga zaženi, tudi tiste brez vnosa v meniju."
 
 [edit_menu]
+fill_value = "Zapolni izbor z vrednostjo..."
+fill_value_hint = "Vstavi eno vrednost v vidne izbrane celice. Zapolnitev razveljaviš z enim korakom."
 move_row_drag_hint = "Povleci številko vrstice nad ali pod drugo vrstico. Z desnim klikom jo lahko premakneš navzgor ali navzdol."
 filter_to_marked = "Filtriraj na označeno"
 filter_to_marked_clear = "Počisti filter na označeno"
@@ -4894,6 +4896,11 @@ billed_warning = "Vsako branje iz {engine} se zaračuna. BigQuery in Athena zara
 follow_stopped_edits = "Spremljanje se je ustavilo. Datoteka je bila zamenjana, ta zavihek pa ima neshranjene spremembe, ki bi jih ponovno nalaganje izgubilo."
 
 [fill]
+value_input_hint = "Vnesi vrednost. Prazno polje ne izbriše celic."
+value_bad_type = "Stolpec {column} ({type}) ne sprejme te vrednosti."
+value_large = "Vrednost ali izbor je prevelik."
+value_stale = "Cilj se je spremenil. Znova odpri pogovorno okno."
+value_will_change = "Celice, ki se bodo spremenile: {count}"
 title = "Zapolni niz"
 kind = "Zapolni z"
 kind_hint = "S čim se zapolnijo celice. DBviewy je to uganil iz prvih izbranih celic."

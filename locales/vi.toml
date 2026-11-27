@@ -227,6 +227,8 @@ find_command = "Tìm lệnh..."
 find_command_hint = "Tìm bất kỳ lệnh nào theo tên rồi chạy nó, kể cả những lệnh không có trong menu."
 
 [edit_menu]
+fill_value = "Điền một giá trị vào vùng chọn..."
+fill_value_hint = "Điền một giá trị vào các ô đã chọn đang hiển thị. Một lần hoàn tác sẽ khôi phục thay đổi."
 move_row_drag_hint = "Kéo số hàng lên trên hoặc xuống dưới hàng khác. Bạn cũng có thể nhấp chuột phải để chuyển hàng lên hoặc xuống."
 filter_to_marked = "Lọc theo mục đã đánh dấu"
 filter_to_marked_clear = "Xóa lọc theo mục đã đánh dấu"
@@ -4898,6 +4900,11 @@ billed_warning = "Mỗi lần đọc {engine} đều bị tính phí. BigQuery v
 follow_stopped_edits = "Đã ngừng theo dõi. Tệp đã bị thay thế, và tab này có thay đổi chưa lưu mà việc tải lại sẽ làm mất."
 
 [fill]
+value_input_hint = "Nhập một giá trị. Ô nhập trống không xóa dữ liệu."
+value_bad_type = "Cột {column} ({type}) không chấp nhận giá trị này."
+value_large = "Giá trị hoặc vùng chọn quá lớn."
+value_stale = "Đích đã thay đổi. Hãy mở lại hộp thoại."
+value_will_change = "Số ô sẽ thay đổi: {count}"
 title = "Điền chuỗi"
 kind = "Điền bằng"
 kind_hint = "Các ô được điền bằng gì. DBviewy đã đoán từ những ô đầu tiên được chọn."

@@ -415,6 +415,15 @@ Structural edits:
 - **Double-click a column header** to rename it inline.
 - **Right-click a column header** to change the column data type.
 
+## Fill a selection with one value
+
+Use **Edit > Fill selection with value...** to put the same input into
+visible selected cells, even if they are not next to each other.
+Check the target count and the before/after examples, then choose
+**Fill**. Invalid values and changes to the target block the operation.
+A blank input does not clear cells. One undo restores the previous
+values; **Cancel** leaves the data alone. Find the action with Ctrl+K.
+
 ## Fill with a series
 
 **Edit > Fill series...** (also on the cell right-click menu) fills the

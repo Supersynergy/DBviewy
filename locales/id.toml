@@ -227,6 +227,8 @@ find_command = "Cari perintah..."
 find_command_hint = "Cari perintah apa pun dari namanya lalu jalankan, termasuk yang tidak ada di menu."
 
 [edit_menu]
+fill_value = "Isi pilihan dengan nilai..."
+fill_value_hint = "Isi sel terlihat yang dipilih dengan satu nilai. Satu urungkan mengembalikan isian."
 move_row_drag_hint = "Seret nomor baris ke atas atau bawah baris lain. Klik kanan untuk memindahkan baris ke atas atau bawah."
 filter_to_marked = "Saring ke yang ditandai"
 filter_to_marked_clear = "Bersihkan saringan ke yang ditandai"
@@ -4899,6 +4901,11 @@ billed_warning = "Setiap pembacaan {engine} dikenai biaya. BigQuery dan Athena m
 follow_stopped_edits = "Pengikutan berhenti. File diganti, dan tab ini punya perubahan yang belum disimpan yang akan hilang jika dimuat ulang."
 
 [fill]
+value_input_hint = "Masukkan nilai. Kolom masukan kosong tidak menghapus sel."
+value_bad_type = "Kolom {column} ({type}) tidak menerima nilai ini."
+value_large = "Nilai atau pilihan terlalu besar."
+value_stale = "Target berubah. Buka kembali dialog."
+value_will_change = "Sel yang akan berubah: {count}"
 title = "Isi deret"
 kind = "Isi dengan"
 kind_hint = "Dengan apa sel diisi. DBviewy menebaknya dari sel pertama yang dipilih."

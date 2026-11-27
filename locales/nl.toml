@@ -216,6 +216,8 @@ find_command = "Opdracht zoeken..."
 find_command_hint = "Zoek elke opdracht op naam en voer hem uit, ook de opdrachten zonder menu-item."
 
 [edit_menu]
+fill_value = "Selectie vullen met waarde..."
+fill_value_hint = "Plaats één waarde in de zichtbare geselecteerde cellen. Met één keer ongedaan maken herstel je alles."
 move_row_drag_hint = "Sleep het rijnummer boven of onder een andere rij. Met een rechtsklik kun je de rij ook omhoog of omlaag verplaatsen."
 filter_to_marked = "Filteren op gemarkeerde"
 filter_to_marked_clear = "Filter op gemarkeerde wissen"
@@ -4897,6 +4899,11 @@ billed_warning = "Elke leesactie van {engine} wordt gefactureerd. BigQuery en At
 follow_stopped_edits = "Gestopt met volgen. Het bestand is vervangen en dit tabblad heeft niet-opgeslagen wijzigingen die een herlaadbeurt zou verliezen."
 
 [fill]
+value_input_hint = "Voer een waarde in. Een leeg veld wist de cellen niet."
+value_bad_type = "Kolom {column} ({type}) accepteert deze waarde niet."
+value_large = "De waarde of selectie is te groot."
+value_stale = "Het doel is gewijzigd. Open het dialoogvenster opnieuw."
+value_will_change = "Cellen die wijzigen: {count}"
 title = "Reeks invullen"
 kind = "Vullen met"
 kind_hint = "Waarmee de cellen gevuld worden. DBviewy heeft het geraden uit de eerste geselecteerde cellen."

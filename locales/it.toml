@@ -216,6 +216,8 @@ find_command = "Trova un comando..."
 find_command_hint = "Cerca qualsiasi comando per nome ed eseguilo, anche quelli senza voce di menu."
 
 [edit_menu]
+fill_value = "Riempi la selezione con un valore..."
+fill_value_hint = "Inserisci un valore nelle celle visibili selezionate. Un solo annullamento ripristina tutto."
 move_row_drag_hint = "Trascina il numero di riga sopra o sotto un'altra riga. Con il tasto destro puoi spostarla in alto o in basso."
 filter_to_marked = "Filtra sugli elementi contrassegnati"
 filter_to_marked_clear = "Rimuovi il filtro sugli elementi contrassegnati"
@@ -4897,6 +4899,11 @@ billed_warning = "Ogni lettura di {engine} è a pagamento. BigQuery e Athena fat
 follow_stopped_edits = "Seguito interrotto. Il file è stato sostituito e questa scheda ha modifiche non salvate che una ricarica perderebbe."
 
 [fill]
+value_input_hint = "Inserisci un valore. Un campo vuoto non svuota le celle."
+value_bad_type = "La colonna {column} ({type}) non accetta questo valore."
+value_large = "Il valore o la selezione è troppo grande."
+value_stale = "La destinazione è cambiata. Riapri la finestra."
+value_will_change = "Celle che cambieranno: {count}"
 title = "Riempi serie"
 kind = "Riempi con"
 kind_hint = "Con cosa vengono riempite le celle. DBviewy l'ha indovinato dalle prime celle selezionate."

@@ -123,6 +123,26 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 action.open_fill_series = true;
                 ui.close();
             }
+            let why_value = base.clone().or_else(|| {
+                if cx.current_view_mode != crate::data::ViewMode::Table {
+                    Some(t("greyed.need_table_view"))
+                } else if !selected_rows.is_empty()
+                    || (selected_cols.is_empty() && selected_cells.is_empty() && !has_selected_cell)
+                {
+                    Some(t("greyed.need_selection"))
+                } else {
+                    None
+                }
+            });
+            if entry(
+                ui,
+                "edit_menu.fill_value",
+                "edit_menu.fill_value_hint",
+                why_value,
+            ) {
+                action.open_fill_value = true;
+                ui.close();
+            }
             let why_down = base.clone().or_else(|| (cx.fill_down_block)().map(t));
             if entry(
                 ui,

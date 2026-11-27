@@ -223,6 +223,8 @@ find_command = "Nájsť príkaz..."
 find_command_hint = "Nájdi ľubovoľný príkaz podľa názvu a spusti ho, aj tie, ktoré nemajú položku v ponuke."
 
 [edit_menu]
+fill_value = "Vyplniť výber hodnotou..."
+fill_value_hint = "Vlož jednu hodnotu do viditeľných vybraných buniek. Vyplnenie vrátiš jedným krokom."
 move_row_drag_hint = "Potiahni číslo riadka nad alebo pod iný riadok. Pravým tlačidlom ho môžeš presunúť nahor alebo nadol."
 filter_to_marked = "Filtrovať na označené"
 filter_to_marked_clear = "Zrušiť filter na označené"
@@ -4894,6 +4896,11 @@ billed_warning = "Každé čítanie z {engine} sa účtuje. BigQuery a Athena ú
 follow_stopped_edits = "Sledovanie skončilo. Súbor bol nahradený a táto karta má neuložené zmeny, o ktoré by opätovné načítanie prišlo."
 
 [fill]
+value_input_hint = "Zadaj hodnotu. Prázdne pole nevymaže bunky."
+value_bad_type = "Stĺpec {column} ({type}) túto hodnotu neprijíma."
+value_large = "Hodnota alebo výber je príliš veľký."
+value_stale = "Cieľ sa zmenil. Otvor dialóg znova."
+value_will_change = "Bunky, ktoré sa zmenia: {count}"
 title = "Vyplniť rad"
 kind = "Čím vyplniť"
 kind_hint = "Čím sa bunky vyplnia. DBviewy to odhadol z prvých vybraných buniek."

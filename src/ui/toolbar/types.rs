@@ -472,6 +472,7 @@ pub struct ToolbarAction {
     pub open_classify: bool,
     /// **Edit -> Fill series...**.
     pub open_fill_series: bool,
+    pub open_fill_value: bool,
     pub fill_down: bool,
     pub fill_right: bool,
     /// Toggle "Filter to marked": keep only marked rows/columns/cells.

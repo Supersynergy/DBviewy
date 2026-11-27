@@ -216,6 +216,8 @@ find_command = "尋找指令..."
 find_command_hint = "依名稱搜尋任何指令並執行，包括沒有選單項目的指令。"
 
 [edit_menu]
+fill_value = "以相同值填滿所選儲存格..."
+fill_value_hint = "將同一個值填入選取的可見儲存格。一次復原即可還原。"
 move_row_drag_hint = "將行號拖到另一行的上方或下方，也可右鍵單擊來上移或下移。"
 filter_to_marked = "篩選到已標記項"
 filter_to_marked_clear = "清除標記篩選"
@@ -4816,6 +4818,11 @@ billed_warning = "每次讀取 {engine} 都會計費。BigQuery 和 Athena 依�
 follow_stopped_edits = "已停止追蹤。檔案被取代了，而此分頁有未儲存的編輯，重新載入會遺失它們。"
 
 [fill]
+value_input_hint = "請輸入值。留白不會清除儲存格。"
+value_bad_type = "欄 {column} ({type}) 不接受這個值。"
+value_large = "值或選取範圍過大。"
+value_stale = "目標已變更。請重新開啟對話方塊。"
+value_will_change = "將變更的儲存格：{count}"
 title = "填入數列"
 kind = "填入內容"
 kind_hint = "用什麼填入儲存格。DBviewy 根據最先選取的幾個儲存格猜出來的。"

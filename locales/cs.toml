@@ -227,6 +227,8 @@ find_command = "Najít příkaz..."
 find_command_hint = "Najdi libovolný příkaz podle názvu a spusť ho, i ty, které nemají položku v nabídce."
 
 [edit_menu]
+fill_value = "Vyplnit výběr hodnotou..."
+fill_value_hint = "Vyplní viditelné vybrané buňky jedinou hodnotou. Změnu vrátíš jedním krokem."
 move_row_drag_hint = "Přetáhni číslo řádku nad nebo pod jiný řádek. Pravým tlačítkem ho můžeš posunout nahoru nebo dolů."
 filter_to_marked = "Filtrovat na označené"
 filter_to_marked_clear = "Zrušit filtr na označené"
@@ -4898,6 +4900,11 @@ billed_warning = "Každé čtení z {engine} se účtuje. BigQuery a Athena úč
 follow_stopped_edits = "Sledování skončilo. Soubor byl nahrazen a tato karta má neuložené změny, o které by znovunačtení přišlo."
 
 [fill]
+value_input_hint = "Zadej hodnotu. Prázdný vstup buňky nesmaže."
+value_bad_type = "Sloupec {column} ({type}) tuto hodnotu nepřijímá."
+value_large = "Hodnota nebo výběr je příliš velký."
+value_stale = "Cíl se změnil. Otevři dialog znovu."
+value_will_change = "Buňky ke změně: {count}"
 title = "Vyplnit řadu"
 kind = "Čím vyplnit"
 kind_hint = "Čím se buňky vyplní. DBviewy to odhadl z prvních vybraných buněk."

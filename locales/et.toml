@@ -223,6 +223,8 @@ find_command = "Leia käsk..."
 find_command_hint = "Otsi mis tahes käsku nime järgi ja käivita see, ka need, millel menüükirjet pole."
 
 [edit_menu]
+fill_value = "Täida valik väärtusega..."
+fill_value_hint = "Täida nähtavad valitud lahtrid ühe väärtusega. Üks tagasivõtmine taastab algseisu."
 move_row_drag_hint = "Lohista rea number teise rea kohale või alla. Paremklõpsuga saad rida üles või alla nihutada."
 filter_to_marked = "Filtreeri märgitutele"
 filter_to_marked_clear = "Eemalda märgitute filter"
@@ -4894,6 +4896,11 @@ billed_warning = "Iga {engine} lugemine on tasuline. BigQuery ja Athena arveldav
 follow_stopped_edits = "Jälgimine lõppes. Fail asendati ja sellel vahekaardil on salvestamata muudatusi, mille uuesti laadimine kaotaks."
 
 [fill]
+value_input_hint = "Sisesta väärtus. Tühi väli ei tühjenda lahtreid."
+value_bad_type = "Veerg {column} ({type}) ei aktsepteeri seda väärtust."
+value_large = "Väärtus või valik on liiga suur."
+value_stale = "Siht muutus. Ava dialoog uuesti."
+value_will_change = "Muutuvad lahtrid: {count}"
 title = "Täida jada"
 kind = "Täida"
 kind_hint = "Millega lahtrid täidetakse. DBviewy arvas selle esimeste valitud lahtrite järgi."

@@ -227,6 +227,8 @@ find_command = "Parancs keresése..."
 find_command_hint = "Keress meg bármilyen parancsot a neve alapján, és futtasd, azokat is, amelyeknek nincs menüpontja."
 
 [edit_menu]
+fill_value = "Kijelölés kitöltése értékkel..."
+fill_value_hint = "Írj egy értéket a látható kijelölt cellákba. A kitöltés egy lépésben visszavonható."
 move_row_drag_hint = "Húzd a sorszámot egy másik sor fölé vagy alá. Jobb kattintással is feljebb vagy lejjebb viheted."
 filter_to_marked = "Szűrés a megjelöltekre"
 filter_to_marked_clear = "A megjelöltekre szűrés törlése"
@@ -4898,6 +4900,11 @@ billed_warning = "A(z) {engine} minden olvasása költséggel jár. A BigQuery �
 follow_stopped_edits = "A követés leállt. A fájlt kicserélték, és ezen a lapon mentetlen módosítások vannak, amelyeket egy újratöltés elveszítene."
 
 [fill]
+value_input_hint = "Adj meg értéket. Az üres mező nem törli a cellákat."
+value_bad_type = "A(z) {column} ({type}) oszlop nem fogadja el ezt az értéket."
+value_large = "Az érték vagy a kijelölés túl nagy."
+value_stale = "A cél megváltozott. Nyisd meg újra a párbeszédablakot."
+value_will_change = "Módosuló cellák: {count}"
 title = "Sorozat kitöltése"
 kind = "Kitöltés ezzel"
 kind_hint = "Mivel töltődnek ki a cellák. Az DBviewy az első kijelölt cellákból találta ki."

@@ -1258,6 +1258,7 @@ pub(crate) struct OctaApp {
     /// **Columns -> Classify with Jev...**, while it is up.
     pub(crate) classify_dialog: Option<crate::app::dialogs::classify::ClassifyState>,
     /// **Edit -> Fill series...**, while it is up.
+    pub(crate) value_fill: Option<super::fill_value::ValueFill>,
     pub(crate) fill_series_dialog: Option<crate::app::dialogs::fill_series::FillSeriesState>,
     /// **Analyse -> Cohorts...**, while it is up.
     pub(crate) cohort_dialog: Option<crate::app::dialogs::cohort::CohortState>,

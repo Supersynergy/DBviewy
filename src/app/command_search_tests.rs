@@ -876,3 +876,24 @@ fn keyboard_select_blanks_returns_focus_and_leaves_other_tabs_unchanged() {
         Some(t("greyed.need_table_view"))
     );
 }
+
+#[test]
+fn fill_selection_command_opens_the_review_and_is_disabled_in_readonly() {
+    let (mut app, ctx) = opened("");
+    app.tabs[0] = crate::app::db_view::tests::db_tab();
+    app.tabs[0].db_origin = None;
+    app.tabs[0].table_state.selected_cell = Some((0, 0));
+    app.recompute_filter();
+    let label = t("edit_menu.fill_value");
+    app.command_search.as_mut().unwrap().query = label.clone();
+    settle(&mut app, &ctx);
+    assert_eq!(app.command_rows(&label)[0].action, SA::FillSelectedValue);
+    app.readonly_mode = true;
+    assert!(app.command_unavailable(SA::FillSelectedValue).is_some());
+    app.readonly_mode = false;
+    step(&mut app, &ctx, key(egui::Key::Enter));
+    settle(&mut app, &ctx);
+    assert!(app.command_search.is_none());
+    assert!(app.value_fill.is_some());
+    assert!(app.tabs[0].table.edits.is_empty());
+}

@@ -217,6 +217,8 @@ store_updates = "Atualizações na Microsoft Store..."
 store_updates_hint = "Abre a página do DBviewy na Microsoft Store. Quando há uma versão mais recente, tens lá um botão Atualizar. A Store também atualiza o DBviewy sozinha, mas ao seu próprio ritmo."
 
 [edit_menu]
+fill_value = "Preencher seleção com valor..."
+fill_value_hint = "Insere um valor nas células visíveis selecionadas. Basta desfazer uma vez para reverter o preenchimento."
 hide_columns = "Hide selected columns"
 hide_columns_hint = "Hides the selected columns, or the column of the selected cell. The data stays and is saved with the file."
 hide_rows = "Hide selected rows"
@@ -4899,6 +4901,11 @@ billed_warning = "Every read of {engine} is billed. BigQuery and Athena bill the
 follow_stopped_edits = "Stopped following. The file was replaced, and this tab has unsaved edits that a reload would lose."
 
 [fill]
+value_input_hint = "Introduz um valor. Um campo vazio não apaga as células."
+value_bad_type = "A coluna {column} ({type}) não aceita este valor."
+value_large = "O valor ou a seleção é demasiado grande."
+value_stale = "O destino mudou. Volta a abrir a caixa de diálogo."
+value_will_change = "Células que vão mudar: {count}"
 title = "Fill series"
 kind = "Fill with"
 kind_hint = "What the cells are filled with. DBviewy guessed it from the first selected cells."

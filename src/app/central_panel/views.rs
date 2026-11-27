@@ -346,10 +346,11 @@ impl OctaApp {
             // The split view narrows them further, per pane.
             handles_input: self.pending_table_picker.is_none()
                 && self.replace_review.is_none()
+                && self.value_fill.is_none()
                 && self.image_import.is_none()
                 && self.image_viewer.is_none()
                 && self.tile_drawing.is_none_or(|t| t.focused),
-            takes_wheel: self.tile_drawing.is_none_or(|t| t.hovered),
+            takes_wheel: self.value_fill.is_none() && self.tile_drawing.is_none_or(|t| t.hovered),
         };
         // Split view draws the same table once per pane, so it reports
         // one interaction per band; everything else reports exactly one.

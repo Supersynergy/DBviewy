@@ -613,6 +613,7 @@ pub enum ShortcutAction {
     FillRight,
     /// Edit -> Fill series...
     FillSeries,
+    FillSelectedValue,
     /// Search -> Find a command... (Ctrl+K)
     FindCommand,
     /// Analyse -> Cohorts...
@@ -883,6 +884,7 @@ impl ShortcutAction {
             Self::FillDown => "Fill down values",
             Self::FillRight => "Fill right values",
             Self::FillSeries => "Fill series...",
+            Self::FillSelectedValue => "Fill selection with value...",
             Self::FindCommand => "Find a command...",
             Self::OpenCohorts => "Cohorts...",
             Self::OpenFunnel => "Funnel...",
@@ -1106,6 +1108,7 @@ impl ShortcutAction {
             | Self::FillDown
             | Self::FillRight
             | Self::FillSeries
+            | Self::FillSelectedValue
             | Self::OpenCohorts
             | Self::OpenFunnel
             | Self::OpenRfm => KeyCombo::UNBOUND,
@@ -1309,7 +1312,8 @@ impl ShortcutAction {
             | Self::CopyAsInsert
             | Self::FillDown
             | Self::FillRight
-            | Self::FillSeries => G::Editing,
+            | Self::FillSeries
+            | Self::FillSelectedValue => G::Editing,
             Self::OpenDocumentation
             | Self::OpenSettings
             | Self::ColumnValueFrequency
@@ -1577,6 +1581,7 @@ impl ShortcutAction {
             Self::FillDown => "edit_menu.fill_down",
             Self::FillRight => "edit_menu.fill_right",
             Self::FillSeries => "edit_menu.fill_series",
+            Self::FillSelectedValue => "edit_menu.fill_value",
             Self::FindCommand => "help_menu.find_command",
             Self::ToggleColumnNavigator => "view_menu.column_navigator",
             Self::ToggleEditAudit => "edit_menu.edit_audit",
@@ -1641,6 +1646,7 @@ impl ShortcutAction {
             | Self::FillDown
             | Self::FillRight
             | Self::FillSeries
+            | Self::FillSelectedValue
             | Self::ToggleEditAudit
             | Self::ToggleRecipePanel
             | Self::ApplyRecipe => "menu.edit",

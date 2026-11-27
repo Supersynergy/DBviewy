@@ -216,6 +216,8 @@ find_command = "Hitta ett kommando..."
 find_command_hint = "Sök efter vilket kommando som helst med namn och kör det, även de utan menyval."
 
 [edit_menu]
+fill_value = "Fyll markeringen med ett värde..."
+fill_value_hint = "Sätt ett värde i de synliga markerade cellerna. Fyllningen kan ångras i ett steg."
 move_row_drag_hint = "Dra radnumret över eller under en annan rad. Högerklicka för att flytta raden uppåt eller nedåt."
 filter_to_marked = "Filtrera till markerade"
 filter_to_marked_clear = "Rensa filtret till markerade"
@@ -4897,6 +4899,11 @@ billed_warning = "Varje läsning av {engine} debiteras. BigQuery och Athena debi
 follow_stopped_edits = "Slutade följa. Filen byttes ut, och den här fliken har osparade ändringar som en omladdning skulle förlora."
 
 [fill]
+value_input_hint = "Ange ett värde. Ett tomt fält tömmer inte cellerna."
+value_bad_type = "Kolumnen {column} ({type}) accepterar inte det här värdet."
+value_large = "Värdet eller markeringen är för stor."
+value_stale = "Målet har ändrats. Öppna dialogrutan igen."
+value_will_change = "Celler som ändras: {count}"
 title = "Fyll serie"
 kind = "Fyll med"
 kind_hint = "Vad cellerna fylls med. DBviewy har gissat det utifrån de första markerade cellerna."
