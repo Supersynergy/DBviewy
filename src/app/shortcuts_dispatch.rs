@@ -591,6 +591,9 @@ impl OctaApp {
             if action_fired(SA::OpenCalculatedColumn) {
                 self.open_calculated_column();
             }
+            if action_fired(SA::OpenFormulaExamples) {
+                self.open_formula_examples();
+            }
             if action_fired(SA::OpenBands) {
                 self.open_bands();
             }

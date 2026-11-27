@@ -415,3 +415,29 @@ fn fill_right_command_is_discoverable_and_keeps_reload_bound() {
     assert!(SA::FillRight.default_combo().key.is_none());
     assert_eq!(SA::ReloadFile.default_combo().key, Some(egui::Key::R));
 }
+
+#[test]
+fn formula_examples_command_opens_the_picker_without_writing_cells() {
+    let (mut app, ctx) = opened("formula examples");
+    let row = |app: &OctaApp| {
+        app.command_rows("formula examples")
+            .into_iter()
+            .find(|item| item.action == SA::OpenFormulaExamples)
+            .expect("examples action must be findable")
+    };
+    assert!(row(&app).why.is_some());
+    app.open_new_table_tab(2, 3);
+    assert!(row(&app).why.is_none());
+    app.readonly_mode = true;
+    assert!(row(&app).why.is_some());
+    app.readonly_mode = false;
+    settle(&mut app, &ctx);
+    step(&mut app, &ctx, key(egui::Key::Enter));
+    settle(&mut app, &ctx);
+    let tab = &app.tabs[app.active_tab];
+    assert!(tab.show_add_column_dialog);
+    assert!(tab.new_col_examples.is_some());
+    assert_eq!(tab.table.col_count(), 2);
+    assert!(tab.table.edits.is_empty());
+    assert!(tab.table.undo_stack.is_empty());
+}

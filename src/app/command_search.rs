@@ -133,6 +133,7 @@ impl OctaApp {
             | SA::OpenConditionalColumn
             | SA::OpenHashColumns
             | SA::OpenCalculatedColumn
+            | SA::OpenFormulaExamples
             | SA::OpenClassify
             | SA::OpenAnonymize
             | SA::OpenDedupe

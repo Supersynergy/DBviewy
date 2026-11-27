@@ -636,6 +636,12 @@ pub const FORMULAS: &str = r#"# Formulas
 
 Cells support simple Excel-like formulas starting with **=**.
 
+In Insert Column, open **Formula examples...** to start from a working
+formula. You can also open it from **Find a command**. Choose a column
+and search for the English or German function name. Use the arrow keys
+and Enter from the search field to put the example into your draft.
+Esc keeps the old draft. The table changes only when you choose Add.
+
 - **Cell references**: A1, B2, AA1, etc. (column letter + 1-based row number;
   the column letter appears in each header).
 - **Operators**: `+`, `-`, `*`, `/`, `^` for powers and `%` for percent.

@@ -8,6 +8,19 @@ Octa supports a small subset of Excel-like formulas in two places:
    treated as a row-1 template and applied to **every row** when the
    column is created.
 
+## Start with an example
+
+Open **Formula examples...** from **Insert Column** or **Find a command**.
+Choose the input column and start typing a function name in English or German.
+For example, search for STABW.S to find running standard deviation. The list
+shows the formula that will go into the draft. With the search field focused,
+use the arrow keys and **Enter**, or choose **Use example**.
+
+The example replaces only the formula draft. Review its first results with
+**Preview**, then choose **Add** when ready. **Esc** closes the example picker
+without changing the draft. The examples use the row numbers of the loaded
+table, even on a page that starts at a later source row.
+
 ## Syntax
 
 | Element         | Example             | Notes                                                                                            |

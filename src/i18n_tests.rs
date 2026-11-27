@@ -356,6 +356,7 @@ const OPENS_SOMETHING: &[&str] = &[
     "loadall.menu",                // count + confirm dialog
     "hashcols.menu",               // dialog
     "calc.menu",                   // dialog
+    "dialog.formula_examples",     // the formula example picker
     "bands.menu",                  // the Number bands dialog
     "refdata.menu",                // the Reference data dialog
     "classify.menu",               // dialog

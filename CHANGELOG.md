@@ -22,6 +22,7 @@
 - Calculate shift hours across midnight with `TIMEVALUE` and `MOD`, or extract clock parts.
 - Find minimum and maximum amounts with `MINIFS` and `MAXIFS`, including clock and duration criteria.
 - Preview formula results in Insert Column without changing the table.
+- Find formula examples by English or German name and use a selected input column.
 - Calculate percentiles and quartiles, including p95 response times, with inclusive and exclusive Excel formulas.
 - Measure sample and population spread with standard deviation and variance, including running columns.
 - Reveal the correct row when navigating filtered tables with zoomed or resized rows.

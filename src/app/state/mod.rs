@@ -230,6 +230,7 @@ pub(crate) struct TabState {
     pub(crate) new_col_type: String,
     pub(crate) new_col_formula: String,
     pub(crate) new_col_preview: Option<crate::app::dialogs::add_column::FormulaPreview>,
+    pub(crate) new_col_examples: Option<crate::app::dialogs::add_column::FormulaExamples>,
     pub(crate) insert_col_at: Option<usize>,
     /// Live buffer for the "Insert at position" TextEdit in the Insert
     /// Column dialog. Reset to empty on dialog close so the next open

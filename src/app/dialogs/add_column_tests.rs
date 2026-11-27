@@ -1647,3 +1647,121 @@ fn running_dispersion_handles_a_large_prefix_without_rescanning_it() {
         );
     }
 }
+
+#[test]
+fn formula_examples_are_keyboard_searchable_cancellable_and_return_to_the_formula() {
+    use egui::accesskit::{Action, ActionRequest, TreeId};
+    use octa::i18n::{current_language, t};
+
+    fn frame(app: &mut OctaApp, ctx: &egui::Context, events: Vec<egui::Event>) -> egui::FullOutput {
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(920., 690.),
+                )),
+                events,
+                ..Default::default()
+            },
+            |ui| render_add_column_dialog(app, ui.ctx()),
+        );
+        output.textures_delta.clear();
+        output
+    }
+
+    fn key(key: egui::Key) -> egui::Event {
+        egui::Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        }
+    }
+
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = data::DataTable {
+        columns: ["Other", "Measured", "Hidden"]
+            .map(|name| ColumnInfo {
+                name: name.into(),
+                data_type: "Int64".into(),
+            })
+            .to_vec(),
+        rows: [2, 4, 6, 8]
+            .map(|n| vec![CellValue::Int(99), CellValue::Int(n), CellValue::Int(3)])
+            .to_vec(),
+        ..data::DataTable::empty()
+    };
+    tab.show_add_column_dialog = true;
+    tab.filter_dirty = false;
+    tab.hidden_columns.insert(2);
+    tab.table_state.selected_cell = Some((0, 1));
+    tab.new_col_formula = "=99".into();
+    let formula_id = formula_input_id(egui::Id::new("octa_add_column_dialog"), tab);
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+
+    frame(&mut app, &ctx, vec![]);
+    let opened = frame(&mut app, &ctx, vec![]);
+    let name = t("dialog.formula_examples");
+    let (button_id, _) = opened
+        .platform_output
+        .accesskit_update
+        .as_ref()
+        .unwrap()
+        .nodes
+        .iter()
+        .find(|(_, node)| node.label() == Some(&name) && node.supports_action(Action::Focus))
+        .expect("formula examples button");
+    frame(
+        &mut app,
+        &ctx,
+        vec![egui::Event::AccessKitActionRequest(ActionRequest {
+            action: Action::Focus,
+            target_tree: TreeId::ROOT,
+            target_node: *button_id,
+            data: None,
+        })],
+    );
+    frame(&mut app, &ctx, vec![key(egui::Key::Enter)]);
+    frame(&mut app, &ctx, vec![]);
+    assert!(app.tabs[0].new_col_examples.is_some());
+    frame(
+        &mut app,
+        &ctx,
+        vec![egui::Event::Text("does not exist".into())],
+    );
+    frame(&mut app, &ctx, vec![key(egui::Key::Enter)]);
+    assert_eq!(app.tabs[0].new_col_formula, "=99");
+    assert!(app.tabs[0].new_col_examples.is_some());
+    frame(&mut app, &ctx, vec![key(egui::Key::Escape)]);
+    assert_eq!(app.tabs[0].new_col_formula, "=99");
+    assert!(app.tabs[0].new_col_examples.is_none());
+    assert!(ctx.memory(|m| m.has_focus(formula_id)));
+
+    app.open_formula_examples();
+    frame(&mut app, &ctx, vec![]);
+    let matched = frame(&mut app, &ctx, vec![egui::Event::Text("stabw.s".into())]);
+    let expected = if current_language() == "de" {
+        "=STABW.S(B$1:B1)"
+    } else {
+        "=STDEV.S(B$1:B1)"
+    };
+    let visible = matched.shapes.iter().any(|item| {
+        matches!(&item.shape, egui::Shape::Text(shape) if shape.galley.text()==expected
+            && item.clip_rect.intersects(shape.visual_bounding_rect()))
+    });
+    assert!(visible, "expected rendered example {expected}");
+    assert_eq!(app.tabs[0].new_col_formula, "=99");
+    frame(&mut app, &ctx, vec![key(egui::Key::Enter)]);
+    let tab = &app.tabs[0];
+    assert_eq!(tab.new_col_formula, expected);
+    assert!(tab.new_col_examples.is_none());
+    assert!(ctx.memory(|m| m.has_focus(formula_id)));
+    assert_eq!(tab.table.col_count(), 3);
+    assert!(tab.table.undo_stack.is_empty());
+    let preview = FormulaPreview::read(&tab.new_col_formula, &tab.table).unwrap();
+    assert_eq!(preview.values[0], None);
+    assert_eq!(preview.values[2], Some(2.0));
+}

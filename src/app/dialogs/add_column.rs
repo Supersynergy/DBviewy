@@ -20,8 +20,37 @@ use super::super::state::{OctaApp, TabState};
 // unchanged while ensuring E3 in 1E3 isn't mistaken for a cell to shift.
 #[path = "../../data/formulas_dispersion.rs"]
 mod dispersion;
+#[path = "formula_examples.rs"]
+mod formula_examples;
 #[path = "../../data/formula_lex.rs"]
 mod formula_lex;
+pub(crate) use formula_examples::FormulaExamples;
+
+impl OctaApp {
+    pub(crate) fn open_formula_examples(&mut self) {
+        if self.is_readonly() {
+            return;
+        }
+        let tab = &mut self.tabs[self.active_tab];
+        let Some(picker) = FormulaExamples::open(tab) else {
+            return;
+        };
+        if !tab.show_add_column_dialog {
+            tab.show_add_column_dialog = true;
+            tab.new_col_name.clear();
+            tab.new_col_type = "String".into();
+            tab.new_col_formula.clear();
+            tab.new_col_preview = None;
+            tab.insert_col_at = tab.table_state.selected_cell.map(|(_, c)| c + 1);
+            tab.insert_col_at_text.clear();
+        }
+        tab.new_col_examples = Some(picker);
+    }
+}
+
+fn formula_input_id(dialog_id: egui::Id, tab: &TabState) -> egui::Id {
+    dialog_id.with(("formula", tab.id))
+}
 
 pub(crate) fn render_add_column_dialog(app: &mut OctaApp, ctx: &egui::Context) {
     if !app.tabs[app.active_tab].show_add_column_dialog {
@@ -34,6 +63,8 @@ pub(crate) fn render_add_column_dialog(app: &mut OctaApp, ctx: &egui::Context) {
     // so persist the window-size mode in egui temp memory keyed by the dialog
     // id instead of adding another TabState field.
     let dialog_id = egui::Id::new("octa_add_column_dialog");
+    let formula_id = formula_input_id(dialog_id, &app.tabs[app.active_tab]);
+    let writable = !app.is_readonly();
     let size_key = dialog_id.with("octa_dlg_size");
     let mut size = ctx.data_mut(|d| d.get_temp::<DialogSize>(size_key).unwrap_or_default());
     let minimized = size == DialogSize::Minimized;
@@ -162,14 +193,21 @@ pub(crate) fn render_add_column_dialog(app: &mut OctaApp, ctx: &egui::Context) {
                 }
                 ui.label(format!("/ {}", col_count + 1));
             });
+            let tab = &mut app.tabs[app.active_tab];
             octa::ui::control_row::control_line(ui, |ui| {
-                ui.label(octa::i18n::t("dialog.field_formula"));
+                let label = ui.label(octa::i18n::t("dialog.field_formula"));
                 ui.add(
-                    egui::TextEdit::singleline(&mut app.tabs[app.active_tab].new_col_formula)
+                    egui::TextEdit::singleline(&mut tab.new_col_formula)
+                        .id(formula_id)
                         .hint_text(octa::i18n::t("dialog.formula_hint")),
-                );
+                )
+                .labelled_by(label.id)
+                .on_hover_text(octa::i18n::t("dialog.formula_hint"));
             });
-            render_formula_preview(&mut app.tabs[app.active_tab], ui);
+            octa::ui::control_row::control_row(ui, |ui| {
+                render_formula_examples_button(tab, ui, writable);
+                render_formula_preview(tab, ui);
+            });
             ui.label(
                 RichText::new(octa::i18n::t("dialog.add_column_tip"))
                     .size(10.0)
@@ -180,6 +218,13 @@ pub(crate) fn render_add_column_dialog(app: &mut OctaApp, ctx: &egui::Context) {
 
     if let Some(inner) = inner {
         remember_dialog_rect(ctx, dialog_id, size, inner.response.rect);
+    }
+    let tab = &mut app.tabs[app.active_tab];
+    if tab.new_col_examples.is_some() && !minimized {
+        // Only the frontmost dialog can handle confirmation in this frame.
+        should_add = false;
+        close = false;
+        formula_examples::render(ctx, tab, formula_id, writable);
     }
     // Persist size for the next frame; reset to Normal once the dialog closes
     // so a leftover Minimized/Maximized doesn't carry into the next open.
@@ -202,6 +247,30 @@ pub(crate) fn render_add_column_dialog(app: &mut OctaApp, ctx: &egui::Context) {
         tab.show_add_column_dialog = false;
         tab.insert_col_at_text.clear();
         tab.new_col_preview = None;
+        tab.new_col_examples = None;
+    }
+}
+
+fn render_formula_examples_button(tab: &mut TabState, ui: &mut Ui, writable: bool) {
+    use octa::i18n::t;
+    let picker = writable.then(|| FormulaExamples::open(tab)).flatten();
+    let hint = t("dialog.formula_examples_hint");
+    let button = ui.add_enabled(
+        picker.is_some(),
+        egui::Button::new(t("dialog.formula_examples")).small(),
+    );
+    let button = if picker.is_some() {
+        button.on_hover_text(hint)
+    } else {
+        let why = if writable {
+            t("greyed.need_table")
+        } else {
+            t("context_menu.header_row_readonly")
+        };
+        button.on_disabled_hover_text(octa::ui::menu_entry::disabled_tip(&hint, &why))
+    };
+    if button.clicked() {
+        tab.new_col_examples = picker;
     }
 }
 
@@ -849,6 +918,7 @@ fn add_formula_column(app: &mut OctaApp) {
     tab.show_add_column_dialog = false;
     tab.insert_col_at_text.clear();
     tab.new_col_preview = None;
+    tab.new_col_examples = None;
 }
 
 #[cfg(test)]

@@ -460,6 +460,7 @@ pub enum ShortcutAction {
     OpenHashColumns,
     /// Open the Calculated-column dialog. Also **Columns -> Calculated column...**.
     OpenCalculatedColumn,
+    OpenFormulaExamples,
     /// Columns -> Number bands...
     OpenBands,
     /// Data -> Reference data...
@@ -787,6 +788,7 @@ impl ShortcutAction {
             Self::OpenConditionalColumn => "Conditional column...",
             Self::OpenHashColumns => "Hash columns...",
             Self::OpenCalculatedColumn => "Calculated column...",
+            Self::OpenFormulaExamples => "Formula examples...",
             Self::OpenBands => "Number bands...",
             Self::OpenReferenceData => "Reference data...",
             Self::OpenClassify => "Classify with Jev...",
@@ -992,7 +994,7 @@ impl ShortcutAction {
             Self::OpenConditionalFormat => KeyCombo::ctrl_shift(Key::L),
             Self::OpenConditionalColumn => KeyCombo::ctrl_shift(Key::J),
             Self::OpenHashColumns => KeyCombo::UNBOUND,
-            Self::OpenCalculatedColumn => KeyCombo::UNBOUND,
+            Self::OpenCalculatedColumn | Self::OpenFormulaExamples => KeyCombo::UNBOUND,
             Self::OpenBands => KeyCombo::UNBOUND,
             Self::OpenReferenceData => KeyCombo::UNBOUND,
             Self::OpenClassify => KeyCombo::UNBOUND,
@@ -1305,6 +1307,7 @@ impl ShortcutAction {
             | Self::OpenConditionalColumn
             | Self::OpenHashColumns
             | Self::OpenCalculatedColumn
+            | Self::OpenFormulaExamples
             | Self::OpenBands
             | Self::OpenReferenceData
             | Self::OpenClassify
@@ -1468,6 +1471,7 @@ impl ShortcutAction {
             Self::OpenConditionalColumn => "ccol.menu",
             Self::OpenHashColumns => "hashcols.menu",
             Self::OpenCalculatedColumn => "calc.menu",
+            Self::OpenFormulaExamples => "dialog.formula_examples",
             Self::OpenBands => "bands.menu",
             Self::OpenReferenceData => "refdata.menu",
             Self::OpenClassify => "classify.menu",
@@ -1630,6 +1634,7 @@ impl ShortcutAction {
             | Self::OpenConditionalColumn
             | Self::OpenHashColumns
             | Self::OpenCalculatedColumn
+            | Self::OpenFormulaExamples
             | Self::OpenBands
             | Self::OpenReferenceData
             | Self::OpenClassify
