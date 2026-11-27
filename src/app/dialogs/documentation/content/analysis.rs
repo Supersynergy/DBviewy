@@ -85,6 +85,25 @@ Right-click a row (when binning is off) for:
 
 The bottom **Copy as TSV** button copies the whole visible table as
 `<column>\tcount\tpercent` lines.
+
+## Open the report as a table
+
+**Open frequency report as table** opens the listed rows in a new tab.
+The source stays as it was. **Top 20** opens up to 20 rows; choose
+**All** before opening the report if you want every distinct value.
+
+`value` is text, so a code like `0007` keeps its zeros. `count` is an
+integer and `percent` is a number from 0 to 100. The result records
+whether it used only loaded rows or left out unsaved database edits.
+
+For whole-cell values, `cumulative_percent` adds up shares of the
+original counted cells. With shares of 50, 30 and 20, the first two
+rows reach 80, not 100. Words can overlap and numeric bins are listed
+in interval order, so neither report gets a cumulative column.
+
+Save the new tab as XLSX, or choose **Chart > Pareto** with `value` as
+the category and `count` as the measure. Use the **All** report for
+a chart of the complete distribution.
 "#;
 
 pub const FIND_DUPLICATES: &str = r#"# Find Duplicates
