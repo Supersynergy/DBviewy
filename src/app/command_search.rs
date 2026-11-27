@@ -45,6 +45,7 @@ pub(crate) struct CommandSearchState {
 pub(crate) const INSIDE: &[(&str, SA)] = &[
     ("instant_search.placeholder", SA::FocusSearch),
     ("chart.seasonality_to_table", SA::OpenChart),
+    ("chart.target_line", SA::OpenChart),
     ("gui.kind_pareto", SA::OpenChart),
     ("dialog.tc_kind_working_days", SA::OpenTimeCalc),
     ("dialog.vf_count_words", SA::ColumnValueFrequency),

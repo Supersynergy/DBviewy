@@ -1223,6 +1223,9 @@ image_thumbnails = "画像サムネイル"
 confirm_snippet_delete = "スニペットを削除する前に確認する:"
 
 [chart]
+target_line = "目標線"
+target_line_hint = "線形Y軸に水平線を表示します。消すには欄を空にします。値は設定した軸の範囲内に入れてください。"
+target_line_invalid = "有限の数値を入力してください。"
 trend = "トレンド"
 trend_hint = "各線にトレンドを重ねます。点を通る直線か、移動平均です。"
 trend_none = "なし"

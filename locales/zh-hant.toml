@@ -1221,6 +1221,9 @@ zoom_step = "縮放步長："
 confirm_snippet_delete = "刪除程式碼片段前先詢問："
 
 [chart]
+target_line = "目標線"
+target_line_hint = "在線性 Y 軸上顯示水平線。清空此欄即可移除。數值須在設定的軸範圍內。"
+target_line_invalid = "請輸入有限的數值。"
 trend = "趨勢"
 trend_hint = "在每條線上畫出趨勢:穿過各點的直線,或移動平均。"
 trend_none = "無"

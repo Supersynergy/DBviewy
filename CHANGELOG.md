@@ -80,6 +80,8 @@
 - Measure paired differences with SUMXMY2, add squares with SUMSQ, and
   return to the original units with SQRT. Pick the bilingual examples
   in Insert Column.
+- Add a target line to a line chart without a helper column. The line
+  also appears in SVG, PNG and PDF exports.
 - Open the Value Frequency report as a separate, typed table. Whole-cell
   counts include their running percentage for Pareto analysis.
 - Read Value Frequency shares as proportionate bars without hiding the

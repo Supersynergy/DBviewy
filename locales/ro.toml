@@ -1234,6 +1234,9 @@ image_thumbnails = "Miniaturi imagini"
 confirm_snippet_delete = "Întreabă înainte de a șterge un fragment:"
 
 [chart]
+target_line = "Linie țintă"
+target_line_hint = "Linie orizontală pe o axă Y liniară. Golește câmpul pentru a o elimina. Valoarea trebuie să fie între limitele fixe."
+target_line_invalid = "Introdu un număr finit."
 trend = "Tendință"
 trend_hint = "Desenează o tendință peste fiecare linie: o dreaptă prin puncte sau o medie mobilă."
 trend_none = "Niciuna"

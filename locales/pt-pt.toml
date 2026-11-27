@@ -1221,6 +1221,9 @@ zoom_step = "Passo do zoom:"
 confirm_snippet_delete = "Perguntar antes de apagar um fragmento:"
 
 [chart]
+target_line = "Linha de objetivo"
+target_line_hint = "Linha horizontal num eixo Y linear. Esvazia o campo para a remover. O valor tem de ficar entre os limites fixos."
+target_line_invalid = "Escreve um número finito."
 trend = "Tendência"
 trend_hint = "Desenha uma tendência sobre cada linha: uma reta pelos pontos ou uma média móvel."
 trend_none = "Nenhuma"

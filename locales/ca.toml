@@ -1221,6 +1221,9 @@ zoom_step = "Pas del zoom:"
 confirm_snippet_delete = "Pregunta abans d'esborrar un fragment:"
 
 [chart]
+target_line = "Línia objectiu"
+target_line_hint = "Línia horitzontal amb un eix Y lineal. Buida el camp per treure-la. El valor ha de quedar dins dels límits fixats."
+target_line_invalid = "Introdueix un nombre finit."
 trend = "Tendència"
 trend_hint = "Dibuixa una tendència sobre cada línia: una recta que passa pels punts o una mitjana mòbil."
 trend_none = "Cap"

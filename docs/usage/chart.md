@@ -180,6 +180,18 @@ in original-data units and projected into log10 space internally. Type
 `10` and `10000` to get the familiar three-decade range without doing
 the maths.
 
+### Target line
+
+In a **Line** chart, expand **Customise** and enter a number under
+**Target line**, for example `120`. A labelled horizontal line spans
+the plotted X range. Use a dot or a comma as the decimal separator.
+Clear the field to remove the line. It belongs to this chart tab and
+does not create a column or change a forecast.
+
+Use a linear Y axis. If you set both Y bounds, the target must be within
+them to appear. The labelled line is also included in SVG, PNG and PDF
+exports when shown.
+
 ## Sampling
 
 Histogram, Line, and Scatter are subject to

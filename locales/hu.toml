@@ -1234,6 +1234,9 @@ image_thumbnails = "Képbélyegek"
 confirm_snippet_delete = "Rákérdezés részlet törlése előtt:"
 
 [chart]
+target_line = "Célértékvonal"
+target_line_hint = "Vízszintes vonal lineáris Y tengelyen. Töröld a mezőt az eltávolításhoz. Az értéknek a rögzített határok közé kell esnie."
+target_line_invalid = "Adj meg véges számot."
 trend = "Trend"
 trend_hint = "Trendet rajzol minden vonalra: egyenest a pontokon át vagy mozgóátlagot."
 trend_none = "Nincs"

@@ -30,6 +30,9 @@ use octa::db::pushdown::chart::ChartKey;
 use octa::i18n::t;
 use octa::ui::control_row::{control_row, control_text_edit};
 
+#[path = "chart_target.rs"]
+mod target;
+
 /// A Pareto chart labels its share points up to this many bars; beyond it
 /// the labels would run into each other.
 const PARETO_LABELS: usize = 30;
@@ -188,7 +191,10 @@ pub fn render_chart_view(
             ui.add_space(8.0);
             ui.colored_label(colors.warning, err.message());
         }
-        Ok(prep) => {
+        Ok(mut prep) => {
+            // The target belongs to the rendered series only, after any
+            // analysis or server result. The shared prep also feeds exports.
+            let target_slot = target::append(&mut prep, &cfg, &tab.chart_buffers.target_line);
             // Title (if set) above the plot.
             if !cfg.title.is_empty() {
                 ui.vertical_centered(|ui| {
@@ -221,8 +227,15 @@ pub fn render_chart_view(
                         .weak(),
                     );
                 }
+                if cfg.legend == LegendPosition::Off
+                    && let Some(slot) = target_slot
+                    && let ChartData::Lines { series, .. } = &prep.data
+                {
+                    ui.label(egui::RichText::new(&series[slot].name).small().strong())
+                        .on_hover_text(t("chart.target_line_hint"));
+                }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    draw_export_buttons(ui, &prep, &cfg);
+                    draw_export_buttons(ui, &prep, &cfg, target_slot);
                 });
             });
 
@@ -437,7 +450,7 @@ pub fn render_chart_view(
                         );
                     }
                 }
-                draw_plot_items(plot_ui, &prep.data, &cfg);
+                draw_plot_items(plot_ui, &prep.data, &cfg, target_slot);
                 // A Pareto chart's running share, drawn over the bars on a
                 // scale where 100 % is the tallest bar. Skipped under a log
                 // scale, like the forecast bands: a share is linear.
@@ -1045,6 +1058,7 @@ fn draw_controls(ui: &mut egui::Ui, tab: &mut TabState, colors: &ThemeColors) {
                 ui.checkbox(&mut tab.chart_config.y_log_scale, t("chart.log_scale"))
                     .on_hover_text(t("chart.log_hint"));
             });
+            target::draw_controls(ui, tab, colors);
             // Group D - Series. Each Y-column gets a single horizontal
             // row (column name -> label override -> color picker). Wrapped
             // so multi-Y charts still fit a narrow window.
@@ -1115,28 +1129,36 @@ fn draw_controls(ui: &mut egui::Ui, tab: &mut TabState, colors: &ThemeColors) {
         });
 }
 
-fn draw_export_buttons(
-    ui: &mut egui::Ui,
+fn export_options(
     prep: &octa::data::chart::ChartPrep,
-    cfg: &octa::data::chart::ChartConfig,
-) {
-    // Build options once - the three buttons all reuse the same SVG.
-    let opts = ExportOptions::from_prep(
+    cfg: &ChartConfig,
+    target_slot: Option<usize>,
+) -> ExportOptions {
+    ExportOptions::from_prep(
         prep,
         cfg.title.clone(),
         &cfg.x_label_override,
         &cfg.y_label_override,
         cfg.legend,
         |idx| {
-            cfg.y_cols
-                .get(idx)
-                .and_then(|col_idx| cfg.series_styles.get(col_idx))
-                .cloned()
-                .unwrap_or_default()
+            if Some(idx) == target_slot {
+                target::style()
+            } else {
+                series_style_for(cfg, idx)
+            }
         },
     )
-    .with_pareto(cfg.kind == ChartKind::Pareto);
+    .with_pareto(cfg.kind == ChartKind::Pareto)
+}
 
+fn draw_export_buttons(
+    ui: &mut egui::Ui,
+    prep: &octa::data::chart::ChartPrep,
+    cfg: &ChartConfig,
+    target_slot: Option<usize>,
+) {
+    // Build options once - the three buttons all reuse the same SVG.
+    let opts = export_options(prep, cfg, target_slot);
     // The actual write happens on a click; the SVG/PNG/PDF byte buffer is
     // built lazily so a chart with thousands of points isn't re-encoded
     // every frame.
@@ -1275,6 +1297,7 @@ fn draw_plot_items(
     plot_ui: &mut egui_plot::PlotUi<'_>,
     data: &ChartData,
     cfg: &octa::data::chart::ChartConfig,
+    target_slot: Option<usize>,
 ) {
     let log_y = cfg.y_log_scale;
     let xform_y = |y: f64| if log_y { log10_safe(y) } else { y };
@@ -1341,9 +1364,16 @@ fn draw_plot_items(
                 if pts.is_empty() {
                     continue;
                 }
-                let label = series_display_name(cfg, si, &ser.name);
+                let is_target = Some(si) == target_slot;
+                let label = if is_target {
+                    ser.name.clone()
+                } else {
+                    series_display_name(cfg, si, &ser.name)
+                };
                 let mut line = Line::new(label, PlotPoints::from(pts));
-                if let Some(color) = series_color_override(cfg, si) {
+                if is_target {
+                    line = line.color(target::color()).width(2.0);
+                } else if let Some(color) = series_color_override(cfg, si) {
                     line = line.color(color);
                 }
                 plot_ui.line(line);

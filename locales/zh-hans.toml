@@ -1223,6 +1223,9 @@ image_thumbnails = "图片缩略图"
 confirm_snippet_delete = "删除代码片段前先询问："
 
 [chart]
+target_line = "目标线"
+target_line_hint = "在线性 Y 轴上显示水平线。清空此项可移除。数值必须在设定的轴范围内。"
+target_line_invalid = "请输入有限的数值。"
 trend = "趋势"
 trend_hint = "在每条线上画出趋势:穿过各点的直线,或移动平均。"
 trend_none = "无"

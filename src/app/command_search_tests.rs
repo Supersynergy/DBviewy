@@ -885,6 +885,20 @@ fn frequency_result_table_is_discoverable() {
 }
 
 #[test]
+fn target_line_is_findable_in_chart_controls() {
+    let (app, _) = opened("");
+    let label = t("chart.target_line");
+    for query in [label.as_str(), "target line"] {
+        assert!(
+            app.command_rows(query)
+                .iter()
+                .any(|row| row.action == SA::OpenChart),
+            "{query}"
+        );
+    }
+}
+
+#[test]
 fn split_column_is_findable_in_transform() {
     let (app, _) = opened("");
     assert!(

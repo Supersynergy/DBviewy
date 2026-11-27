@@ -1234,6 +1234,9 @@ image_thumbnails = "Miniatur gambar"
 confirm_snippet_delete = "Tanya sebelum menghapus cuplikan:"
 
 [chart]
+target_line = "Garis target"
+target_line_hint = "Garis mendatar pada sumbu Y linear. Kosongkan kolom untuk menghapusnya. Nilai harus berada dalam batas yang ditetapkan."
+target_line_invalid = "Masukkan angka berhingga."
 trend = "Tren"
 trend_hint = "Menggambar tren di atas tiap garis: garis lurus melalui titik-titik atau rata-rata bergerak."
 trend_none = "Tidak ada"

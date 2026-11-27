@@ -1230,6 +1230,9 @@ image_thumbnails = "Miniatúry obrázkov"
 confirm_snippet_delete = "Opýtať sa pred zmazaním úryvku:"
 
 [chart]
+target_line = "Cieľová čiara"
+target_line_hint = "Vodorovná čiara na lineárnej osi Y. Vymaž pole, ak ju chceš odstrániť. Hodnota musí byť medzi pevnými hranicami."
+target_line_invalid = "Zadaj konečné číslo."
 trend = "Trend"
 trend_hint = "Nakreslí trend cez každú čiaru: priamku cez body alebo kĺzavý priemer."
 trend_none = "Žiadny"

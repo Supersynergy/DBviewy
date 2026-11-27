@@ -176,3 +176,69 @@ fn hidden_column_buttons_restore_only_the_clicked_column() {
             .any(|(text, _)| text.starts_with("＋ "))
     );
 }
+
+#[test]
+fn entering_a_target_line_in_the_chart_leaves_source_and_forecast_settings_alone() {
+    use octa::i18n::t;
+
+    let mut app = app();
+    let ctx = egui::Context::default();
+    // The headless driver has no vsync or real-time animation frames.
+    ctx.all_styles_mut(|style| style.animation_time = 0.0);
+    let render = |app: &mut OctaApp| frame(app, &ctx, vec![]);
+    let click = |app: &mut OctaApp, at: egui::Pos2| {
+        for pressed in [true, false] {
+            frame(
+                app,
+                &ctx,
+                vec![
+                    egui::Event::PointerMoved(at),
+                    egui::Event::PointerButton {
+                        pos: at,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: egui::Modifiers::NONE,
+                    },
+                ],
+            );
+        }
+    };
+    render(&mut app);
+    let texts = render(&mut app);
+    let (_, customize) = texts
+        .iter()
+        .find(|(text, _)| *text == t("chart.customise"))
+        .unwrap();
+    click(&mut app, customize.center());
+    render(&mut app);
+    let texts = render(&mut app);
+    let (_, label) = texts
+        .iter()
+        .find(|(text, _)| *text == t("chart.target_line"))
+        .unwrap_or_else(|| panic!("Target control is missing from expanded chart: {texts:?}"));
+    let (_, field) = texts
+        .iter()
+        .find(|(text, rect)| {
+            *text == t("chart.placeholder_none")
+                && (rect.center().y - label.center().y).abs() < 12.0
+                && rect.center().x > label.center().x
+        })
+        .expect("target value input on the label row");
+    click(&mut app, field.center());
+    frame(&mut app, &ctx, vec![egui::Event::Text("120,5".into())]);
+    let shown = render(&mut app);
+    let expected = format!("{}: 120,5", t("chart.target_line"));
+    assert!(shown.iter().any(|(text, _)| *text == expected));
+    assert_eq!(app.tabs.len(), 1);
+    assert_eq!(app.tabs[0].chart_buffers.target_line, "120,5");
+    assert_eq!(app.tabs[0].table.col_count(), 2);
+    assert!(app.tabs[0].table.edits.is_empty());
+    assert_eq!(app.tabs[0].chart_config.forecast_periods, 0);
+
+    app.tabs[0].chart_config.y_log_scale = true;
+    let hidden = render(&mut app);
+    assert!(!hidden.iter().any(|(text, _)| *text == expected));
+    app.tabs[0].chart_config.y_log_scale = false;
+    let shown_again = render(&mut app);
+    assert!(shown_again.iter().any(|(text, _)| *text == expected));
+}

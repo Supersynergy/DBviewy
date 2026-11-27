@@ -1233,6 +1233,9 @@ image_thumbnails = "Miniatury obrazów"
 confirm_snippet_delete = "Pytaj przed usunięciem fragmentu:"
 
 [chart]
+target_line = "Linia celu"
+target_line_hint = "Pozioma linia na liniowej osi Y. Wyczyść pole, aby ją usunąć. Wartość musi mieścić się w ustalonych granicach."
+target_line_invalid = "Wpisz skończoną liczbę."
 trend = "Trend"
 trend_hint = "Rysuje trend na każdej linii: prostą przez punkty albo średnią ruchomą."
 trend_none = "Brak"

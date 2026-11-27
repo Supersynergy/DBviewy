@@ -1233,6 +1233,9 @@ image_thumbnails = "Miniature immagine"
 confirm_snippet_delete = "Chiedi prima di eliminare uno snippet:"
 
 [chart]
+target_line = "Linea obiettivo"
+target_line_hint = "Linea orizzontale con asse Y lineare. Svuota il campo per rimuoverla. Il valore deve rientrare nei limiti impostati."
+target_line_invalid = "Inserisci un numero finito."
 trend = "Tendenza"
 trend_hint = "Disegna una tendenza su ogni linea: una retta tra i punti o una media mobile."
 trend_none = "Nessuna"

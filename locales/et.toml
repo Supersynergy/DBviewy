@@ -1230,6 +1230,9 @@ image_thumbnails = "Piltide pisipildid"
 confirm_snippet_delete = "Küsi enne lõigu kustutamist:"
 
 [chart]
+target_line = "Sihtjoon"
+target_line_hint = "Rõhtjoon lineaarsel Y-teljel. Eemaldamiseks tühjenda väli. Väärtus peab jääma määratud piiridesse."
+target_line_invalid = "Sisesta lõplik arv."
 trend = "Trend"
 trend_hint = "Joonistab iga joone peale trendi: sirge läbi punktide või libiseva keskmise."
 trend_none = "Puudub"

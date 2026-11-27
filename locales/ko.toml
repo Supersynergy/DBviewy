@@ -1223,6 +1223,9 @@ image_thumbnails = "이미지 미리보기"
 confirm_snippet_delete = "스니펫을 삭제하기 전에 묻기:"
 
 [chart]
+target_line = "목표선"
+target_line_hint = "선형 Y축에 수평선을 표시합니다. 없애려면 입력란을 비우세요. 값은 설정한 범위 안에 있어야 합니다."
+target_line_invalid = "유한한 수를 입력하세요."
 trend = "추세"
 trend_hint = "각 선 위에 추세를 그립니다. 점들을 지나는 직선이나 이동 평균입니다."
 trend_none = "없음"

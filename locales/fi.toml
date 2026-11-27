@@ -1233,6 +1233,9 @@ image_thumbnails = "Kuvien esikatselut"
 confirm_snippet_delete = "Kysy ennen pätkän poistamista:"
 
 [chart]
+target_line = "Tavoiteviiva"
+target_line_hint = "Vaakaviiva lineaarisella Y-akselilla. Poista viiva tyhjentämällä kenttä. Arvon on oltava asetetuissa rajoissa."
+target_line_invalid = "Syötä äärellinen luku."
 trend = "Trendi"
 trend_hint = "Piirtää trendin jokaisen viivan päälle: suoran pisteiden läpi tai liukuvan keskiarvon."
 trend_none = "Ei mitään"

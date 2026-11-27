@@ -1234,6 +1234,9 @@ image_thumbnails = "Náhledy obrázků"
 confirm_snippet_delete = "Zeptat se před smazáním úryvku:"
 
 [chart]
+target_line = "Cílová čára"
+target_line_hint = "Vodorovná čára na lineární ose Y. Vymaž pole, pokud ji nechceš. Hodnota musí být mezi pevnými mezemi."
+target_line_invalid = "Zadej konečné číslo."
 trend = "Trend"
 trend_hint = "Nakreslí trend přes každou čáru: přímku skrz body nebo klouzavý průměr."
 trend_none = "Žádný"

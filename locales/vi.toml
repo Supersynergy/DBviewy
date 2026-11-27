@@ -1234,6 +1234,9 @@ image_thumbnails = "Hình thu nhỏ ảnh"
 confirm_snippet_delete = "Hỏi trước khi xóa đoạn mã:"
 
 [chart]
+target_line = "Đường mục tiêu"
+target_line_hint = "Đường ngang trên trục Y tuyến tính. Xóa nội dung ô để bỏ đường. Giá trị phải nằm trong các giới hạn đã đặt."
+target_line_invalid = "Nhập một số hữu hạn."
 trend = "Xu hướng"
 trend_hint = "Vẽ xu hướng trên mỗi đường: một đường thẳng qua các điểm, hoặc trung bình trượt."
 trend_none = "Không"

@@ -1233,6 +1233,9 @@ image_thumbnails = "Vignettes d'image"
 confirm_snippet_delete = "Demander avant de supprimer un extrait :"
 
 [chart]
+target_line = "Ligne cible"
+target_line_hint = "Ligne horizontale sur un axe Y linéaire. Vide le champ pour la retirer. La valeur doit rester entre les limites fixées."
+target_line_invalid = "Saisis un nombre fini."
 trend = "Tendance"
 trend_hint = "Trace une tendance sur chaque ligne : une droite à travers les points, ou une moyenne mobile."
 trend_none = "Aucune"

@@ -1233,6 +1233,9 @@ image_thumbnails = "Görsel küçük resimleri"
 confirm_snippet_delete = "Parçacık silmeden önce sor:"
 
 [chart]
+target_line = "Hedef çizgisi"
+target_line_hint = "Doğrusal Y ekseninde yatay çizgi. Kaldırmak için alanı boşalt. Değer sabit sınırlar içinde olmalıdır."
+target_line_invalid = "Sonlu bir sayı gir."
 trend = "Eğilim"
 trend_hint = "Her çizginin üzerine bir eğilim çizer: noktalardan geçen düz bir çizgi ya da hareketli ortalama."
 trend_none = "Yok"

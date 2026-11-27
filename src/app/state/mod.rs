@@ -819,6 +819,8 @@ pub(crate) struct ChartInputBuffers {
     pub y_min: String,
     pub y_max: String,
     pub y_step: String,
+    /// Display-only reference value for a linear line chart; never serialized.
+    pub target_line: String,
     pub forecast_periods: String,
     pub forecast_season: String,
     /// Why the last **Seasonality to table** opened nothing, shown under the

@@ -1233,6 +1233,9 @@ image_thumbnails = "Miniatyrbilder"
 confirm_snippet_delete = "Spør før en snutt slettes:"
 
 [chart]
+target_line = "Mållinje"
+target_line_hint = "Vannrett linje på en lineær Y-akse. Tøm feltet for å fjerne den. Verdien må være innenfor de faste grensene."
+target_line_invalid = "Skriv inn et endelig tall."
 trend = "Trend"
 trend_hint = "Tegner en trend over hver linje: en rett linje gjennom punktene eller et glidende gjennomsnitt."
 trend_none = "Ingen"

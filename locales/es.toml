@@ -1233,6 +1233,9 @@ image_thumbnails = "Miniaturas de imagen"
 confirm_snippet_delete = "Preguntar antes de borrar un fragmento:"
 
 [chart]
+target_line = "Línea objetivo"
+target_line_hint = "Línea horizontal con el eje Y lineal. Vacía el campo para quitarla. El valor debe estar dentro de los límites fijados."
+target_line_invalid = "Introduce un número finito."
 trend = "Tendencia"
 trend_hint = "Dibuja una tendencia sobre cada línea: una recta entre los puntos o una media móvil."
 trend_none = "Ninguna"

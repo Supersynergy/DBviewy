@@ -1230,6 +1230,9 @@ image_thumbnails = "Image thumbnails"
 confirm_snippet_delete = "Ask before deleting a snippet:"
 
 [chart]
+target_line = "Target line"
+target_line_hint = "A horizontal line on a linear Y axis in a line chart. Clear the field to remove it. The value must fit any fixed Y bounds."
+target_line_invalid = "Enter a finite number."
 trend = "Trend"
 trend_hint = "Draw a trend over each line: a straight line through the points, or a moving average."
 trend_none = "None"

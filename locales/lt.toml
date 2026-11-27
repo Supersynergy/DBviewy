@@ -1230,6 +1230,9 @@ image_thumbnails = "Paveikslėlių miniatiūros"
 confirm_snippet_delete = "Klausti prieš ištrinant fragmentą:"
 
 [chart]
+target_line = "Tikslo linija"
+target_line_hint = "Horizontali linija tiesinėje Y ašyje. Norėdamas pašalinti išvalyk lauką. Reikšmė turi būti tarp nustatytų ribų."
+target_line_invalid = "Įvesk baigtinį skaičių."
 trend = "Tendencija"
 trend_hint = "Nubrėžia tendenciją per kiekvieną liniją: tiesę per taškus arba slankųjį vidurkį."
 trend_none = "Nėra"

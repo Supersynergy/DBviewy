@@ -1233,6 +1233,9 @@ image_thumbnails = "Bildminiatyrer"
 confirm_snippet_delete = "Fråga innan en kodsnutt tas bort:"
 
 [chart]
+target_line = "Mållinje"
+target_line_hint = "Vågrät linje på en linjär Y-axel. Töm fältet för att ta bort den. Värdet måste ligga inom de fasta gränserna."
+target_line_invalid = "Ange ett ändligt tal."
 trend = "Trend"
 trend_hint = "Ritar en trend över varje linje: en rät linje genom punkterna eller ett glidande medelvärde."
 trend_none = "Ingen"

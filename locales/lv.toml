@@ -1230,6 +1230,9 @@ image_thumbnails = "Attēlu sīktēli"
 confirm_snippet_delete = "Jautāt pirms fragmenta dzēšanas:"
 
 [chart]
+target_line = "Mērķa līnija"
+target_line_hint = "Horizontāla līnija uz lineāras Y ass. Lai noņemtu, iztukšo lauku. Vērtībai jābūt noteiktajās robežās."
+target_line_invalid = "Ievadi galīgu skaitli."
 trend = "Tendence"
 trend_hint = "Uzzīmē tendenci pār katru līniju: taisni caur punktiem vai slīdošo vidējo."
 trend_none = "Nav"

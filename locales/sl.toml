@@ -1230,6 +1230,9 @@ image_thumbnails = "Sličice slik"
 confirm_snippet_delete = "Vprašaj pred brisanjem izrezka:"
 
 [chart]
+target_line = "Ciljna črta"
+target_line_hint = "Vodoravna črta na linearni osi Y. Za odstranitev izprazni polje. Vrednost mora biti znotraj določenih mej."
+target_line_invalid = "Vnesi končno število."
 trend = "Trend"
 trend_hint = "Nariše trend čez vsako črto: premico skozi točke ali drseče povprečje."
 trend_none = "Brez"
