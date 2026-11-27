@@ -99,6 +99,8 @@ versions = "Ranije verzije..."
 versions_hint = "Otvori, usporedi ili vrati verziju koju je datoteka imala prije nekog tvog spremanja. Treba Čuvaj ranije verzije u Postavke > Spremanje datoteka. Na tablici Delta ili Iceberg prikazuje vlastitu povijest tablice."
 
 [view_menu]
+focus_guides = "Vodilice aktivne ćelije"
+focus_guides_hint = "Istakni redak i stupac aktivne ćelije na ovoj kartici. Podaci se ne mijenjaju."
 record = "Prikaz zapisa"
 record_hint = "Prikaži jedan redak po jedan kao okomiti popis polja, za široke tablice"
 timeline = "Vremenska crta"

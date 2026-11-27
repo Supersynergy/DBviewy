@@ -99,6 +99,8 @@ versions = "Varasemad versioonid..."
 versions_hint = "Ava, võrdle või taasta versioon, mis failil oli enne mõnda sinu salvestust. Vajab sätet Hoia varasemaid versioone kohas Seaded > Failide salvestamine. Delta- või Iceberg-tabeli puhul näitab tabeli enda ajalugu."
 
 [view_menu]
+focus_guides = "Aktiivse lahtri juhtjooned"
+focus_guides_hint = "Tõsta esile aktiivse lahtri rida ja veerg sellel vahekaardil. Andmeid ei muudeta."
 record = "Kirjevaade"
 record_hint = "Kuva laiade tabelite jaoks üks rida korraga vertikaalse väljaloendina"
 timeline = "Ajajoon"

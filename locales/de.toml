@@ -92,6 +92,8 @@ versions = "Frühere Versionen..."
 versions_hint = "Öffne, vergleiche oder stelle eine Version wieder her, die die Datei vor einem deiner Speichervorgänge hatte. Braucht Frühere Versionen aufheben unter Einstellungen > Dateien speichern. Bei einer Delta- oder Iceberg-Tabelle zeigt es die eigene Historie der Tabelle."
 
 [view_menu]
+focus_guides = "Fokuslinien"
+focus_guides_hint = "Hebt Zeile und Spalte der aktiven Zelle in diesem Tab mit Linien hervor. Die Daten bleiben unverändert."
 record = "Datensatzansicht"
 record_hint = "Eine Zeile nach der anderen als senkrechte Feldliste anzeigen, für breite Tabellen"
 timeline = "Zeitleiste"

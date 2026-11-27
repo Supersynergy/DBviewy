@@ -103,6 +103,8 @@ versions = "Korábbi verziók..."
 versions_hint = "Megnyithatod, összehasonlíthatod vagy visszaállíthatod a fájl egy korábbi, valamelyik mentésed előtti verzióját. Kell hozzá a Korábbi verziók megőrzése itt: Beállítások > Fájlok mentése. Delta- vagy Iceberg-táblánál a tábla saját előzményeit mutatja."
 
 [view_menu]
+focus_guides = "Aktív cella segédvonalai"
+focus_guides_hint = "Kiemeli az aktív cella sorát és oszlopát ezen a lapon. Az adatok nem változnak."
 record = "Rekord nézet"
 record_hint = "Egyszerre egy sor megjelenítése függőleges mezőlistaként, széles táblázatokhoz"
 timeline = "Idővonal"

@@ -54,6 +54,8 @@
 - Give Find a command clearer rows with menu context and aligned shortcuts.
   Render only visible results, and match newly typed text before Enter runs
   a command.
+- Trace the active cell on wide tables with View > Focus cell guides.
+  The guides belong to the current tab and work without editing the table.
 - Compare paired measurements with CORREL, SLOPE and sample or population
   covariance. Pick X and Y in Formula examples; missing values never shift the
   remaining pairs out of alignment.

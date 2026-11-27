@@ -103,6 +103,8 @@ versions = "Phiên bản trước..."
 versions_hint = "Mở, so sánh hoặc khôi phục một phiên bản mà tệp này có trước một lần lưu của bạn. Cần bật Giữ các phiên bản trước trong Cài đặt > Lưu tệp. Với bảng Delta hoặc Iceberg, hiển thị lịch sử riêng của bảng."
 
 [view_menu]
+focus_guides = "Đường dẫn ô đang chọn"
+focus_guides_hint = "Làm nổi bật hàng và cột của ô đang chọn trong thẻ này. Dữ liệu không thay đổi."
 record = "Chế độ bản ghi"
 record_hint = "Hiển thị từng hàng một dạng danh sách trường dọc, cho bảng rộng"
 timeline = "Dòng thời gian"

@@ -92,6 +92,8 @@ versions = "Tidligere versioner..."
 versions_hint = "Åbn, sammenlign eller gendan en version, filen havde før en af dine gemninger. Kræver Behold tidligere versioner under Indstillinger > Gem filer. På en Delta- eller Iceberg-tabel vises tabellens egen historik."
 
 [view_menu]
+focus_guides = "Hjælpelinjer til aktiv celle"
+focus_guides_hint = "Fremhæv den aktive celles række og kolonne på denne fane. Data ændres ikke."
 record = "Postvisning"
 record_hint = "Vis én række ad gangen som en lodret feltliste, til brede tabeller"
 timeline = "Tidslinje"

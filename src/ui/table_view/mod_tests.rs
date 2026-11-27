@@ -1858,3 +1858,230 @@ fn a_zoomed_header_keeps_its_three_lines_apart() {
         );
     }
 }
+
+fn painted_focus_rails(out: &egui::FullOutput) -> Vec<([egui::Pos2; 2], egui::Rect)> {
+    let accent = ThemeColors::for_mode(ThemeMode::Dark).accent;
+    out.shapes
+        .iter()
+        .filter_map(|item| match &item.shape {
+            egui::Shape::LineSegment { points, stroke }
+                if stroke.width == 1.25 && stroke.color == accent =>
+            {
+                Some((*points, item.clip_rect))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn painted_focus_outline(out: &egui::FullOutput) -> Vec<egui::Rect> {
+    let accent = ThemeColors::for_mode(ThemeMode::Dark).accent;
+    out.shapes
+        .iter()
+        .filter_map(|item| match &item.shape {
+            egui::Shape::Rect(rect)
+                if rect.stroke.width == 2.0
+                    && rect.stroke.color == accent
+                    && rect.fill == Color32::TRANSPARENT =>
+            {
+                Some(rect.rect)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn focus_guides_follow_keyboard_without_changing_cells_or_selection_semantics() {
+    for &mode in ThemeMode::ALL {
+        let palette = ThemeColors::for_mode(mode);
+        let ink = focus_guides::guide_ink(palette);
+        for surface in [palette.row_even, palette.row_odd, palette.bg_header] {
+            assert!(focus_guides::rail_contrast(ink, surface) >= 3.0, "{mode:?}");
+        }
+    }
+    let frost = ThemeColors::for_mode(ThemeMode::Frost);
+    assert_ne!(frost.accent, focus_guides::guide_ink(frost));
+    let mut table = scrollable_table();
+    let ctx = egui::Context::default();
+    let mut state = TableViewState {
+        selected_cell: Some((1, 1)),
+        ..Default::default()
+    };
+    table.marks.insert(MarkKey::Cell(1, 0), MarkColor::Red);
+    let mark = ThemeColors::for_mode(ThemeMode::Dark).mark_color(MarkColor::Red);
+    let mark_rects = |out: &egui::FullOutput| {
+        out.shapes
+            .iter()
+            .filter_map(|item| match &item.shape {
+                egui::Shape::Rect(rect) if rect.fill == mark => Some(rect.rect),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+    let off = run_frame(&ctx, &mut table, &mut state, vec![]);
+    assert!(painted_focus_rails(&off).is_empty());
+    assert!(painted_focus_outline(&off).is_empty());
+    let marks = mark_rects(&off);
+    assert_eq!(marks.len(), 1);
+
+    state.focus_guides = true;
+    let before = run_frame(&ctx, &mut table, &mut state, vec![]);
+    assert_eq!(painted_focus_rails(&before).len(), 2);
+    assert_eq!(mark_rects(&before), marks);
+    let origin = painted_focus_outline(&before);
+    assert_eq!(origin.len(), 1);
+
+    let moved = run_frame(
+        &ctx,
+        &mut table,
+        &mut state,
+        vec![egui::Event::Key {
+            key: egui::Key::ArrowDown,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        }],
+    );
+    assert_eq!(state.selected_cell, Some((2, 1)));
+    let rails = painted_focus_rails(&moved);
+    assert_eq!(rails.len(), 2);
+    let outline = painted_focus_outline(&moved);
+    assert_eq!(outline.len(), 1);
+    assert!(outline[0].top() > origin[0].top());
+    assert_eq!(outline[0].left(), origin[0].left());
+    assert_eq!(mark_rects(&moved), marks);
+    assert!(state.selected_rows.is_empty() && state.selected_cols.is_empty());
+    assert!(state.selected_cells.is_empty());
+    assert!(table.edits.is_empty() && table.undo_stack.is_empty());
+    assert_eq!(table.get(1, 1).unwrap().to_string(), "r1c1");
+}
+
+#[test]
+fn focus_guides_disappear_for_hidden_and_filtered_active_cells() {
+    let mut table = scrollable_table();
+    let ctx = egui::Context::default();
+    let mut state = TableViewState {
+        focus_guides: true,
+        selected_cell: Some((3, 2)),
+        ..Default::default()
+    };
+    let rows = [12, 3, 7]; // Deliberately non-monotone: use actual display positions.
+    let missing = [12, 7];
+    let hidden = HashSet::from([2]);
+    let shown = HashSet::new();
+    let frame = |table: &mut DataTable, state: &mut TableViewState, rows, hidden| {
+        frame_with(&ctx, table, state, vec![], None, |ui, table, state, cx| {
+            draw_table(
+                ui,
+                table,
+                state,
+                TableCtx {
+                    filtered_rows: rows,
+                    hidden_columns: hidden,
+                    readonly: true,
+                    ..cx
+                },
+            );
+        })
+    };
+    let initial = frame(&mut table, &mut state, rows.as_slice(), &shown);
+    assert_eq!(painted_focus_rails(&initial).len(), 2);
+    let cell = painted_focus_outline(&initial);
+    assert_eq!(cell.len(), 1);
+    assert!(painted_row(&initial, 3));
+    let no_row = frame(&mut table, &mut state, missing.as_slice(), &shown);
+    assert!(painted_focus_rails(&no_row).is_empty());
+    let no_column = frame(&mut table, &mut state, rows.as_slice(), &hidden);
+    assert!(painted_focus_rails(&no_column).is_empty());
+    assert!(painted_focus_outline(&no_column).is_empty());
+    assert_eq!(state.selected_cell, Some((3, 2)));
+    let restored = frame(&mut table, &mut state, rows.as_slice(), &shown);
+    assert_eq!(painted_focus_outline(&restored), cell);
+}
+
+#[test]
+fn focus_guides_respect_frozen_columns_and_the_scrolled_band() {
+    let mut table = scrollable_table();
+    let ctx = egui::Context::default();
+    let mut state = TableViewState {
+        col_widths: vec![120.0; table.col_count()],
+        widths_initialized: true,
+        frozen_cols: 1,
+        focus_guides: true,
+        selected_cell: Some((1, 0)),
+        ..Default::default()
+    };
+    let unscrolled = run_frame(&ctx, &mut table, &mut state, vec![]);
+    let frozen = painted_focus_outline(&unscrolled);
+    assert_eq!(frozen.len(), 1);
+
+    state.set_scroll_x(180.0);
+    let scrolled = run_frame(&ctx, &mut table, &mut state, vec![]);
+    assert_eq!(painted_focus_outline(&scrolled), frozen);
+    let rails = painted_focus_rails(&scrolled);
+    assert_eq!(rails.len(), 2);
+    let (vertical, frozen_clip) = rails.iter().find(|(p, _)| p[0].x == p[1].x).unwrap();
+    assert!(frozen_clip.x_range().contains(vertical[0].x));
+
+    state.selected_cell = Some((1, 1)); // Completely under the frozen band.
+    let covered = run_frame(&ctx, &mut table, &mut state, vec![]);
+    assert!(painted_focus_rails(&covered).is_empty());
+
+    state.selected_cell = Some((1, 2)); // Partially under the frozen band.
+    let partial = run_frame(&ctx, &mut table, &mut state, vec![]);
+    let rails = painted_focus_rails(&partial);
+    assert_eq!(rails.len(), 2);
+    let (vertical, scroll_clip) = rails.iter().find(|(p, _)| p[0].x == p[1].x).unwrap();
+    assert!(scroll_clip.x_range().contains(vertical[0].x));
+    assert!((scroll_clip.left() - frozen_clip.right()).abs() < 0.01);
+    assert_eq!(state.scroll_x, 180.0);
+}
+
+#[test]
+fn focus_guides_use_the_zoomed_wrapped_row_in_each_visible_pane() {
+    let mut table = scrollable_table();
+    table.rows[1][0] = crate::data::CellValue::String("r1c0\nred\ngreen\nblue".into());
+    let ctx = egui::Context::default();
+    let mut state = TableViewState {
+        focus_guides: true,
+        selected_cell: Some((1, 0)),
+        ..Default::default()
+    };
+    state.set_split(true, false);
+    let frame = |table: &mut DataTable, state: &mut TableViewState, font| {
+        frame_with_font(
+            &ctx,
+            table,
+            state,
+            vec![],
+            None,
+            font,
+            |ui, table, state, mut cx| {
+                cx.cell_line_breaks = true;
+                draw_table_split(ui, table, state, cx);
+            },
+        )
+    };
+    let both = frame(&mut table, &mut state, 13.0);
+    assert_eq!(painted_focus_rails(&both).len(), 4);
+    let selection = painted_focus_outline(&both);
+    assert_eq!(selection.len(), 2);
+    assert!(selection[0].height() > base_row_height(13.0));
+
+    state.pane_scroll[0].1 = state.row_y_offsets[60];
+    let only_one = frame(&mut table, &mut state, 13.0);
+    assert_eq!(painted_focus_rails(&only_one).len(), 2);
+    state.invalidate_row_heights();
+    let zoomed = frame(&mut table, &mut state, 26.0);
+    let rails = painted_focus_rails(&zoomed);
+    assert_eq!(rails.len(), 2);
+    let (horizontal, clip) = rails.iter().find(|(p, _)| p[0].y == p[1].y).unwrap();
+    let expected = clip.top() + state.row_y_offsets[2] - state.scroll_y - 1.5;
+    assert!((horizontal[0].y - expected).abs() < 0.03);
+    let outline = painted_focus_outline(&zoomed);
+    assert_eq!(outline.len(), 1);
+    assert!(outline[0].height() > selection[0].height());
+    assert_eq!(state.selected_cell, Some((1, 0)));
+}

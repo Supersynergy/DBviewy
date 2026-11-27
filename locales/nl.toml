@@ -92,6 +92,8 @@ versions = "Eerdere versies..."
 versions_hint = "Open, vergelijk of herstel een versie die dit bestand had vóór een van je opslagacties. Vereist Eerdere versies bewaren bij Instellingen > Bestanden opslaan. Bij een Delta- of Iceberg-tabel toont het de eigen geschiedenis van de tabel."
 
 [view_menu]
+focus_guides = "Hulplijnen voor actieve cel"
+focus_guides_hint = "Markeer de rij en kolom van de actieve cel op dit tabblad. De gegevens blijven ongewijzigd."
 record = "Recordweergave"
 record_hint = "Toon één rij tegelijk als verticale veldenlijst, voor brede tabellen"
 timeline = "Tijdlijn"

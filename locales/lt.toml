@@ -99,6 +99,8 @@ versions = "Ankstesnės versijos..."
 versions_hint = "Atverk, palygink ar atkurk versiją, kurią failas turėjo prieš vieną iš tavo įrašymų. Reikia Saugoti ankstesnes versijas skiltyje Nustatymai > Failų įrašymas. Delta ar Iceberg lentelėje rodo pačios lentelės istoriją."
 
 [view_menu]
+focus_guides = "Aktyvaus langelio gairės"
+focus_guides_hint = "Paryškina aktyvaus langelio eilutę ir stulpelį šioje kortelėje. Duomenys nekeičiami."
 record = "Įrašo rodinys"
 record_hint = "Rodyti po vieną eilutę kaip vertikalų laukų sąrašą, plačioms lentelėms"
 timeline = "Laiko juosta"

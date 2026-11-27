@@ -103,6 +103,8 @@ versions = "Versiuni anterioare..."
 versions_hint = "Deschide, compară sau restaurează o versiune pe care fișierul o avea înainte de una dintre salvările tale. Necesită Păstrează versiunile anterioare în Setări > Salvarea fișierelor. La un tabel Delta sau Iceberg, arată istoricul propriu al tabelului."
 
 [view_menu]
+focus_guides = "Ghidaje pentru celula activă"
+focus_guides_hint = "Evidențiază rândul și coloana celulei active din această filă. Datele nu se schimbă."
 record = "Vizualizare înregistrare"
 record_hint = "Afișează un rând pe rând ca listă verticală de câmpuri, pentru tabele late"
 timeline = "Cronologie"

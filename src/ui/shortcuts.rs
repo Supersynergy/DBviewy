@@ -670,6 +670,8 @@ pub enum ShortcutAction {
     ToggleCloudBrowser,
     /// Toggle the databases sidebar. Also **File -> Databases**.
     ToggleDbBrowser,
+    /// Toggle display-only crosshair lines for the active table cell.
+    ToggleFocusGuides,
     /// Split the table view into two stacked panes of the same table, or
     /// close the split. Also **View -> Split view**.
     ToggleSplitView,
@@ -822,6 +824,7 @@ impl ShortcutAction {
             Self::OpenAiReport => "Report AI content...",
             Self::ToggleCloudBrowser => "Toggle cloud panel",
             Self::ToggleDbBrowser => "Toggle databases panel",
+            Self::ToggleFocusGuides => "Focus cell guides",
             Self::ToggleSplitView => "Split view",
             Self::ToggleSplitSideBySide => "Split side by side",
             Self::AddSplitPane => "Add split pane",
@@ -1082,6 +1085,7 @@ impl ShortcutAction {
             | Self::OpenAiReport
             | Self::ToggleCloudBrowser
             | Self::ToggleDbBrowser
+            | Self::ToggleFocusGuides
             | Self::ToggleSplitView
             | Self::ToggleSplitSideBySide
             | Self::AddSplitPane
@@ -1268,6 +1272,7 @@ impl ShortcutAction {
             | Self::CompareSelectedTabs
             | Self::ToggleCloudBrowser
             | Self::ToggleDbBrowser
+            | Self::ToggleFocusGuides
             | Self::ToggleSplitView
             | Self::ToggleSplitSideBySide
             | Self::AddSplitPane
@@ -1508,6 +1513,7 @@ impl ShortcutAction {
             Self::OpenAiReport => "ai_report.menu",
             Self::ToggleCloudBrowser => "file_menu.cloud_connections",
             Self::ToggleDbBrowser => "file_menu.databases",
+            Self::ToggleFocusGuides => "view_menu.focus_guides",
             Self::ToggleSplitView => "view_menu.split",
             Self::ToggleSplitSideBySide => "view_menu.split_side",
             Self::AddSplitPane => "view_menu.add_pane",
@@ -1703,6 +1709,7 @@ impl ShortcutAction {
             | Self::ToggleFollow
             | Self::OpenAutoRefresh
             | Self::OpenGitCompare
+            | Self::ToggleFocusGuides
             | Self::ToggleSplitView
             | Self::ToggleSplitSideBySide
             | Self::AddSplitPane

@@ -1,3 +1,4 @@
+mod focus_guides;
 mod header;
 mod input;
 mod layout;
@@ -45,6 +46,8 @@ impl TableInteraction {
 pub struct TableViewState {
     /// Currently selected cell (row, col). None means no selection.
     pub selected_cell: Option<(usize, usize)>,
+    /// Display-only focus guides for this tab, never saved with the table.
+    pub focus_guides: bool,
     /// Cell currently being edited, with its buffer.
     pub editing_cell: Option<(usize, usize, String)>,
     /// Whether the edit widget needs initial focus (set true when editing
@@ -1381,7 +1384,8 @@ pub fn draw_table(
         outlier_cells,
     };
 
-    header::draw_header_direct(ui, &painter, table, state, &mut interaction, &paint_cx);
+    let column_starts =
+        header::draw_header_direct(ui, &painter, table, state, &mut interaction, &paint_cx);
 
     // Header bottom border
     let header_bottom = header_y + header_h;
@@ -1521,6 +1525,27 @@ pub fn draw_table(
         })
     {
         state.dragging_row = None;
+    }
+
+    if state.focus_guides {
+        focus_guides::paint(
+            &painter,
+            state,
+            focus_guides::Frame {
+                data_clip: data_clip_rect,
+                row_height,
+                visible_rows: first_visible..last_visible,
+                filtered_rows,
+                column_starts: &column_starts,
+                hidden_columns,
+                frozen_cols,
+                frozen_width,
+                data_bottom: current_y,
+                content_width: total_col_width - RESIZE_HANDLE_WIDTH - TRAILING_GAP,
+                scrollbar_width: vscroll_width,
+                colors,
+            },
+        );
     }
 
     // Separator at the frozen-band boundary so the pinned columns read as a

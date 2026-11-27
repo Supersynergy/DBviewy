@@ -355,6 +355,21 @@ multi-cell (Ctrl+Arrow) first, then row selections, then column
 selections. A single-cell selection keeps the existing Cell / Type
 info pill instead.
 
+## Focus cell guides
+
+Choose **View > Focus cell guides**, or search for it in **Find a command**.
+Two lines trace the row and column of the active cell. The outline moves
+with your selection as you use the arrow keys or click a cell. The lines
+do not select the rest of the row or column, change cell colours, or edit data.
+The guides also work in read-only tables.
+
+The switch is off by default and applies only to the current tab in this
+session. Each split pane shows guides only while the active cell is visible
+in that pane. If filtering or hiding removes the cell from view, the guides
+disappear. Table zoom changes their position with the grid, not the menu.
+
+DBviewy's guides are inspired by [Focus Cell in Excel](https://techcommunity.microsoft.com/blog/ExcelBlog/focus-cell-is-now-generally-available-everywhere/4303454).
+
 ## Freeze columns
 
 Right-click a column header and pick **Freeze columns up to here** to pin

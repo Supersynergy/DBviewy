@@ -595,3 +595,136 @@ fn formula_examples_command_opens_the_picker_without_writing_cells() {
     assert!(tab.table.edits.is_empty());
     assert!(tab.table.undo_stack.is_empty());
 }
+
+#[test]
+fn focus_guides_command_toggles_in_read_only_and_is_local_to_one_tab() {
+    let (mut app, ctx) = opened("focus cell guides");
+    let checked_command = |app: &OctaApp| {
+        app.command_rows("focus cell guides")
+            .into_iter()
+            .find(|item| item.action == SA::ToggleFocusGuides)
+            .expect("Focus cell guides command")
+    };
+    assert_eq!(checked_command(&app).why, Some(t("greyed.need_table")));
+    assert_eq!(SA::ToggleFocusGuides.place_key(), "menu.view");
+    assert!(SA::ToggleFocusGuides.default_combo().key.is_none());
+    app.open_new_table_tab(3, 4);
+    let focused_tab = app.active_tab;
+    app.tabs[focused_tab].table_state.selected_cell = Some((2, 1));
+    app.readonly_mode = true;
+    assert!(checked_command(&app).why.is_none());
+    settle(&mut app, &ctx);
+    step(&mut app, &ctx, key(egui::Key::Enter));
+    settle(&mut app, &ctx);
+    let tab = &app.tabs[focused_tab];
+    assert!(tab.table_state.focus_guides);
+    assert_eq!(tab.table_state.selected_cell, Some((2, 1)));
+    assert!(tab.table.edits.is_empty() && tab.table.undo_stack.is_empty());
+    assert!(app.command_search.is_none());
+
+    app.open_new_table_tab(3, 4);
+    assert_ne!(app.active_tab, focused_tab);
+    assert!(!app.tabs[app.active_tab].table_state.focus_guides);
+    assert!(app.tabs[focused_tab].table_state.focus_guides);
+    app.active_tab = focused_tab;
+    app.open_command_search(&ctx);
+    app.command_search.as_mut().unwrap().query = t("view_menu.focus_guides");
+    settle(&mut app, &ctx);
+    step(&mut app, &ctx, key(egui::Key::Enter));
+    settle(&mut app, &ctx);
+    assert!(!app.tabs[focused_tab].table_state.focus_guides);
+}
+
+#[test]
+fn focus_guides_menu_dispatch_refuses_non_table_views_without_changing_state() {
+    use egui::accesskit::Toggled;
+    use octa::data::ViewMode;
+    let (mut app, _) = opened("focus cell guides");
+    app.command_search = None;
+    app.open_new_table_tab(3, 4);
+    let active = app.active_tab;
+    app.readonly_mode = true;
+    let frame = |app: &mut OctaApp, ctx: &egui::Context, events| {
+        let mut output = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(1400.0, 900.0),
+                )),
+                events,
+                ..Default::default()
+            },
+            |ui| app.render_toolbar(ui),
+        );
+        output.textures_delta.clear();
+        output
+    };
+    let position = |frame: &egui::FullOutput, name: &str| {
+        frame.shapes.iter().find_map(|item| match &item.shape {
+            egui::Shape::Text(text) if text.galley.text() == name => {
+                Some(text.visual_bounding_rect().center())
+            }
+            _ => None,
+        })
+    };
+    let label = t("view_menu.focus_guides");
+    for (mode, expected_enabled, checked) in [
+        (ViewMode::Raw, false, false),
+        (ViewMode::Table, true, false),
+        (ViewMode::Table, true, true),
+    ] {
+        app.tabs[active].view_mode = mode;
+        let ctx = egui::Context::default();
+        ctx.enable_accesskit();
+        frame(&mut app, &ctx, vec![]);
+        frame(&mut app, &ctx, vec![]);
+        let toolbar = frame(&mut app, &ctx, vec![]);
+        let Some(at) = position(&toolbar, &t("menu.view")) else {
+            panic!("view menu button must be painted");
+        };
+        frame(&mut app, &ctx, vec![egui::Event::PointerMoved(at)]);
+        frame(&mut app, &ctx, pointer(at, true));
+        let released = frame(&mut app, &ctx, pointer(at, false));
+        let laying_out = frame(&mut app, &ctx, vec![]);
+        let settled = frame(&mut app, &ctx, vec![]);
+        // The popup is inert in its first layout pass. AccessKit sends
+        // deltas, so read the most recent node, not the first report.
+        let check = [&settled, &laying_out, &released]
+            .iter()
+            .filter_map(|frame| frame.platform_output.accesskit_update.as_ref())
+            .flat_map(|tree| &tree.nodes)
+            .find(|(_, node)| node.label() == Some(label.as_str()))
+            .expect("Focus cell guides checkbox present in View");
+        assert_eq!(
+            !check.1.is_disabled(),
+            expected_enabled,
+            "{mode:?}, checked {checked}"
+        );
+        assert_eq!(
+            check.1.toggled(),
+            Some(if checked {
+                Toggled::True
+            } else {
+                Toggled::False
+            })
+        );
+        let entry = position(&settled, &label).expect("Focus cell guides label painted");
+        frame(&mut app, &ctx, vec![egui::Event::PointerMoved(entry)]);
+        frame(&mut app, &ctx, pointer(entry, true));
+        frame(&mut app, &ctx, pointer(entry, false));
+        assert_eq!(
+            app.tabs[active].table_state.focus_guides,
+            expected_enabled && !checked
+        );
+        if !expected_enabled {
+            // A disabled menu row must remain visible; dismiss the menu
+            // before the next View state is tested.
+            frame(&mut app, &ctx, key(egui::Key::Escape));
+            assert_eq!(
+                app.command_unavailable(SA::ToggleFocusGuides),
+                Some(t("greyed.need_table_view"))
+            );
+        }
+    }
+    assert!(app.tabs[active].table.undo_stack.is_empty());
+}

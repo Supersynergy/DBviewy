@@ -288,6 +288,7 @@ impl OctaApp {
                 } else {
                     Some(crate::app::full_scan::full_scan_kind(tab))
                 };
+                let focus_guides_block = tab.focus_guides_block();
                 let ask_controls = ui::toolbar::AskControls {
                     enabled: !ask_profiles.is_empty(),
                     profiles: &ask_profiles,
@@ -350,6 +351,8 @@ impl OctaApp {
                     readonly_mode: self.readonly_mode,
                     edits_blocked,
                     show_invisibles: self.settings.show_invisible_chars,
+                    focus_guides: tab.table_state.focus_guides,
+                    focus_guides_block,
                     split_view: tab.table_state.is_split(),
                     split_side_by_side: tab.table_state.split_side_by_side,
                     split_panes: tab.table_state.split_panes(),

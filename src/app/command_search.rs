@@ -182,6 +182,7 @@ impl OctaApp {
         let need_file =
             || (!tab.is_some_and(|t| t.table.source_path.is_some())).then(|| t("greyed.need_file"));
         match a {
+            SA::ToggleFocusGuides => need_table().or_else(|| tab?.focus_guides_block().map(t)),
             SA::FillDown | SA::FillRight => {
                 use super::fill_down::Direction;
                 let direction = if a == SA::FillRight {

@@ -92,6 +92,8 @@ versions = "이전 버전..."
 versions_hint = "저장하기 전에 이 파일이 가졌던 버전을 열거나 비교하거나 복원합니다. 설정 > 파일 저장의 이전 버전 보관이 켜져 있어야 합니다. Delta 또는 Iceberg 테이블에서는 테이블 자체의 기록을 보여 줍니다."
 
 [view_menu]
+focus_guides = "활성 셀 안내선"
+focus_guides_hint = "이 탭에서 활성 셀의 행과 열을 강조합니다. 데이터는 바뀌지 않습니다."
 record = "레코드 보기"
 record_hint = "넓은 표를 위해 한 번에 한 행씩 세로 필드 목록으로 표시합니다"
 timeline = "타임라인"

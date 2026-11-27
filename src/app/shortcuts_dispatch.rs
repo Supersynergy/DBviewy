@@ -1014,6 +1014,9 @@ impl OctaApp {
             if action_fired(SA::ToggleDbBrowser) {
                 self.toggle_db_browser();
             }
+            if action_fired(SA::ToggleFocusGuides) {
+                self.toggle_focus_guides();
+            }
             // Same toggle semantics as the View menu: firing it while that
             // split is already showing closes it, and firing the other
             // orientation switches to it rather than closing.

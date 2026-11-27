@@ -92,6 +92,8 @@ versions = "Versions précédentes..."
 versions_hint = "Ouvre, compare ou restaure une version que ce fichier avait avant un de tes enregistrements. Nécessite Garder les versions précédentes dans Paramètres > Enregistrement des fichiers. Sur une table Delta ou Iceberg, affiche l'historique propre à la table."
 
 [view_menu]
+focus_guides = "Repères de la cellule active"
+focus_guides_hint = "Met en évidence la ligne et la colonne de la cellule active dans cet onglet. Les données ne changent pas."
 record = "Vue fiche"
 record_hint = "Afficher une ligne à la fois sous forme de liste verticale de champs, pour les tables larges"
 timeline = "Frise chronologique"

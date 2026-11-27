@@ -7,7 +7,20 @@ use eframe::egui;
 
 use octa::ui;
 
-use crate::app::state::OctaApp;
+use crate::app::state::{OctaApp, TabState};
+
+impl TabState {
+    pub(crate) fn focus_guides_block(&self) -> Option<&'static str> {
+        use octa::data::ViewMode;
+        if self.table.col_count() == 0 {
+            Some("greyed.need_table")
+        } else if self.view_mode != ViewMode::Table || self.is_chart_tab {
+            Some("greyed.need_table_view")
+        } else {
+            None
+        }
+    }
+}
 
 impl OctaApp {
     /// Run every View-menu action set on `action`.
@@ -50,6 +63,9 @@ impl OctaApp {
             self.settings.show_invisible_chars = !self.settings.show_invisible_chars;
             self.settings.save();
         }
+        if action.toggle_focus_guides {
+            self.toggle_focus_guides();
+        }
         // Each entry owns one orientation: clicking it turns the split on in
         // that orientation, or off again when it is already the one showing.
         if action.toggle_split_view {
@@ -86,6 +102,14 @@ impl OctaApp {
         }
         if action.open_apply_recipe {
             self.pick_and_apply_recipe();
+        }
+    }
+
+    pub(crate) fn toggle_focus_guides(&mut self) {
+        if let Some(tab) = self.tabs.get_mut(self.active_tab)
+            && tab.focus_guides_block().is_none()
+        {
+            tab.table_state.focus_guides = !tab.table_state.focus_guides;
         }
     }
 

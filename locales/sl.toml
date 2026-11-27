@@ -99,6 +99,8 @@ versions = "Prejšnje različice..."
 versions_hint = "Odpri, primerjaj ali obnovi različico, ki jo je imela datoteka pred enim od tvojih shranjevanj. Potrebuje Ohrani prejšnje različice v Nastavitve > Shranjevanje datotek. Pri tabeli Delta ali Iceberg prikaže lastno zgodovino tabele."
 
 [view_menu]
+focus_guides = "Vodila aktivne celice"
+focus_guides_hint = "Poudari vrstico in stolpec aktivne celice na tem zavihku. Podatki se ne spremenijo."
 record = "Pogled zapisa"
 record_hint = "Prikaži eno vrstico naenkrat kot navpični seznam polj, za široke tabele"
 timeline = "Časovnica"

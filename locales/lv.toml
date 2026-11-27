@@ -99,6 +99,8 @@ versions = "Agrākās versijas..."
 versions_hint = "Atver, salīdzini vai atjauno versiju, kas failam bija pirms kādas tavas saglabāšanas. Vajag Saglabāt agrākās versijas sadaļā Iestatījumi > Failu saglabāšana. Delta vai Iceberg tabulai rāda pašas tabulas vēsturi."
 
 [view_menu]
+focus_guides = "Aktīvās šūnas vadlīnijas"
+focus_guides_hint = "Izcelt aktīvās šūnas rindu un kolonnu šajā cilnē. Dati netiek mainīti."
 record = "Ieraksta skats"
 record_hint = "Rādīt pa vienai rindai kā vertikālu lauku sarakstu, platām tabulām"
 timeline = "Laika josla"

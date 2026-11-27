@@ -20,7 +20,7 @@ pub(super) fn draw_header_direct(
     state: &mut TableViewState,
     interaction: &mut TableInteraction,
     cx: &super::PaintCtx<'_>,
-) {
+) -> Vec<f32> {
     // Destructured so the body keeps the names it already used.
     let super::PaintCtx {
         colors,
@@ -1013,6 +1013,7 @@ pub(super) fn draw_header_direct(
         state.fit_all_rows();
         interaction.fit_rows_wants_wrap = !cx.cell_line_breaks;
     }
+    col_starts
 }
 
 fn draw_sort_arrow(p: &egui::Painter, c: egui::Pos2, ascending: bool, stroke: egui::Stroke) {

@@ -334,6 +334,14 @@ table the scrollbar settles as you scroll. Dragging a row taller by hand does no
 change that setting: with line breaks off the extra space simply stays
 empty, the same as a column dragged wider than its content.
 
+## Focus cell guides
+
+Use **View > Focus cell guides** (or **Find a command**) to trace the row
+and column of the active cell. The lines move as you select another cell.
+They are for this tab only: they do not select extra cells, change colours
+or edit data, and work in read-only tables. A split pane only shows the
+guides when its active cell is visible.
+
 ## Split view
 
 **View > Split view** cuts the table into two bands, one above the other,

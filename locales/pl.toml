@@ -92,6 +92,8 @@ versions = "Wcześniejsze wersje..."
 versions_hint = "Otwórz, porównaj lub przywróć wersję, jaką plik miał przed jednym z twoich zapisów. Wymaga Zachowuj wcześniejsze wersje w Ustawienia > Zapisywanie plików. Przy tabeli Delta lub Iceberg pokazuje własną historię tabeli."
 
 [view_menu]
+focus_guides = "Prowadnice aktywnej komórki"
+focus_guides_hint = "Wyróżnia wiersz i kolumnę aktywnej komórki na tej karcie. Nie zmienia danych."
 record = "Widok rekordu"
 record_hint = "Pokaż jeden wiersz naraz jako pionową listę pól, dla szerokich tabel"
 timeline = "Oś czasu"

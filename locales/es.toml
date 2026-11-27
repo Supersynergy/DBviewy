@@ -92,6 +92,8 @@ versions = "Versiones anteriores..."
 versions_hint = "Abre, compara o restaura una versión que tenía este archivo antes de uno de tus guardados. Necesita Guardar versiones anteriores en Configuración > Guardar archivos. En una tabla Delta o Iceberg, muestra el historial propio de la tabla."
 
 [view_menu]
+focus_guides = "Guías de la celda activa"
+focus_guides_hint = "Resalta la fila y la columna de la celda activa en esta pestaña. No cambia los datos."
 record = "Vista de registro"
 record_hint = "Mostrar una fila cada vez como lista vertical de campos, para tablas anchas"
 timeline = "Cronología"

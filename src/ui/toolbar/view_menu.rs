@@ -34,6 +34,8 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
         has_yaml,
         readonly_mode,
         show_invisibles,
+        focus_guides,
+        focus_guides_block,
         split_view,
         split_side_by_side,
         split_panes,
@@ -258,6 +260,16 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             }
 
             ui.separator();
+            if check(
+                ui,
+                focus_guides,
+                "view_menu.focus_guides",
+                "view_menu.focus_guides_hint",
+                focus_guides_block.map(t),
+            ) {
+                action.toggle_focus_guides = true;
+                ui.close();
+            }
             // Split view only means anything in the table view; the other
             // modes render their own way. Disabled elsewhere, with the same
             // hint on both variants because a disabled widget shows only the

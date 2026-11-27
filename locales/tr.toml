@@ -92,6 +92,8 @@ versions = "Önceki sürümler..."
 versions_hint = "Bu dosyanın, kayıtlarından birinden önceki bir sürümünü aç, karşılaştır ya da geri yükle. Ayarlar > Dosya kaydetme içinde Önceki sürümleri sakla açık olmalı. Delta ya da Iceberg tablosunda tablonun kendi geçmişini gösterir."
 
 [view_menu]
+focus_guides = "Etkin hücre kılavuzları"
+focus_guides_hint = "Bu sekmede etkin hücrenin satır ve sütununu vurgular. Veriler değişmez."
 record = "Kayıt görünümü"
 record_hint = "Geniş tablolar için satırları tek tek dikey alan listesi olarak göster"
 timeline = "Zaman çizelgesi"

@@ -92,6 +92,8 @@ versions = "Versões anteriores..."
 versions_hint = "Abra, compare ou restaure uma versão que este arquivo tinha antes de um dos seus salvamentos. Precisa de Manter versões anteriores em Configurações > Salvar arquivos. Em uma tabela Delta ou Iceberg, mostra o histórico da própria tabela."
 
 [view_menu]
+focus_guides = "Guias da célula ativa"
+focus_guides_hint = "Destaca a linha e a coluna da célula ativa nesta aba. Os dados não mudam."
 record = "Visualização de registro"
 record_hint = "Mostrar uma linha por vez como lista vertical de campos, para tabelas largas"
 timeline = "Linha do tempo"

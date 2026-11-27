@@ -92,6 +92,8 @@ versions = "旧版本..."
 versions_hint = "打开、比较或恢复这个文件在你某次保存之前的版本。需要在 设置 > 保存文件 中开启「保留旧版本」。在 Delta 或 Iceberg 表上，显示表自身的历史。"
 
 [view_menu]
+focus_guides = "活动单元格辅助线"
+focus_guides_hint = "突出显示此标签页中活动单元格所在的行和列，不更改数据。"
 record = "记录视图"
 record_hint = "一次显示一行，以纵向字段列表呈现，适合列数很多的表"
 timeline = "时间线"

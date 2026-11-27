@@ -99,6 +99,8 @@ versions = "Staršie verzie..."
 versions_hint = "Otvor, porovnaj alebo obnov verziu, ktorú súbor mal pred niektorým z tvojich uložení. Vyžaduje Uchovávať staršie verzie v Nastavenia > Ukladanie súborov. Pri tabuľke Delta alebo Iceberg ukazuje vlastnú históriu tabuľky."
 
 [view_menu]
+focus_guides = "Vodiace čiary aktívnej bunky"
+focus_guides_hint = "Zvýrazní riadok a stĺpec aktívnej bunky na tejto karte. Údaje sa nemenia."
 record = "Zobrazenie záznamu"
 record_hint = "Zobraziť jeden riadok po druhom ako zvislý zoznam polí, pre široké tabuľky"
 timeline = "Časová os"

@@ -92,6 +92,8 @@ versions = "舊版本..."
 versions_hint = "開啟、比較或恢復這個檔案在你某次儲存之前的版本。需要在 設定 > 儲存檔案 中開啟「保留舊版本」。在 Delta 或 Iceberg 表上，顯示表自身的歷史。"
 
 [view_menu]
+focus_guides = "作用中儲存格輔助線"
+focus_guides_hint = "突顯此分頁中作用中儲存格所在的列與欄，不會變更資料。"
 record = "記錄檢視"
 record_hint = "一次顯示一列，以縱向欄位清單呈現，適合欄數很多的表"
 timeline = "時間線"

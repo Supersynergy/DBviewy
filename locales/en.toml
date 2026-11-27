@@ -99,6 +99,8 @@ versions = "Earlier versions..."
 versions_hint = "Open, compare or restore a version this file had before one of your saves. Needs Keep earlier versions in Settings > Saving files. On a Delta or Iceberg table, the table's own history."
 
 [view_menu]
+focus_guides = "Focus cell guides"
+focus_guides_hint = "Highlight the active cell's row and column in this tab. This does not change the data."
 record = "Record view"
 record_hint = "Show one row at a time as a vertical field list, for wide tables"
 timeline = "Timeline"

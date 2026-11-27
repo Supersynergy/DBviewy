@@ -92,6 +92,8 @@ versions = "Aiemmat versiot..."
 versions_hint = "Avaa, vertaa tai palauta versio, joka tiedostolla oli ennen jotakin tallennustasi. Vaatii asetuksen Säilytä aiemmat versiot kohdassa Asetukset > Tiedostojen tallentaminen. Delta- tai Iceberg-taulussa näyttää taulun oman historian."
 
 [view_menu]
+focus_guides = "Aktiivisen solun apuviivat"
+focus_guides_hint = "Korosta aktiivisen solun rivi ja sarake tällä välilehdellä. Tiedot eivät muutu."
 record = "Tietuenäkymä"
 record_hint = "Näytä yksi rivi kerrallaan pystysuorana kenttäluettelona, leveille taulukoille"
 timeline = "Aikajana"

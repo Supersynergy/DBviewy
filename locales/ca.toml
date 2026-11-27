@@ -92,6 +92,8 @@ versions = "Versions anteriors..."
 versions_hint = "Obre, compara o restaura una versió que tenia aquest fitxer abans d'un dels teus desaments. Cal tenir activat Conserva les versions anteriors a Paràmetres > Desament de fitxers. En una taula Delta o Iceberg, l'historial de la mateixa taula."
 
 [view_menu]
+focus_guides = "Guies de la cel·la activa"
+focus_guides_hint = "Ressalta la fila i la columna de la cel·la activa en aquesta pestanya. No canvia les dades."
 record = "Vista de registre"
 record_hint = "Mostra una fila cada vegada com a llista vertical de camps, per a taules amples"
 timeline = "Cronologia"

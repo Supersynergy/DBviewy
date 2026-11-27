@@ -92,6 +92,8 @@ versions = "Versioni precedenti..."
 versions_hint = "Apri, confronta o ripristina una versione che il file aveva prima di uno dei tuoi salvataggi. Serve Conserva le versioni precedenti in Impostazioni > Salvataggio dei file. Su una tabella Delta o Iceberg, mostra la cronologia della tabella stessa."
 
 [view_menu]
+focus_guides = "Guide della cella attiva"
+focus_guides_hint = "Evidenzia la riga e la colonna della cella attiva in questa scheda. I dati non cambiano."
 record = "Vista record"
 record_hint = "Mostra una riga alla volta come elenco verticale di campi, per tabelle larghe"
 timeline = "Linea temporale"

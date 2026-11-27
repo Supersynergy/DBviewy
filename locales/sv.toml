@@ -92,6 +92,8 @@ versions = "Tidigare versioner..."
 versions_hint = "Öppna, jämför eller återställ en version som filen hade före en av dina sparningar. Kräver Behåll tidigare versioner under Inställningar > Spara filer. På en Delta- eller Iceberg-tabell visas tabellens egen historik."
 
 [view_menu]
+focus_guides = "Stödlinjer för aktiv cell"
+focus_guides_hint = "Framhäv den aktiva cellens rad och kolumn på den här fliken. Data ändras inte."
 record = "Postvy"
 record_hint = "Visa en rad i taget som en lodrät fältlista, för breda tabeller"
 timeline = "Tidslinje"

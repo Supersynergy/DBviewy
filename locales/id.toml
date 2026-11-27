@@ -103,6 +103,8 @@ versions = "Versi sebelumnya..."
 versions_hint = "Buka, bandingkan, atau pulihkan versi berkas ini sebelum salah satu penyimpananmu. Perlu Simpan versi sebelumnya di Pengaturan > Menyimpan berkas. Pada tabel Delta atau Iceberg, menampilkan riwayat milik tabel itu sendiri."
 
 [view_menu]
+focus_guides = "Panduan sel aktif"
+focus_guides_hint = "Sorot baris dan kolom sel aktif pada tab ini. Data tidak berubah."
 record = "Tampilan rekaman"
 record_hint = "Tampilkan satu baris sekaligus sebagai daftar bidang vertikal, untuk tabel lebar"
 timeline = "Linimasa"

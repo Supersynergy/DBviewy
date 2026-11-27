@@ -87,6 +87,9 @@ pub struct ToolbarCtx<'a> {
     pub edits_blocked: bool,
     /// Whether **View -> Show invisible characters** is ticked.
     pub show_invisibles: bool,
+    pub focus_guides: bool,
+    /// Message key for the disabled focus guides menu entry.
+    pub focus_guides_block: Option<&'static str>,
     /// Whether the active tab's table is split into two scrolling panes.
     pub split_view: bool,
     /// Which way that split runs: `true` = side by side, `false` = stacked.
@@ -552,6 +555,7 @@ pub struct ToolbarAction {
     pub open_auto_refresh: bool,
     /// Flip **View -> Show invisible characters**.
     pub toggle_invisibles: bool,
+    pub toggle_focus_guides: bool,
     /// **View -> Tile tabs** in this layout.
     pub tile: Option<crate::ui::tiles::TileLayout>,
     /// **View -> Untile** was clicked.
