@@ -2197,3 +2197,57 @@ fn linear_forecast_previews_each_input_and_reuses_fixed_training_ranges_for_repe
     assert!(tab.table.undo());
     assert_eq!(tab.table.col_count(), 3);
 }
+
+#[test]
+fn forecast_column_scales_to_twenty_thousand_distinct_inputs_and_undoes() {
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = data::DataTable {
+        columns: [
+            ("Known X", "Int64"),
+            ("Known Y", "Float64"),
+            ("Query X", "Int64"),
+        ]
+        .map(|(name, ty)| ColumnInfo {
+            name: name.into(),
+            data_type: ty.into(),
+        })
+        .to_vec(),
+        rows: (0..20_000)
+            .map(|x| {
+                vec![
+                    CellValue::Int(x),
+                    CellValue::Float(3.0 * x as f64 + 2.5),
+                    CellValue::Int(x + 30_000),
+                ]
+            })
+            .collect(),
+        ..data::DataTable::empty()
+    };
+    tab.new_col_name = "Forecast".into();
+    tab.new_col_type = "Float64".into();
+    tab.new_col_formula = "=FORECAST.LINEAR(C1,$B$1:$B$20000,$A$1:$A$20000)".into();
+    let preview = FormulaPreview::read(&tab.new_col_formula, &tab.table).unwrap();
+    let compare = |row: usize, value: f64| {
+        let expected = 3.0 * (row as f64 + 30_000.0) + 2.5;
+        assert!(
+            (value - expected).abs() < 1e-7,
+            "{row}: {value} vs {expected}"
+        );
+    };
+    for (row, value) in preview.values.iter().enumerate() {
+        compare(row, value.unwrap());
+    }
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    assert_eq!(tab.table.row_count(), 20_000);
+    assert_eq!(tab.table.col_count(), 4);
+    for row in 0..20_000 {
+        let Some(CellValue::Float(value)) = tab.table.get(row, 3) else {
+            panic!("missing forecast {row}");
+        };
+        compare(row, *value);
+    }
+    assert!(tab.table.undo());
+    assert_eq!(tab.table.col_count(), 3);
+}

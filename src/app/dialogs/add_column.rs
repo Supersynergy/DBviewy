@@ -22,6 +22,8 @@ use super::super::state::{OctaApp, TabState};
 mod dispersion;
 #[path = "formula_examples.rs"]
 mod formula_examples;
+#[path = "formula_forecast_fill.rs"]
+mod formula_forecast_fill;
 #[path = "../../data/formula_lex.rs"]
 mod formula_lex;
 #[path = "formula_rank_fill.rs"]
@@ -333,7 +335,13 @@ impl FormulaPreview {
         let template = FormulaRows::new(formula);
         let mut first_bad = None;
         let mut values = Vec::with_capacity(n);
-        if template.relative.is_empty() {
+        if let Some(mut forecast) = formula_forecast_fill::Forecast::prepare(formula, table) {
+            for row in 0..n {
+                let outcome = forecast.at(row);
+                first_bad = first_bad.or(outcome.bad_cell);
+                values.push(outcome.value);
+            }
+        } else if template.relative.is_empty() {
             let outcome = data::evaluate_formula_with_diagnostics(formula, table);
             values.resize(n, outcome.value);
             first_bad = outcome.bad_cell;
@@ -786,6 +794,9 @@ fn fill_formula_template(
     formula: &str,
     table: &data::DataTable,
 ) -> (FormulaResults, Option<data::FormulaBadCell>) {
+    if let Some(forecast) = formula_forecast_fill::fill(formula, table) {
+        return forecast;
+    }
     if let Some(rank) = formula_rank_fill::fill(formula, table) {
         return rank;
     }

@@ -139,8 +139,9 @@ can also refer to a separate column of new values. Replace it with a
 number to predict a single point. `FORECAST` and `PROGNOSE` are accepted
 as older names. **Use example** only prepares the formula. Check it with
 **Preview** before adding the column. A fixed query and fixed ranges are
-evaluated once; while filling, repeated query values can reuse their
-results if both training ranges are fixed.
+evaluated once. For a single forecast call with fixed training ranges,
+Preview and Insert Column each fit one line, even when every query
+value differs. Moving training ranges use the regular per-row evaluator.
 
 See Microsoft's documentation for [CORREL](https://support.microsoft.com/en-us/excel/functions/correl-function)
 and [SLOPE](https://support.microsoft.com/en-au/excel/functions/slope-function).

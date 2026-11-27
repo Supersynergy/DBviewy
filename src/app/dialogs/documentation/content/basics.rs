@@ -747,7 +747,8 @@ the square of the correlation. `FORECAST.LINEAR(30,B1:B20,A1:A20)`
 predicts Y at X = 30. Search the examples for ACHSENABSCHNITT,
 BESTIMMTHEITSMASS or PROGNOSE.LINEAR. The forecast example uses the
 current row's X value and fixed training ranges. Preview it before
-adding the column.
+adding the column. With fixed training ranges, each preview or fill
+fits the line once for all query values.
 The draft points to the loaded rows. Use ranges of the same size.
 A pair with text, a Boolean or a blank is skipped; numeric zero counts.
 Choosing an example changes the draft, not the table.

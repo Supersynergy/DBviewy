@@ -66,6 +66,7 @@
 - Trace the active cell on wide tables with View > Focus cell guides.
   The guides belong to the current tab and work without editing the table.
 - Forecast a value from paired measurements with FORECAST.LINEAR, and inspect the fitted line with INTERCEPT and R².
+  A forecast column with fixed training ranges fits the line once, even for distinct input values.
 - Compare paired measurements with CORREL, SLOPE and sample or population
   covariance. Pick X and Y in Formula examples; missing values never shift the
   remaining pairs out of alignment.
