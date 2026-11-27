@@ -235,6 +235,12 @@ pub fn parse_number_relaxed(s: &str) -> Option<f64> {
     }
 }
 
+/// Whole digits with padding, such as an imported postal or part code.
+pub(crate) fn is_zero_padded_integer(text: &str) -> bool {
+    let digits = text.strip_prefix(['-', '+']).unwrap_or(text).as_bytes();
+    matches!(digits, [b'0', b'0'..=b'9', rest @ ..] if rest.iter().all(u8::is_ascii_digit))
+}
+
 /// A column worth scanning: a text column. Typed columns (`Float64`, `Date32`,
 /// ...) are already numbers or dates and must not be touched.
 pub fn column_is_candidate(table: &DataTable, col: usize) -> bool {
@@ -352,8 +358,13 @@ pub fn infer_column(values: &[Option<&str>]) -> NumberOutcome {
     let mut seen_any = false;
 
     for v in values.iter().flatten() {
-        if v.trim().is_empty() {
+        let v = v.trim();
+        if v.is_empty() {
             continue;
+        }
+        if is_zero_padded_integer(v) {
+            // A neighbouring decimal must not reinterpret a padded code.
+            return NumberOutcome::Skip;
         }
         seen_any = true;
         match classify_value(v) {

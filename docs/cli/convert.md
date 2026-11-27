@@ -125,6 +125,9 @@ fidelity at the format boundary:
   Save-As when you don't need to inspect the data.
 - **Pipelines**: `octa --convert in.csv stage1.parquet` is part of
   CI / batch jobs.
+- **Padded identifiers**: CSV and TSV keep whole values like `0007` or
+  `+0012` as text when converting to XLSX or Parquet. Ordinary numbers and
+  decimals are still detected. Explicit number conversion removes the padding.
 - **Type coercion**: round-trip CSV → Parquet → CSV to apply
   Octa's type inference and normalise the date columns.
 

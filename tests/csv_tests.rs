@@ -27,6 +27,30 @@ fn test_infer_int() {
 }
 
 #[test]
+fn padded_whole_identifiers_are_text_but_normal_numbers_and_dates_still_infer() {
+    for padded in [
+        "00",
+        "0007",
+        "+0012",
+        "-005",
+        "00000123456789012345678901234567890",
+    ] {
+        assert_eq!(infer_cell_value(padded), CellValue::String(padded.into()));
+    }
+    for (input, value) in [
+        ("0", CellValue::Int(0)),
+        ("+7", CellValue::Int(7)),
+        ("-7", CellValue::Int(-7)),
+        ("0.7", CellValue::Float(0.7)),
+        ("00.25", CellValue::Float(0.25)),
+        ("01e2", CellValue::Float(100.0)),
+        ("0007-01-01", CellValue::Date("0007-01-01".into())),
+    ] {
+        assert_eq!(infer_cell_value(input), value, "{input}");
+    }
+}
+
+#[test]
 fn test_infer_float() {
     assert_eq!(infer_cell_value("2.5"), CellValue::Float(2.5));
     assert_eq!(infer_cell_value("-0.5"), CellValue::Float(-0.5));
@@ -567,6 +591,110 @@ fn test_title_block_csv_end_to_end() {
 /// Background chunks of a CSV: each one carries on from the byte position the
 /// last one stopped at, and together they hold every record exactly once,
 /// a quoted line break included (records, not lines).
+#[test]
+fn padded_identifiers_survive_csv_tsv_repair_and_resumed_chunks() {
+    use std::sync::{Arc, Mutex, atomic::AtomicBool};
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("codes.csv");
+    let tsv = dir.path().join("codes.tsv");
+    std::fs::write(&input, "Code,Qty\n0007,23\n7,24\n+005,25\n").unwrap();
+    std::fs::write(&tsv, "Code\tQty\n0007\t23\n7\t24\n+005\t25\n").unwrap();
+    for table in [
+        CsvReader.read_file(&input).unwrap(),
+        TsvReader.read_file(&tsv).unwrap(),
+        read_delimited_opts(&input, b',', "CSV", &ReadOptions::default()).unwrap(),
+    ] {
+        assert_eq!(table.columns[0].data_type, "Utf8");
+        assert_eq!(table.columns[1].data_type, "Int64");
+        assert_eq!(table.get(0, 0), Some(&CellValue::String("0007".into())));
+        assert_eq!(table.get(1, 0), Some(&CellValue::Int(7)));
+        assert_eq!(table.get(2, 0), Some(&CellValue::String("+005".into())));
+    }
+
+    let resume: ChunkResume = Default::default();
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    for skip_rows in [0, 1] {
+        load_csv_rows_chunk(
+            &input,
+            b',',
+            ChunkSpec {
+                skip_rows,
+                max_rows: if skip_rows == 0 { 1 } else { 2 },
+                num_cols: 2,
+            },
+            ChunkSink {
+                buffer: buffer.clone(),
+                done: Arc::new(AtomicBool::new(false)),
+                exhausted: Arc::new(AtomicBool::new(false)),
+                resume: resume.clone(),
+            },
+        )
+        .unwrap();
+    }
+    let loaded = buffer.lock().unwrap();
+    assert_eq!(loaded[0][0], CellValue::String("0007".into()));
+    assert_eq!(loaded[2][0], CellValue::String("+005".into()));
+}
+
+#[test]
+fn cli_xlsx_csv_xlsx_and_parquet_preserve_zero_padded_text() {
+    use octa::formats::{excel_reader::ExcelReader, parquet_reader::ParquetReader};
+    use rust_xlsxwriter::Workbook;
+    use std::{path::Path, process::Command};
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("catalog.xlsx");
+    let csv = dir.path().join("catalog.csv");
+    let returned = dir.path().join("catalog-return.xlsx");
+    let parquet = dir.path().join("catalog.parquet");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet();
+    sheet.write_string(0, 0, "Article").unwrap();
+    sheet.write_string(0, 1, "Code").unwrap();
+    sheet.write_string(0, 2, "Qty").unwrap();
+    for (r, (label, code)) in [("A-1", "0007"), ("A-2", "7"), ("A-3", "0080")]
+        .into_iter()
+        .enumerate()
+    {
+        sheet.write_string(r as u32 + 1, 0, label).unwrap();
+        sheet.write_string(r as u32 + 1, 1, code).unwrap();
+        sheet.write_number(r as u32 + 1, 2, (r + 5) as f64).unwrap();
+    }
+    book.save(&source).unwrap();
+
+    let convert = |from: &Path, to: &Path| {
+        let out = Command::new(env!("CARGO_BIN_EXE_octa"))
+            .env("OCTA_CONFIG_DIR", dir.path().join("config"))
+            .arg("--convert")
+            .arg(from)
+            .arg(to)
+            .output()
+            .unwrap();
+        assert!(
+            out.status.success(),
+            "{:?}: {}",
+            to,
+            String::from_utf8_lossy(&out.stderr)
+        );
+    };
+    convert(&source, &csv);
+    assert!(std::fs::read_to_string(&csv).unwrap().contains("A-1,0007,"));
+    convert(&csv, &returned);
+    convert(&csv, &parquet);
+
+    let xlsx = ExcelReader.read_file(&returned).unwrap();
+    let typed = ParquetReader.read_file(&parquet).unwrap();
+    assert_eq!(typed.columns[1].data_type, "Utf8");
+    assert_eq!(xlsx.get(1, 1), Some(&CellValue::Float(7.0)));
+    assert_eq!(typed.get(1, 1), Some(&CellValue::String("7".into())));
+    assert_eq!(xlsx.get(2, 2), Some(&CellValue::Float(7.0)));
+    assert_eq!(typed.get(2, 2), Some(&CellValue::Int(7)));
+    for table in [xlsx, typed] {
+        assert_eq!(table.get(0, 1), Some(&CellValue::String("0007".into())));
+        assert_eq!(table.get(2, 1), Some(&CellValue::String("0080".into())));
+    }
+}
+
 #[test]
 fn csv_chunks_resume_where_the_last_one_stopped() {
     use octa::formats::csv_reader::{ChunkResume, ChunkSink, ChunkSpec, load_csv_rows_chunk};

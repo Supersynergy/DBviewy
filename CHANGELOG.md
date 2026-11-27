@@ -75,6 +75,8 @@
 - Compare paired measurements with CORREL, SLOPE and sample or population
   covariance. Pick X and Y in Formula examples; missing values never shift the
   remaining pairs out of alignment.
+- Keep zero-padded identifiers such as `0007` as text when opening CSV or
+  TSV and converting them to XLSX or Parquet.
 - Check imported text with LEN, EXACT and FIND. SEARCH (SUCHEN) finds text
   regardless of case and accepts Excel wildcards. Find all four in Formula examples.
 - Explain an empty grid with a removable zero-value filter chip. The same

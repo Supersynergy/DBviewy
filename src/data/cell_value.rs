@@ -116,6 +116,9 @@ pub fn column_type_from_cells<'a>(cells: impl IntoIterator<Item = &'a CellValue>
             CellValue::Bool(_) => boolean = true,
             CellValue::Date(_) => date = true,
             CellValue::DateTime(_) => datetime = true,
+            CellValue::String(s) if crate::data::num_parse::is_zero_padded_integer(s) => {
+                text = true;
+            }
             CellValue::String(_) if shape.add(cell) => number_text = true,
             CellValue::String(_) => text = true,
             _ => {}

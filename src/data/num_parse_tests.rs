@@ -50,6 +50,26 @@ fn plain_and_non_numeric_values() {
 /// The guard that keeps German dates out of the number pass: 31.12.2024 has
 /// groups of 2 and 4 digits, which is not valid grouping under either style.
 #[test]
+fn padded_codes_disable_automatic_number_promotion_but_allow_explicit_conversion() {
+    use super::{NumberOutcome, NumberStyle, infer_column, number_cell};
+    for codes in [
+        vec![Some("0007"), Some("6,5")],
+        vec![Some("6,5"), Some(" -005 ")],
+        vec![None, Some("+001"), Some("0")],
+    ] {
+        assert_eq!(infer_column(&codes), NumberOutcome::Skip);
+    }
+    assert_eq!(
+        infer_column(&[Some("7"), Some("6,5")]),
+        NumberOutcome::Promote(NumberStyle::European)
+    );
+    assert_eq!(
+        number_cell("0007", NumberStyle::European),
+        Some(CellValue::Int(7))
+    );
+}
+
+#[test]
 fn dotted_date_is_not_a_number() {
     assert_eq!(classify_value("31.12.2024"), ValueStyle::NotNumeric);
     assert_eq!(classify_value("1.12.2024"), ValueStyle::NotNumeric);

@@ -1,3 +1,4 @@
+use crate::data::num_parse::is_zero_padded_integer;
 use crate::data::{CellValue, ColumnInfo, DataTable};
 use crate::formats::FormatReader;
 use anyhow::Result;
@@ -198,6 +199,9 @@ pub fn infer_cell_value(s: &str) -> CellValue {
     if s.eq_ignore_ascii_case("false") {
         return CellValue::Bool(false);
     }
+    if is_zero_padded_integer(s) {
+        return CellValue::String(s.to_string());
+    }
     if let Ok(i) = s.parse::<i64>() {
         return CellValue::Int(i);
     }
@@ -373,7 +377,9 @@ fn field_cell(field: Option<&str>, col: usize, notes: &mut NumberNotes) -> CellV
     let cell = infer_cell_value(text);
     let number = match &cell {
         CellValue::Float(_) => true,
-        CellValue::String(s) => crate::data::decimal::Exact::parse(s).is_some(),
+        CellValue::String(s) => {
+            !is_zero_padded_integer(s) && crate::data::decimal::Exact::parse(s).is_some()
+        }
         _ => false,
     };
     if number {
