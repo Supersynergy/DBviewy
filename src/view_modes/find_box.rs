@@ -39,6 +39,7 @@ pub(crate) struct FindBoxOut {
 pub(crate) struct FindBoxTexts {
     pub(crate) placeholder: String,
     pub(crate) find_hint: String,
+    pub(crate) replace_all: String,
     pub(crate) replace_all_hint: String,
 }
 
@@ -226,7 +227,7 @@ pub(crate) fn draw(
                     .on_disabled_hover_text(&why_not)
                     .clicked();
                 out.replace_all = ui
-                    .add_enabled(can, egui::Button::new(t("search.replace_all")))
+                    .add_enabled(can, egui::Button::new(&texts.replace_all))
                     .on_hover_text(&texts.replace_all_hint)
                     .on_disabled_hover_text(&why_not)
                     .clicked();

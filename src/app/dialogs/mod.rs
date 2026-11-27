@@ -242,6 +242,7 @@ impl OctaApp {
         tidy_up::render_tidy_up_dialog(self, ctx);
         schema_export::render_schema_export_dialog(self, ctx);
         sql_write_back::render_sql_write_back_dialog(self, ctx);
+        self.render_replace_review(ctx);
         // Last, so the command box draws over every dialog.
         self.render_command_search(ctx);
     }

@@ -1944,6 +1944,11 @@ search = "Cerca a la documentació..."
 no_matches = "Cap coincidència"
 
 [search]
+replace_review_open = "Previsualitza..."
+replace_review_hint = "Revisa els canvis a les cel·les visibles abans d'aplicar-los."
+replace_review_scope = "{cells} cel·les en {rows} files i {cols} columnes"
+replace_review_empty = "No canviaria cap cel·la."
+replace_review_stale = "La cerca o la destinació ha canviat. Torna a obrir la previsualització."
 mode_toggle_hint = "Alterna entre filtrar files i ressaltar coincidències"
 case_sensitive = "Distingeix majúscules (respecta les majúscules)"
 whole_word = "Només paraules senceres"

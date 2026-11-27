@@ -1944,6 +1944,11 @@ search = "Pesquisar na documentação..."
 no_matches = "Sem resultados"
 
 [search]
+replace_review_open = "Prévia..."
+replace_review_hint = "Confira as alterações nas células visíveis antes de aplicar."
+replace_review_scope = "{cells} células em {rows} linhas e {cols} colunas"
+replace_review_empty = "Nenhuma célula mudaria."
+replace_review_stale = "A busca ou o destino mudou. Abra a prévia de novo."
 mode_toggle_hint = "Alternar entre filtrar linhas e destacar correspondências"
 case_sensitive = "Diferenciar maiúsculas (respeita as maiúsculas)"
 whole_word = "Apenas palavras inteiras"

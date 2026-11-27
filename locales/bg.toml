@@ -1956,6 +1956,11 @@ search = "Търсене в документацията..."
 no_matches = "Няма съвпадения"
 
 [search]
+replace_review_open = "Преглед..."
+replace_review_hint = "Провери промените във видимите клетки, преди да ги приложиш."
+replace_review_scope = "{cells} клетки в {rows} реда и {cols} колони"
+replace_review_empty = "Няма клетки за промяна."
+replace_review_stale = "Търсенето или целта му се промени. Отвори прегледа отново."
 mode_toggle_hint = "Превключване между филтриране на редове и осветяване на съвпаденията"
 case_sensitive = "Чувствителност към регистъра"
 whole_word = "Само цяла дума"

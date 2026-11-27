@@ -1947,6 +1947,11 @@ search = "ドキュメントを検索..."
 no_matches = "一致なし"
 
 [search]
+replace_review_open = "プレビュー..."
+replace_review_hint = "適用する前に、表示されているセルの変更を確認します。"
+replace_review_scope = "{rows} 行、{cols} 列の {cells} セル"
+replace_review_empty = "変更されるセルはありません。"
+replace_review_stale = "検索または対象が変わりました。プレビューを開き直してください。"
 mode_toggle_hint = "行の絞り込みと一致の強調を切り替えます"
 case_sensitive = "大文字と小文字を区別"
 whole_word = "単語全体のみ"

@@ -318,10 +318,14 @@ impl OctaApp {
         ));
     }
 
-    /// Replace every match in the cells on screen, as one undo step. A text
-    /// view replaces in its text.
+    /// Review bulk replacements in the table. Text views retain immediate
+    /// Replace All; the SQL editor has its own independent box.
     pub(crate) fn replace_all_matches(&mut self) {
-        if self.is_readonly() {
+        if self.is_readonly() || self.replace_review.is_some() {
+            return;
+        }
+        if self.tabs[self.active_tab].view_mode == data::ViewMode::Table {
+            self.open_replace_review();
             return;
         }
         let Some((matcher, replace_text)) = self.box_find() else {
@@ -421,6 +425,9 @@ impl OctaApp {
         use super::state::NavDir;
         use octa::i18n::t;
 
+        if self.replace_review.is_some() {
+            return;
+        }
         let readonly = self.is_readonly();
         let owns_keyboard = self.owns_keyboard();
         let tab = &mut self.tabs[self.active_tab];
@@ -443,7 +450,16 @@ impl OctaApp {
         let texts = find_box::FindBoxTexts {
             placeholder: t("search_menu.find"),
             find_hint: t("search.find_box_hint"),
-            replace_all_hint: t("search.replace_all_hint"),
+            replace_all: t(if tab.view_mode == data::ViewMode::Table {
+                "search.replace_review_open"
+            } else {
+                "search.replace_all"
+            }),
+            replace_all_hint: t(if tab.view_mode == data::ViewMode::Table {
+                "search.replace_review_hint"
+            } else {
+                "search.replace_all_hint"
+            }),
         };
         let out = find_box::draw(
             ui,

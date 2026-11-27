@@ -1959,6 +1959,11 @@ search = "Cerca nella documentazione..."
 no_matches = "Nessun risultato"
 
 [search]
+replace_review_open = "Anteprima..."
+replace_review_hint = "Controlla le modifiche alle celle visibili prima di applicarle."
+replace_review_scope = "{cells} celle in {rows} righe e {cols} colonne"
+replace_review_empty = "Non cambierebbe nessuna cella."
+replace_review_stale = "La ricerca o la destinazione è cambiata. Riapri l’anteprima."
 mode_toggle_hint = "Alterna tra filtrare le righe ed evidenziare le corrispondenze"
 case_sensitive = "Distingui maiuscole/minuscole"
 whole_word = "Solo parola intera"

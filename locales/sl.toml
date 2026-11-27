@@ -1956,6 +1956,11 @@ search = "Išči po dokumentaciji..."
 no_matches = "Ni zadetkov"
 
 [search]
+replace_review_open = "Predogled..."
+replace_review_hint = "Pred uveljavitvijo preveri spremembe v vidnih celicah."
+replace_review_scope = "{cells} celic v {rows} vrsticah in {cols} stolpcih"
+replace_review_empty = "Nobena celica se ne bi spremenila."
+replace_review_stale = "Iskanje ali njegov cilj se je spremenil. Znova odpri predogled."
 mode_toggle_hint = "Preklop med filtriranjem vrstic in označevanjem zadetkov"
 case_sensitive = "Ločevanje velikih in malih črk"
 whole_word = "Samo cela beseda"

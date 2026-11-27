@@ -77,6 +77,7 @@ pub(super) fn draw_find_box(ui: &mut egui::Ui, tab: &mut TabState, corner: egui:
     let texts = find_box::FindBoxTexts {
         placeholder: octa::i18n::t("sql.find_placeholder"),
         find_hint: octa::i18n::t("sql.find_hint"),
+        replace_all: octa::i18n::t("search.replace_all"),
         replace_all_hint: octa::i18n::t("sql.replace_all_hint"),
     };
     let out = find_box::draw(

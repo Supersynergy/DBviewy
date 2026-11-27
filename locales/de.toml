@@ -1959,6 +1959,11 @@ search = "Dokumentation durchsuchen..."
 no_matches = "Keine Treffer"
 
 [search]
+replace_review_open = "Vorschau..."
+replace_review_hint = "Prüfe die Änderungen in sichtbaren Zellen, bevor du sie übernimmst."
+replace_review_scope = "{cells} Zellen in {rows} Zeilen und {cols} Spalten"
+replace_review_empty = "Keine Zelle würde sich ändern."
+replace_review_stale = "Die Suche oder ihr Ziel hat sich geändert. Öffne die Vorschau erneut."
 mode_toggle_hint = "Zwischen Filtern und Hervorheben der Treffer umschalten"
 case_sensitive = "Groß-/Kleinschreibung beachten"
 whole_word = "Nur ganzes Wort"

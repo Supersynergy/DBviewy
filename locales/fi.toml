@@ -1959,6 +1959,11 @@ search = "Hae ohjeesta..."
 no_matches = "Ei osumia"
 
 [search]
+replace_review_open = "Esikatselu..."
+replace_review_hint = "Tarkista näkyvien solujen muutokset ennen niiden käyttöönottoa."
+replace_review_scope = "{cells} solua, {rows} riviä ja {cols} saraketta"
+replace_review_empty = "Mikään solu ei muuttuisi."
+replace_review_stale = "Haku tai sen kohde muuttui. Avaa esikatselu uudelleen."
 mode_toggle_hint = "Vaihda rivien suodatuksen ja osumien korostuksen välillä"
 case_sensitive = "Erota isot ja pienet kirjaimet"
 whole_word = "Vain koko sana"

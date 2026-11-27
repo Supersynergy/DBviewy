@@ -1956,6 +1956,11 @@ search = "Meklēt dokumentācijā..."
 no_matches = "Nav atbilstību"
 
 [search]
+replace_review_open = "Priekšskatījums..."
+replace_review_hint = "Pirms lietošanas pārskati izmaiņas redzamajās šūnās."
+replace_review_scope = "{cells} šūnas {rows} rindās un {cols} kolonnās"
+replace_review_empty = "Neviena šūna nemainītos."
+replace_review_stale = "Meklējums vai tā mērķis ir mainījies. Atver priekšskatījumu vēlreiz."
 mode_toggle_hint = "Pārslēgties starp rindu filtrēšanu un atbilstību izcelšanu"
 case_sensitive = "Reģistrjutīgs"
 whole_word = "Tikai vesels vārds"

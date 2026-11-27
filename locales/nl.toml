@@ -1959,6 +1959,11 @@ search = "Documentatie doorzoeken..."
 no_matches = "Geen resultaten"
 
 [search]
+replace_review_open = "Voorbeeld..."
+replace_review_hint = "Bekijk de wijzigingen in zichtbare cellen voordat je ze toepast."
+replace_review_scope = "{cells} cellen in {rows} rijen en {cols} kolommen"
+replace_review_empty = "Er zou geen cel veranderen."
+replace_review_stale = "De zoekopdracht of het doel is gewijzigd. Open het voorbeeld opnieuw."
 mode_toggle_hint = "Schakelen tussen rijen filteren en treffers markeren"
 case_sensitive = "Hoofdlettergevoelig"
 whole_word = "Alleen heel woord"

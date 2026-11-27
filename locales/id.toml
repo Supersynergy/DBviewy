@@ -1960,6 +1960,11 @@ search = "Cari dokumentasi..."
 no_matches = "Tidak ada hasil"
 
 [search]
+replace_review_open = "Pratinjau..."
+replace_review_hint = "Periksa perubahan pada sel yang terlihat sebelum menerapkannya."
+replace_review_scope = "{cells} sel dalam {rows} baris dan {cols} kolom"
+replace_review_empty = "Tidak ada sel yang akan berubah."
+replace_review_stale = "Pencarian atau sasarannya berubah. Buka kembali pratinjau."
 mode_toggle_hint = "Beralih antara menyaring baris dan menyorot kecocokan"
 case_sensitive = "Peka huruf besar/kecil"
 whole_word = "Hanya kata utuh"

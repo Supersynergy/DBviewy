@@ -1960,6 +1960,11 @@ search = "Keresés a dokumentációban..."
 no_matches = "Nincs találat"
 
 [search]
+replace_review_open = "Előnézet..."
+replace_review_hint = "Alkalmazás előtt nézd át a látható cellák módosításait."
+replace_review_scope = "{cells} cella, {rows} sor és {cols} oszlop"
+replace_review_empty = "Egyetlen cella sem változna."
+replace_review_stale = "A keresés vagy a célja megváltozott. Nyisd meg újra az előnézetet."
 mode_toggle_hint = "Váltás a sorok szűrése és a találatok kiemelése között"
 case_sensitive = "Kis- és nagybetű érzékeny"
 whole_word = "Csak teljes szó"

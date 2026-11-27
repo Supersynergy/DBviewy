@@ -1956,6 +1956,11 @@ search = "Search documentation..."
 no_matches = "No matches"
 
 [search]
+replace_review_open = "Preview all..."
+replace_review_hint = "Review the changes in visible cells before applying them."
+replace_review_scope = "{cells} cells in {rows} rows and {cols} columns"
+replace_review_empty = "No cell would change."
+replace_review_stale = "The search or its target changed. Reopen the preview."
 mode_toggle_hint = "Toggle between filtering rows and highlighting matches"
 case_sensitive = "Case-sensitive (match capitalisation)"
 whole_word = "Whole word only"

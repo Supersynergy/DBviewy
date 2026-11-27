@@ -1956,6 +1956,11 @@ search = "Otsi dokumentatsioonist..."
 no_matches = "Vasteid pole"
 
 [search]
+replace_review_open = "Eelvaade..."
+replace_review_hint = "Vaata nähtavate lahtrite muudatused enne rakendamist üle."
+replace_review_scope = "{cells} lahtrit, {rows} rida ja {cols} veergu"
+replace_review_empty = "Ükski lahter ei muutuks."
+replace_review_stale = "Otsing või selle siht muutus. Ava eelvaade uuesti."
 mode_toggle_hint = "Lüliti ridade filtreerimise ja vastete esiletostmise vahel"
 case_sensitive = "Tostutundlik"
 whole_word = "Ainult terve sõna"

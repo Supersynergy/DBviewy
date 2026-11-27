@@ -35,6 +35,7 @@ pub(crate) mod enrich;
 pub(crate) mod file_io;
 mod fill_down;
 pub(crate) mod find_replace;
+mod replace_review;
 pub(crate) mod flag_guard;
 pub(crate) mod folder_compare;
 pub(crate) mod full_scan;

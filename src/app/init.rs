@@ -324,6 +324,7 @@ impl OctaApp {
             tab_group_dialog: None,
             close_queue: Vec::new(),
             exit_queue: None,
+            replace_review: None,
             zoom_percent,
             last_work_calendar: None,
             pending_layout: None,

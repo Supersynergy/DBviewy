@@ -1956,6 +1956,11 @@ search = "Шукати в документації..."
 no_matches = "Немає збігів"
 
 [search]
+replace_review_open = "Перегляд..."
+replace_review_hint = "Перевір зміни у видимих клітинках перед застосуванням."
+replace_review_scope = "{cells} клітинок у {rows} рядках і {cols} стовпцях"
+replace_review_empty = "Жодна клітинка не зміниться."
+replace_review_stale = "Пошук або його ціль змінилися. Відкрий перегляд знову."
 mode_toggle_hint = "Перемикання між фільтрацією рядків і підсвічуванням збігів"
 case_sensitive = "З урахуванням регістру"
 whole_word = "Тільки ціле слово"

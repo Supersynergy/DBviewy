@@ -1959,6 +1959,11 @@ search = "Belgelerde ara..."
 no_matches = "Eşleşme yok"
 
 [search]
+replace_review_open = "Önizleme..."
+replace_review_hint = "Uygulamadan önce görünür hücrelerdeki değişiklikleri gözden geçir."
+replace_review_scope = "{rows} satır ve {cols} sütunda {cells} hücre"
+replace_review_empty = "Hiçbir hücre değişmez."
+replace_review_stale = "Arama veya hedefi değişti. Önizlemeyi yeniden aç."
 mode_toggle_hint = "Satırları filtreleme ile eşleşmeleri vurgulama arasında geçiş yap"
 case_sensitive = "Büyük/küçük harfe duyarlı"
 whole_word = "Yalnızca tam kelime"

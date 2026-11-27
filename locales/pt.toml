@@ -1967,6 +1967,11 @@ search = "Pesquisar na documentação..."
 no_matches = "Nenhum resultado"
 
 [search]
+replace_review_open = "Pré-visualização..."
+replace_review_hint = "Revê as alterações nas células visíveis antes de as aplicares."
+replace_review_scope = "{cells} células em {rows} linhas e {cols} colunas"
+replace_review_empty = "Nenhuma célula mudaria."
+replace_review_stale = "A pesquisa ou o destino mudou. Abre novamente a pré-visualização."
 mode_toggle_hint = "Alternar entre filtrar linhas e realçar correspondências"
 case_sensitive = "Diferenciar maiúsculas/minúsculas"
 whole_word = "Apenas palavra inteira"

@@ -397,6 +397,12 @@ pub const EDITING: &str = r#"# Editing & Undo/Redo
   insert/delete/move, and colour marks. Both are also available in the **Edit**
   menu and remappable in **Settings > Shortcuts**.
 
+To replace several values, use **Search > Find & Replace > Preview all...**.
+The table preview counts affected cells, rows and columns and shows
+before-and-after examples. **Apply** edits only visible cells in one undo
+step. **Escape** cancels. If the search or its target changes, open a new
+preview. Single replacement and replacement in the SQL editor stay direct.
+
 Structural edits:
 
 - **Edit > Insert row** adds a new empty row below the selected cell.

@@ -1959,6 +1959,11 @@ search = "Szukaj w dokumentacji..."
 no_matches = "Brak wyników"
 
 [search]
+replace_review_open = "Podgląd..."
+replace_review_hint = "Sprawdź zmiany w widocznych komórkach przed ich zastosowaniem."
+replace_review_scope = "{cells} komórek w {rows} wierszach i {cols} kolumnach"
+replace_review_empty = "Żadna komórka się nie zmieni."
+replace_review_stale = "Wyszukiwanie lub jego cel się zmieniły. Otwórz ponownie podgląd."
 mode_toggle_hint = "Przełączaj między filtrowaniem wierszy a podświetlaniem dopasowań"
 case_sensitive = "Uwzględnij wielkość liter"
 whole_word = "Tylko całe słowo"

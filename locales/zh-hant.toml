@@ -1944,6 +1944,11 @@ search = "搜尋文件..."
 no_matches = "無符合項"
 
 [search]
+replace_review_open = "預覽..."
+replace_review_hint = "套用前先檢查可見儲存格中的變更。"
+replace_review_scope = "{rows} 列和 {cols} 欄中的 {cells} 個儲存格"
+replace_review_empty = "不會變更任何儲存格。"
+replace_review_stale = "搜尋或目標已變更。請重新開啟預覽。"
 mode_toggle_hint = "在篩選列和醒目提示符合項之間切換"
 case_sensitive = "區分大小寫"
 whole_word = "僅整詞"

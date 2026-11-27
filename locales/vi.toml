@@ -1960,6 +1960,11 @@ search = "Tìm trong tài liệu..."
 no_matches = "Không có kết quả"
 
 [search]
+replace_review_open = "Xem trước..."
+replace_review_hint = "Kiểm tra thay đổi ở các ô đang hiển thị trước khi áp dụng."
+replace_review_scope = "{cells} ô trong {rows} hàng và {cols} cột"
+replace_review_empty = "Không có ô nào thay đổi."
+replace_review_stale = "Nội dung tìm kiếm hoặc đích đã đổi. Hãy mở lại bản xem trước."
 mode_toggle_hint = "Chuyển đổi giữa lọc hàng và đánh dấu kết quả"
 case_sensitive = "Phân biệt hoa thường"
 whole_word = "Chỉ từ hoàn chỉnh"

@@ -345,6 +345,7 @@ impl OctaApp {
             // one under the pointer; outside tiles both are this table's.
             // The split view narrows them further, per pane.
             handles_input: self.pending_table_picker.is_none()
+                && self.replace_review.is_none()
                 && self.image_import.is_none()
                 && self.image_viewer.is_none()
                 && self.tile_drawing.is_none_or(|t| t.focused),

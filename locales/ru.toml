@@ -1947,6 +1947,11 @@ search = "Поиск по документации..."
 no_matches = "Совпадений нет"
 
 [search]
+replace_review_open = "Предпросмотр..."
+replace_review_hint = "Проверь изменения в видимых ячейках перед применением."
+replace_review_scope = "{cells} ячеек в {rows} строках и {cols} столбцах"
+replace_review_empty = "Ни одна ячейка не изменится."
+replace_review_stale = "Поиск или его цель изменились. Открой предпросмотр заново."
 mode_toggle_hint = "Переключение между фильтрацией строк и подсветкой совпадений"
 case_sensitive = "С учётом регистра"
 whole_word = "Только слово целиком"

@@ -1960,6 +1960,11 @@ search = "Caută în documentație..."
 no_matches = "Niciun rezultat"
 
 [search]
+replace_review_open = "Previzualizare..."
+replace_review_hint = "Verifică modificările din celulele vizibile înainte de a le aplica."
+replace_review_scope = "{cells} celule în {rows} rânduri și {cols} coloane"
+replace_review_empty = "Nu s-ar modifica nicio celulă."
+replace_review_stale = "Căutarea sau ținta s-a schimbat. Redeschide previzualizarea."
 mode_toggle_hint = "Comută între filtrarea rândurilor și evidențierea potrivirilor"
 case_sensitive = "Sensibil la majuscule"
 whole_word = "Doar cuvânt întreg"

@@ -1956,6 +1956,11 @@ search = "Ieškoti dokumentacijoje..."
 no_matches = "Nėra atitikmenų"
 
 [search]
+replace_review_open = "Peržiūra..."
+replace_review_hint = "Prieš taikydamas peržiūrėk matomų langelių pakeitimus."
+replace_review_scope = "{cells} langelių, {rows} eilučių ir {cols} stulpelių"
+replace_review_empty = "Nė vienas langelis nepasikeistų."
+replace_review_stale = "Pasikeitė paieška arba jos taikinys. Atverk peržiūrą iš naujo."
 mode_toggle_hint = "Perjungti tarp eilučių filtravimo ir atitikmenų paryškinimo"
 case_sensitive = "Skirti raidžių dydį"
 whole_word = "Tik visas žodis"

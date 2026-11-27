@@ -1956,6 +1956,11 @@ search = "Pretraži dokumentaciju..."
 no_matches = "Nema podudaranja"
 
 [search]
+replace_review_open = "Pretpregled..."
+replace_review_hint = "Provjeri promjene u vidljivim ćelijama prije primjene."
+replace_review_scope = "{cells} ćelija u {rows} redaka i {cols} stupaca"
+replace_review_empty = "Nijedna se ćelija ne bi promijenila."
+replace_review_stale = "Pretraga ili njezin cilj su se promijenili. Ponovno otvori pretpregled."
 mode_toggle_hint = "Prebaci izmedju filtriranja redaka i isticanja podudaranja"
 case_sensitive = "Razlikuj velika i mala slova"
 whole_word = "Samo cijela riječ"

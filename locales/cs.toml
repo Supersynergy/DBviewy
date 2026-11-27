@@ -1960,6 +1960,11 @@ search = "Hledat v dokumentaci..."
 no_matches = "Žádné výsledky"
 
 [search]
+replace_review_open = "Náhled..."
+replace_review_hint = "Před použitím zkontroluj změny ve viditelných buňkách."
+replace_review_scope = "{cells} buněk v {rows} řádcích a {cols} sloupcích"
+replace_review_empty = "Žádná buňka by se nezměnila."
+replace_review_stale = "Hledání nebo jeho cíl se změnily. Otevři náhled znovu."
 mode_toggle_hint = "Přepínat mezi filtrováním řádků a zvýrazňováním shod"
 case_sensitive = "Rozlišovat velikost písmen"
 whole_word = "Pouze celé slovo"

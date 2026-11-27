@@ -215,11 +215,15 @@ it shows while you replace in them.
   and selects the one after it. With no match selected, it takes the first
   match after the selected cell. Pressing Enter again replaces match after
   match.
-- **All** replaces every match at once, as one step: a single **Ctrl+Z**
-  takes it all back.
+- For a bulk edit in the table, choose **Preview all...**. It shows the
+  number of cells, rows and columns that would change, plus the first
+  few old and new values. **Apply** edits those cells in one step;
+  **Cancel** or **Escape** leaves them unchanged. One **Ctrl+Z** undoes
+  the entire edit. If the search, table or visible target changes
+  before you apply, reopen the preview.
 
-Both act on what you can see: the rows the filters leave, in every column but
-a hidden one. Every match inside a cell is replaced, not just the first one,
+Both table actions use the rows the filters leave visible and skip hidden
+columns. They do not affect rows that have not been loaded. Every match inside a cell is replaced, not just the first one,
 and a cell keeps its type where the new text still reads as one, so a number
 stays a number.
 
@@ -240,7 +244,7 @@ editor: see [SQL](sql.md#finding-and-replacing).
 
 !!! note "Filtered vs. all rows"
 
-    **All** only touches rows the filters leave visible. To replace across
+    The table preview only includes rows the filters leave visible. To replace across
     the whole table, clear the column filters first.
 
 ## Find duplicates

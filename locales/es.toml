@@ -1959,6 +1959,11 @@ search = "Buscar en la documentación..."
 no_matches = "Sin coincidencias"
 
 [search]
+replace_review_open = "Vista previa..."
+replace_review_hint = "Revisa los cambios en las celdas visibles antes de aplicarlos."
+replace_review_scope = "{cells} celdas en {rows} filas y {cols} columnas"
+replace_review_empty = "No cambiaría ninguna celda."
+replace_review_stale = "La búsqueda o su destino ha cambiado. Vuelve a abrir la vista previa."
 mode_toggle_hint = "Alternar entre filtrar filas y resaltar coincidencias"
 case_sensitive = "Distinguir mayúsculas y minúsculas"
 whole_word = "Solo palabra completa"

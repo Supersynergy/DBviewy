@@ -844,6 +844,7 @@ pub(crate) struct OctaApp {
     /// A quit in progress: the modified tabs still to be asked about
     /// (`OctaApp::next_exit_tab`). `None` while nobody is quitting.
     pub(crate) exit_queue: Option<Vec<super::tabs::TabId>>,
+    pub(crate) replace_review: Option<super::replace_review::ReplaceReview>,
     pub(crate) registry: FormatRegistry,
     pub(crate) theme_mode: ThemeMode,
     /// Session search behaviour (Filter vs Highlight). Seeded from

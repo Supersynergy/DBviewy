@@ -6,6 +6,7 @@ fn texts() -> FindBoxTexts {
     FindBoxTexts {
         placeholder: "Find".into(),
         find_hint: String::new(),
+        replace_all: octa::i18n::t("search.replace_all"),
         replace_all_hint: String::new(),
     }
 }

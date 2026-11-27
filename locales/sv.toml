@@ -1959,6 +1959,11 @@ search = "Sök i dokumentationen..."
 no_matches = "Inga träffar"
 
 [search]
+replace_review_open = "Förhandsvisa..."
+replace_review_hint = "Granska ändringarna i synliga celler innan du tillämpar dem."
+replace_review_scope = "{cells} celler i {rows} rader och {cols} kolumner"
+replace_review_empty = "Inga celler skulle ändras."
+replace_review_stale = "Sökningen eller målet har ändrats. Öppna förhandsvisningen igen."
 mode_toggle_hint = "Växla mellan att filtrera rader och markera träffar"
 case_sensitive = "Skiftlägeskänslig"
 whole_word = "Endast hela ord"

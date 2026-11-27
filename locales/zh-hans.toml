@@ -1947,6 +1947,11 @@ search = "搜索文档..."
 no_matches = "无匹配项"
 
 [search]
+replace_review_open = "预览..."
+replace_review_hint = "应用前先检查可见单元格中的更改。"
+replace_review_scope = "{rows} 行和 {cols} 列中的 {cells} 个单元格"
+replace_review_empty = "不会更改任何单元格。"
+replace_review_stale = "搜索或目标已更改。请重新打开预览。"
 mode_toggle_hint = "在筛选行和高亮匹配项之间切换"
 case_sensitive = "区分大小写"
 whole_word = "仅整词"

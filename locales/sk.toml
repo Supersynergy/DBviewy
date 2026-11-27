@@ -1956,6 +1956,11 @@ search = "Hľadať v dokumentácii..."
 no_matches = "Žiadne zhody"
 
 [search]
+replace_review_open = "Ukážka..."
+replace_review_hint = "Pred použitím skontroluj zmeny vo viditeľných bunkách."
+replace_review_scope = "{cells} buniek v {rows} riadkoch a {cols} stĺpcoch"
+replace_review_empty = "Žiadna bunka by sa nezmenila."
+replace_review_stale = "Vyhľadávanie alebo jeho cieľ sa zmenili. Znova otvor ukážku."
 mode_toggle_hint = "Prepínanie medzi filtrovaním riadkov a zvýrazňovaním zhôd"
 case_sensitive = "Rozlišovať veľkosť písmen"
 whole_word = "Iba celé slovo"
