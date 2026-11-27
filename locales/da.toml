@@ -3732,6 +3732,8 @@ strict_hint = "Afviser hele konverteringen, så snart noget ikke kan konverteres
 refused = "Der blev ikke konverteret noget: {count} værdi(er) kunne ikke konverteres. Fjern fluebenet ved den strenge indstilling for at konvertere resten alligevel."
 
 [facet]
+from_cell_hint = "Behold kun værdien fra denne celle i kolonnen. De andre filtre ændres ikke."
+from_cell_list_hint = "Vælg denne værdi på filterlisten i kolonneoverskriften."
 title = "Filtrer efter værdi"
 open_hint = "Filtrerer denne kolonne efter dens værdier"
 search_hint = "Søg i alle værdier"

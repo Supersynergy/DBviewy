@@ -728,3 +728,116 @@ fn focus_guides_menu_dispatch_refuses_non_table_views_without_changing_state() {
     }
     assert!(app.tabs[active].table.undo_stack.is_empty());
 }
+
+#[test]
+fn keyboard_quick_filter_preserves_focus_and_only_replaces_the_active_column() {
+    use octa::data::{CellValue as Cell, ColumnInfo};
+    let (mut app, ctx) = opened("");
+    app.command_search = None;
+    app.readonly_mode = true;
+    let tab = &mut app.tabs[0];
+    tab.table.columns = ["item", "warehouse"]
+        .map(|name| ColumnInfo {
+            name: name.into(),
+            data_type: "Utf8".into(),
+        })
+        .into();
+    tab.table.rows = [
+        ("A.01", "East"),
+        ("A.01", "West"),
+        ("A-01", "West"),
+        ("A.01", "West"),
+    ]
+    .map(|(sku, warehouse)| vec![Cell::String(sku.into()), Cell::String(warehouse.into())])
+    .into();
+    let original = tab.table.rows.clone();
+    tab.table_state.selected_cell = Some((1, 0));
+    tab.column_filters
+        .insert(0, ["A.01".into(), "A-01".into()].into());
+    tab.column_filters.insert(1, ["West".into()].into());
+    app.recompute_filter();
+    assert_eq!(app.tabs[0].filtered_rows, [1, 2, 3]);
+    ctx.memory_mut(|m| m.request_focus(other_field()));
+    app.open_command_search(&ctx);
+    let label = t("dialog.vf_filter_to_value");
+    app.command_search.as_mut().unwrap().query = label.clone();
+    settle(&mut app, &ctx);
+    let rows = app.command_rows(&label);
+    assert_eq!(rows[0].action, SA::FilterToCellValue);
+    assert!(rows[0].why.is_none());
+    step(&mut app, &ctx, key(egui::Key::Enter));
+    settle(&mut app, &ctx);
+    assert!(app.command_search.is_none());
+    assert!(ctx.memory(|m| m.has_focus(other_field())));
+    assert_eq!(app.tabs[0].column_filters[&0], ["A.01".into()].into());
+    assert_eq!(app.tabs[0].column_filters[&1], ["West".into()].into());
+    app.recompute_filter();
+    assert_eq!(app.tabs[0].filtered_rows, [1, 3]);
+    assert_eq!(app.tabs[0].table.rows, original);
+    assert!(app.tabs[0].table.edits.is_empty() && app.tabs[0].table.undo_stack.is_empty());
+    app.filter_to_selected_cell();
+    assert!(
+        !app.tabs[0].filter_dirty,
+        "reapplying the same value must not repeat the filter"
+    );
+}
+
+#[test]
+fn quick_filter_does_not_use_a_hidden_or_non_table_selection() {
+    use octa::data::ViewMode;
+    let (mut app, _) = opened("");
+    app.tabs[0] = crate::app::db_view::tests::db_tab();
+    app.tabs[0].db_origin = None;
+    app.recompute_filter();
+    assert!(app.command_unavailable(SA::FilterToCellValue).is_some());
+    app.tabs[0].table_state.selected_cell = Some((0, 1));
+    app.tabs[0].hidden_columns.insert(1);
+    assert!(app.command_unavailable(SA::FilterToCellValue).is_some());
+    app.filter_to_selected_cell();
+    assert!(app.tabs[0].column_filters.is_empty());
+    app.tabs[0].hidden_columns.clear();
+    app.tabs[0].filtered_rows.clear();
+    assert!(app.command_unavailable(SA::FilterToCellValue).is_some());
+    app.recompute_filter();
+    assert!(app.command_unavailable(SA::FilterToCellValue).is_none());
+    app.tabs[0].view_mode = ViewMode::Raw;
+    assert_eq!(
+        app.command_unavailable(SA::FilterToCellValue),
+        Some(t("greyed.need_table_view"))
+    );
+    app.filter_to_selected_cell();
+    assert!(app.tabs[0].column_filters.is_empty());
+}
+
+#[test]
+fn database_quick_filter_uses_the_existing_exact_value_route_and_preserves_typed_fallback() {
+    use octa::data::CellValue;
+    use octa::db::pushdown::view::ViewFilter;
+    let (mut app, _) = opened("");
+    app.tabs[0] = crate::app::db_view::tests::db_tab();
+    app.settings.db_connections = vec![crate::app::db_view::tests::conn()];
+    app.settings.db_pushdown = true;
+    app.tabs[0].table.total_rows = Some(10_000);
+    app.tabs[0].table.rows[0][0] = CellValue::String("D'Azur".into());
+    app.tabs[0].filtered_rows = vec![0];
+    app.tabs[0].table_state.selected_cell = Some((0, 1));
+    assert_eq!(
+        app.command_unavailable(SA::FilterToCellValue),
+        Some(t("facet.from_cell_list_hint"))
+    );
+    app.filter_to_selected_cell();
+    assert!(app.tabs[0].column_filters.is_empty());
+    app.tabs[0].table_state.selected_cell = Some((0, 0));
+    app.filter_to_selected_cell();
+    let (view, _) = crate::app::db_view::wanted_view(&app.tabs[0], false);
+    assert_eq!(
+        view.filters,
+        vec![ViewFilter::Values {
+            column: "name".into(),
+            values: vec!["D'Azur".into()]
+        }]
+    );
+    let condition = view.where_sql(octa::db::DbEngine::Postgres).unwrap();
+    assert!(condition.contains("D''Azur"), "{condition}");
+    assert!(app.tabs[0].table.edits.is_empty());
+}

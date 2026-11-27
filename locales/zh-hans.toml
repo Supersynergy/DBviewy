@@ -3720,6 +3720,8 @@ strict_hint = "只要有值无法转换就拒绝整次转换，而不是转换�
 refused = "没有转换任何内容：有 {count} 个值无法转换。取消勾选严格选项即可仍然转换其余的值。"
 
 [facet]
+from_cell_hint = "此列只显示与这个单元格同值的行。其他筛选条件仍然有效。"
+from_cell_list_hint = "请在列标题的筛选列表中选择此值。"
 title = "按值筛选"
 open_hint = "按此列的值进行筛选"
 search_hint = "搜索全部值"

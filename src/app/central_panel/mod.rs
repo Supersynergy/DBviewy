@@ -3,6 +3,7 @@
 //! (column rename, type change, sort, context menu, lazy row loading).
 
 mod banners;
+mod cell_filter;
 mod chips;
 mod interaction;
 mod start_screen;

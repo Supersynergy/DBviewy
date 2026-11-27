@@ -3732,6 +3732,8 @@ strict_hint = "Weigert de hele omzetting zodra iets niet omgezet kan worden, in 
 refused = "Er is niets omgezet: {count} waarde(n) konden niet omgezet worden. Haal het vinkje bij de strikte optie weg om de rest toch om te zetten."
 
 [facet]
+from_cell_hint = "Behoud in deze kolom alleen de waarde van deze cel. Andere filters blijven actief."
+from_cell_list_hint = "Kies deze waarde in de filterlijst van de kolomkop."
 title = "Filteren op waarde"
 open_hint = "Filtert deze kolom op de waarden ervan"
 search_hint = "Alle waarden doorzoeken"

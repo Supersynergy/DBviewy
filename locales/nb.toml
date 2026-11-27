@@ -3732,6 +3732,8 @@ strict_hint = "Avviser hele konverteringen så snart noe ikke konverteres, i ste
 refused = "Ingenting ble konvertert: {count} verdi(er) ble ikke konvertert. Fjern avkryssingen for det strenge valget for å konvertere resten likevel."
 
 [facet]
+from_cell_hint = "Behold bare verdien fra denne cellen i kolonnen. Andre filtre forblir aktive."
+from_cell_list_hint = "Velg denne verdien fra filterlisten i kolonneoverskriften."
 title = "Filtrer etter verdi"
 open_hint = "Filtrerer denne kolonnen etter verdiene sine"
 search_hint = "Søk i alle verdier"

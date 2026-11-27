@@ -2085,3 +2085,96 @@ fn focus_guides_use_the_zoomed_wrapped_row_in_each_visible_pane() {
     assert!(outline[0].height() > selection[0].height());
     assert_eq!(state.selected_cell, Some((1, 0)));
 }
+
+#[test]
+fn cell_context_filters_the_clicked_value_even_in_a_filtered_readonly_table() {
+    use crate::data::CellValue;
+    let ctx = egui::Context::default();
+    let mut table = scrollable_table();
+    table.rows[3][0] = CellValue::String("North / A-01".into());
+    let original = table.rows.clone();
+    let mut state = TableViewState::default();
+    let mut results = Vec::new();
+    let mut frame = |events| {
+        frame_with(
+            &ctx,
+            &mut table,
+            &mut state,
+            events,
+            None,
+            |ui, table, state, mut cx| {
+                cx.filtered_rows = &[3, 7];
+                cx.readonly = true;
+                let action = draw_table(ui, table, state, cx).without_edits();
+                if let Some(result) = action.facet_result {
+                    results.push(result);
+                }
+            },
+        )
+    };
+    let pos = egui::pos2(80.0, HEADER_HEIGHT + base_row_height(13.0) / 2.0);
+    let pointer = |pos, button, pressed| egui::Event::PointerButton {
+        pos,
+        button,
+        pressed,
+        modifiers: egui::Modifiers::NONE,
+    };
+    frame(vec![]);
+    frame(vec![
+        egui::Event::PointerMoved(pos),
+        pointer(pos, egui::PointerButton::Secondary, true),
+    ]);
+    frame(vec![pointer(pos, egui::PointerButton::Secondary, false)]);
+    let out = frame(vec![]);
+    let label = crate::i18n::t("dialog.vf_filter_to_value");
+    let item = out
+        .shapes
+        .iter()
+        .find_map(|shape| match &shape.shape {
+            egui::Shape::Text(t) if t.galley.text() == label => Some(t.pos + t.galley.size() / 2.0),
+            _ => None,
+        })
+        .expect("Filter action in the cell menu");
+    frame(vec![egui::Event::PointerMoved(item)]);
+    frame(vec![pointer(item, egui::PointerButton::Primary, true)]);
+    frame(vec![pointer(item, egui::PointerButton::Primary, false)]);
+    frame(vec![]);
+    assert_eq!(
+        results,
+        [FacetPopupResult {
+            col: 0,
+            allowed: ["North / A-01".to_string()].into(),
+            cleared: false
+        }]
+    );
+    assert_eq!(state.selected_cell, Some((3, 0)));
+    assert_eq!(table.rows, original);
+    assert!(table.edits.is_empty());
+}
+
+#[test]
+fn quick_facet_never_uses_binary_preview_or_a_remote_formatted_number() {
+    use crate::data::CellValue;
+    let mut table = scrollable_table();
+    table.columns[0].data_type = "Utf8".into();
+    table.rows[0][0] = CellValue::String("001".into());
+    assert_eq!(
+        cell_filter_value(&table, 0, 0, true),
+        Ok(&CellValue::String("001".into()))
+    );
+    table.columns[0].data_type = "Float64".into();
+    table.rows[0][0] = CellValue::Float(1.0);
+    assert_eq!(
+        cell_filter_value(&table, 0, 0, true),
+        Err("facet.from_cell_list_hint")
+    );
+    assert_eq!(
+        cell_filter_value(&table, 0, 0, false),
+        Ok(&CellValue::Float(1.0))
+    );
+    table.rows[0][0] = CellValue::Binary(vec![1, 2, 3]);
+    assert_eq!(
+        cell_filter_value(&table, 0, 0, false),
+        Err("facet.from_cell_list_hint")
+    );
+}

@@ -3732,6 +3732,8 @@ strict_hint = "Odrzuca całą konwersję, gdy tylko czegoś nie da się przekonw
 refused = "Nic nie zostało przekonwertowane: {count} wartości nie dało się przekonwertować. Odznacz opcję ścisłą, aby mimo to przekonwertować resztę."
 
 [facet]
+from_cell_hint = "Pozostaw w tej kolumnie tylko wartość tej komórki. Pozostałe filtry pozostaną aktywne."
+from_cell_list_hint = "Wybierz tę wartość z listy filtra w nagłówku kolumny."
 title = "Filtruj według wartości"
 open_hint = "Filtruje tę kolumnę według jej wartości"
 search_hint = "Przeszukaj wszystkie wartości"

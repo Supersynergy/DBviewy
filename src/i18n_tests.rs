@@ -486,6 +486,7 @@ const JUST_EXECUTES: &[&str] = &[
     "view_menu.zoom_reset",
     "search_menu.find",
     "search_menu.find_replace",
+    "dialog.vf_filter_to_value",
     "search_menu.multi_search", // toggles a docked panel, like SQL / Assistant
     "analyse_menu.cleanup",     // toggles a docked panel
     "analyse_menu.sql",         // toggles a docked panel

@@ -3729,6 +3729,8 @@ strict_hint = "Zavrne celotno pretvorbo, takoj ko se kaj ne pretvori, namesto da
 refused = "Nič ni bilo pretvorjeno: {count} vrednosti se ni pretvorilo. Odstrani oznako stroge možnosti, da vseeno pretvoriš ostalo."
 
 [facet]
+from_cell_hint = "V tem stolpcu ohrani le vrednost te celice. Drugi filtri ostanejo aktivni."
+from_cell_list_hint = "To vrednost izberi na seznamu filtra v glavi stolpca."
 title = "Filtriraj po vrednosti"
 open_hint = "Filtrira ta stolpec po njegovih vrednostih"
 search_hint = "Preišči vse vrednosti"

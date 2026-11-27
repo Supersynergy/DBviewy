@@ -3732,6 +3732,8 @@ strict_hint = "Rifiuta l'intera conversione appena qualcosa non si converte, inv
 refused = "Non e stato convertito nulla: {count} valore/i non si convertivano. Togli la spunta all'opzione rigorosa per convertire comunque il resto."
 
 [facet]
+from_cell_hint = "Mantieni solo il valore di questa cella nella sua colonna. Gli altri filtri restano attivi."
+from_cell_list_hint = "Scegli questo valore dall'elenco del filtro nell'intestazione della colonna."
 title = "Filtra per valore"
 open_hint = "Filtra questa colonna in base ai suoi valori"
 search_hint = "Cerca in tutti i valori"

@@ -3733,6 +3733,8 @@ strict_hint = "Từ chối toàn bộ việc chuyển đổi ngay khi có gì đ
 refused = "Không có gì được chuyển: {count} giá trị không chuyển được. Bỏ chọn tùy chọn nghiêm ngặt để vẫn chuyển phần còn lại."
 
 [facet]
+from_cell_hint = "Chỉ giữ giá trị của ô này trong cột. Các bộ lọc khác vẫn hoạt động."
+from_cell_list_hint = "Hãy chọn giá trị này trong danh sách lọc ở tiêu đề cột."
 title = "Lọc theo giá trị"
 open_hint = "Lọc cột này theo các giá trị của nó"
 search_hint = "Tìm trong tất cả giá trị"

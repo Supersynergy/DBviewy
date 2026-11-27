@@ -3734,6 +3734,8 @@ strict_hint = "Refuză întreaga conversie de îndată ce ceva nu se converteșt
 refused = "Nu s-a convertit nimic: {count} valoare/valori nu se converteau. Debifează opțiunea strictă ca să convertești oricum restul."
 
 [facet]
+from_cell_hint = "Păstrează doar valoarea acestei celule în coloana ei. Celelalte filtre rămân active."
+from_cell_list_hint = "Alege valoarea din lista filtrului din antetul coloanei."
 title = "Filtrează după valoare"
 open_hint = "Filtrează această coloană după valorile ei"
 search_hint = "Caută în toate valorile"

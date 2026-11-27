@@ -3733,6 +3733,8 @@ strict_hint = "Elutasítja az egész átalakítást, amint valami nem alakul át
 refused = "Semmi sem alakult át: {count} érték nem alakult volna át. Vedd ki a pipát a szigorú beállításból, ha a többit mégis át akarod alakítani."
 
 [facet]
+from_cell_hint = "Ebben az oszlopban csak ennek a cellának az értéke marad. A többi szűrő aktív marad."
+from_cell_list_hint = "Ezt az értéket az oszlopfejléc szűrőlistájából válaszd ki."
 title = "Szűrés érték szerint"
 open_hint = "Ezt az oszlopot az értékei szerint szűri"
 search_hint = "Keresés az összes értékben"

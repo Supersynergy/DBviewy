@@ -3732,6 +3732,8 @@ strict_hint = "Hylkää koko muunnoksen heti kun jokin ei muunnu, sen sijaan ett
 refused = "Mitään ei muunnettu: {count} arvoa ei olisi muuntunut. Poista tiukan vaihtoehdon rasti muuntaaksesi loput silti."
 
 [facet]
+from_cell_hint = "Jätä tähän sarakkeeseen vain tämän solun arvo. Muut suodattimet pysyvät käytössä."
+from_cell_list_hint = "Valitse tämä arvo sarakeotsikon suodatinluettelosta."
 title = "Suodata arvon mukaan"
 open_hint = "Suodattaa tämän sarakkeen sen arvojen mukaan"
 search_hint = "Hae kaikista arvoista"

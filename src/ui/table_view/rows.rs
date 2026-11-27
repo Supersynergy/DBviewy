@@ -828,6 +828,27 @@ pub(super) fn draw_data_row_direct(
                         state.edit_needs_focus = true;
                         ui.close();
                     }
+                    let value = super::cell_filter_value(
+                        table,
+                        actual_row,
+                        col_idx,
+                        state.facet_external && !state.facet_from_file,
+                    );
+                    let why = value.as_ref().err().map(|key| crate::i18n::t(key));
+                    if crate::ui::menu_entry::keyed_menu_entry(
+                        ui,
+                        "dialog.vf_filter_to_value",
+                        &crate::i18n::t("facet.from_cell_hint"),
+                        why.as_deref(),
+                    ) && let Ok(value) = value
+                    {
+                        interaction.facet_result = Some(super::FacetPopupResult {
+                            col: col_idx,
+                            allowed: [value.to_string()].into(),
+                            cleared: false,
+                        });
+                        ui.close();
+                    }
                     // --- Copy / Cut / Paste ---
                     ui.label(
                         RichText::new(crate::i18n::t("context_menu.sec_clipboard"))

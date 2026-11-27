@@ -3732,6 +3732,8 @@ strict_hint = "Bir şey dönüşmediği anda tüm dönüşümü reddeder; geri k
 refused = "Hiçbir şey dönüştürülmedi: {count} değer dönüşmüyordu. Geri kalanını yine de dönüştürmek için katı seçeneğin işaretini kaldır."
 
 [facet]
+from_cell_hint = "Bu sütunda yalnızca bu hücrenin değerini tut. Diğer filtreler etkin kalır."
+from_cell_list_hint = "Bu değeri sütun başlığındaki filtre listesinden seç."
 title = "Değere göre filtrele"
 open_hint = "Bu sütunu değerlerine göre filtreler"
 search_hint = "Tüm değerlerde ara"

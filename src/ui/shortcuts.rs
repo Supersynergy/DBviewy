@@ -360,6 +360,7 @@ pub enum ShortcutAction {
     /// Search menu's entry deliberately omits this shortcut from its label
     /// (the binding is discoverable via Settings -> Shortcuts).
     OpenColumnFilter,
+    FilterToCellValue,
     /// Cycle to the next available view mode for the active tab. The cycle
     /// order matches the View menu (Table, Raw, Markdown, Notebook,
     /// JSON Tree); modes that aren't applicable to the current file are
@@ -760,6 +761,7 @@ impl ShortcutAction {
             Self::OpenSettings => "Open settings",
             Self::OpenDocumentation => "Open documentation",
             Self::OpenColumnFilter => "Filter by value or shape...",
+            Self::FilterToCellValue => "Filter table to this value",
             Self::CycleViewMode => "Cycle view mode",
             Self::ToggleReadOnly => "Toggle read-only mode",
             Self::ToggleFollow => "Follow file",
@@ -947,6 +949,7 @@ impl ShortcutAction {
             Self::OpenSettings => KeyCombo::plain(Key::F3),
             Self::OpenDocumentation => KeyCombo::plain(Key::F1),
             Self::OpenColumnFilter => KeyCombo::ctrl_shift(Key::F),
+            Self::FilterToCellValue => KeyCombo::UNBOUND,
             Self::CycleViewMode => KeyCombo::plain(Key::F4),
             Self::ToggleReadOnly => KeyCombo::plain(Key::F8),
             Self::ToggleFollow => KeyCombo::UNBOUND,
@@ -1231,6 +1234,7 @@ impl ShortcutAction {
             | Self::ToggleAskFilter
             | Self::ToggleFindReplace
             | Self::OpenColumnFilter
+            | Self::FilterToCellValue
             | Self::MultiSearch
             | Self::OpenChart => G::Search,
             Self::GoToCell
@@ -1446,6 +1450,7 @@ impl ShortcutAction {
             Self::OpenSettings => "help_menu.settings",
             Self::OpenDocumentation => "help_menu.documentation",
             Self::OpenColumnFilter => "columns_menu.filter",
+            Self::FilterToCellValue => "dialog.vf_filter_to_value",
             Self::CycleViewMode => "command.cycle_view_mode",
             Self::ToggleReadOnly => "view_menu.readonly",
             Self::ToggleFollow => "live.follow",
@@ -1636,6 +1641,7 @@ impl ShortcutAction {
             | Self::ToggleRecipePanel
             | Self::ApplyRecipe => "menu.edit",
             Self::OpenColumnFilter
+            | Self::FilterToCellValue
             | Self::OpenConditionalFormat
             | Self::OpenConditionalColumn
             | Self::OpenHashColumns

@@ -3732,6 +3732,8 @@ strict_hint = "Lehnt die ganze Umwandlung ab, sobald sich etwas nicht umwandeln 
 refused = "Es wurde nichts umgewandelt: {count} Wert(e) ließen sich nicht umwandeln. Nimm den Haken bei der strengen Option weg, um den Rest trotzdem umzuwandeln."
 
 [facet]
+from_cell_hint = "Zeigt in dieser Spalte nur den Wert dieser Zelle. Andere Filter bleiben aktiv."
+from_cell_list_hint = "Wähle diesen Wert stattdessen aus der Filterliste im Spaltenkopf."
 title = "Nach Wert filtern"
 open_hint = "Filtert diese Spalte nach ihren Werten"
 search_hint = "Alle Werte durchsuchen"

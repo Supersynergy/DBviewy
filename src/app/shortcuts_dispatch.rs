@@ -444,6 +444,9 @@ impl OctaApp {
             if action_fired(SA::OpenColumnFilter) {
                 self.open_column_filter_dialog(None);
             }
+            if action_fired(SA::FilterToCellValue) {
+                self.filter_to_selected_cell();
+            }
             if action_fired(SA::CycleViewMode) {
                 let tab = &mut self.tabs[self.active_tab];
                 let modes = tab.available_view_modes();

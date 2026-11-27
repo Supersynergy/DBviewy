@@ -3729,6 +3729,8 @@ strict_hint = "Atmeta visą konvertavimą, kai tik kas nors nekonvertuojasi, už
 refused = "Nieko nekonvertuota: {count} reikšmė (-ės) nekonvertavosi. Nuimk griežtos parinkties žymę, kad vis tiek konvertuotum likusias."
 
 [facet]
+from_cell_hint = "Šiame stulpelyje palik tik šio langelio reikšmę. Kiti filtrai lieka aktyvūs."
+from_cell_list_hint = "Šią reikšmę pasirink stulpelio antraštės filtro sąraše."
 title = "Filtruoti pagal reikšmę"
 open_hint = "Filtruoja šį stulpelį pagal jo reikšmes"
 search_hint = "Ieškoti visose reikšmėse"

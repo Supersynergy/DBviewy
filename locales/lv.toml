@@ -3729,6 +3729,8 @@ strict_hint = "Noraida visu pārveidošanu, tiklīdz kaut kas nepārveidojas, t�
 refused = "Nekas netika pārveidots: {count} vērtība(s) nepārveidojās. Noņem stingrās opcijas atzīmi, lai tomēr pārveidotu pārējo."
 
 [facet]
+from_cell_hint = "Šajā kolonnā atstāj tikai šīs šūnas vērtību. Pārējie filtri paliek aktīvi."
+from_cell_list_hint = "Izvēlies šo vērtību kolonnas virsraksta filtra sarakstā."
 title = "Filtrēt pēc vērtības"
 open_hint = "Filtrē šo kolonnu pēc tās vērtībām"
 search_hint = "Meklēt visās vērtībās"

@@ -3729,6 +3729,8 @@ strict_hint = "Odmietne celý prevod, akonáhle sa niečo previesť nedá, namie
 refused = "Nič sa nepreviedlo: {count} hodnôt sa previesť nedalo. Zruš zaškrtnutie prísnej voľby, ak chceš zvyšok previesť aj tak."
 
 [facet]
+from_cell_hint = "V tomto stĺpci ponechaj len hodnotu z tejto bunky. Ostatné filtre zostanú aktívne."
+from_cell_list_hint = "Vyber túto hodnotu zo zoznamu filtra v záhlaví stĺpca."
 title = "Filtrovať podľa hodnoty"
 open_hint = "Filtruje tento stĺpec podľa jeho hodnôt"
 search_hint = "Prehľadať všetky hodnoty"

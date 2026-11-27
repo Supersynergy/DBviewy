@@ -93,6 +93,21 @@ handful of postcodes or IDs typed in the wrong format. Under it, **Words /
 Exact** picks whether a run of letters is written once (`Anna` is `Aa`) or
 letter by letter (`Aaaa`). See [Value Shapes](value-shapes.md).
 
+## Filter directly from a cell
+
+Right-click a visible cell and choose **Filter table to this value**. To use
+the keyboard, select the cell and find the same action in **Find a command**
+(**Ctrl+K**, or **Command+K** on Mac).
+
+The action replaces the value filter for that column. Other filters stay
+active and no data changes, so this also works in read-only mode. A chip
+above the table names the column and value. Click its close button to
+remove just that filter. A blank cell selects empty values.
+
+For a live database, the shortcut can use loaded text values in text columns.
+For values whose database spelling may differ, choose them in the column
+header's filter list instead.
+
 ## See also
 
 - [Search and filter](search-and-filter.md) for the Column Filter dialog,

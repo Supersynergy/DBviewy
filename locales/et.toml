@@ -3729,6 +3729,8 @@ strict_hint = "Keeldub kogu teisendusest niipea, kui miski ei teisendu, selle as
 refused = "Midagi ei teisendatud: {count} väärtust ei oleks teisendunud. Eemalda range valiku märge, et ülejäänu siiski teisendada."
 
 [facet]
+from_cell_hint = "Jäta selles veerus alles ainult selle lahtri väärtus. Muud filtrid jäävad kehtima."
+from_cell_list_hint = "Vali see väärtus veerupäise filtriloendist."
 title = "Filtreeri väärtuse järgi"
 open_hint = "Filtreerib selle veeru selle väärtuste järgi"
 search_hint = "Otsi kõigist väärtustest"

@@ -3732,6 +3732,8 @@ strict_hint = "Rechaza toda la conversión en cuanto algo no se convierte, en lu
 refused = "No se convirtió nada: {count} valor(es) no se convertían. Desmarca la opción estricta para convertir el resto de todos modos."
 
 [facet]
+from_cell_hint = "Conserva solo el valor de esta celda en su columna. Los demás filtros siguen activos."
+from_cell_list_hint = "Elige este valor en la lista del filtro de la cabecera de la columna."
 title = "Filtrar por valor"
 open_hint = "Filtra esta columna por sus valores"
 search_hint = "Buscar en todos los valores"

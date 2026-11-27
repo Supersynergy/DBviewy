@@ -344,3 +344,67 @@ fn long_search_chip_and_clear_all_fit_a_narrow_pane() {
     }
     assert!(search.label().unwrap().ends_with("..."));
 }
+
+#[test]
+fn quick_filter_blank_chip_names_the_value_and_clears_only_that_column() {
+    use octa::data::CellValue::{Null, String as Text};
+    let mut app = filter_app();
+    let tab = &mut app.tabs[0];
+    tab.table.rows[0][0] = Null;
+    tab.table.rows[2][0] = Text(String::new());
+    tab.table.rows.push(vec![
+        Text("Bonn".into()),
+        octa::data::CellValue::Int(2026),
+        Text("West".into()),
+    ]);
+    tab.table_state.selected_cell = Some((0, 0));
+    tab.column_filters.insert(2, ["West".into()].into());
+    app.recompute_filter();
+    app.filter_to_selected_cell();
+    app.recompute_filter();
+    let chips = filter_chips(&app.tabs[0], app.search_result_mode);
+    assert_eq!(
+        chips.iter().map(|c| c.label.clone()).collect::<Vec<_>>(),
+        [
+            format!("city: {}", t("dialog.cf_empty")),
+            "region: West".into()
+        ]
+    );
+    assert_eq!(app.tabs[0].filtered_rows, [0, 2]);
+    app.apply_chip_action(ChipAction::Remove(chips[0].removal));
+    assert!(!app.tabs[0].column_filters.contains_key(&0));
+    assert_eq!(app.tabs[0].column_filters[&2], ["West".into()].into());
+    app.recompute_filter();
+    assert_eq!(app.tabs[0].filtered_rows, [0, 2, 3]);
+    assert!(app.tabs[0].table.edits.is_empty());
+}
+
+#[test]
+fn quick_filter_on_a_paged_csv_matches_the_full_file_without_editing_it() {
+    use octa::data::CellValue;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("orders.csv");
+    let source = "Id,Site,Amount\n101,D'Azur,1.25\n102,North,0.75\n103,D'Azur,1.25\n104,North,1.25\n105,D'Azur,2.5\n";
+    std::fs::write(&path, source).unwrap();
+    let large = octa::formats::large::open(&path).unwrap();
+    let mut app = filter_app();
+    let tab = &mut app.tabs[0];
+    tab.table = large.page(0, 1, Some((0, true)), None).unwrap();
+    tab.table_state.selected_cell = Some((0, 2));
+    tab.column_filters.insert(1, ["D'Azur".into()].into());
+    tab.large = Some(large);
+    app.recompute_filter();
+    assert_eq!(&app.tabs[0].filtered_rows, &[0]);
+    app.filter_to_selected_cell();
+    let tab = &app.tabs[0];
+    let (condition, refused) = crate::app::large_file::view_filter(tab, "");
+    assert!(refused.is_empty(), "{refused:?}");
+    let large = tab.large.as_ref().unwrap();
+    let picked = large
+        .page(0, 10, Some((0, true)), Some(&condition))
+        .unwrap();
+    assert_eq!(picked.get(0, 0), Some(&CellValue::Int(101)));
+    assert_eq!(picked.get(1, 0), Some(&CellValue::Int(103)));
+    assert_eq!(large.filtered_count(Some(&condition)).unwrap(), 2);
+    assert_eq!(std::fs::read_to_string(path).unwrap(), source);
+}

@@ -3728,6 +3728,8 @@ strict_hint = "Refuses the whole conversion when something would not convert, in
 refused = "Nothing was converted: {count} value(s) would not convert. Untick the strict option to convert the rest anyway."
 
 [facet]
+from_cell_hint = "Keep only this cell's value in its column. Other filters stay active."
+from_cell_list_hint = "Choose this value in the column header's filter list instead."
 title = "Filter by value"
 open_hint = "Filter this column by its values"
 search_hint = "Search all values"

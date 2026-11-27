@@ -221,6 +221,12 @@ boundary. Whatever hits were already collected stay in the panel.
 
 pub const FILTER_FACETS: &str = r#"# Filter by Value (header funnel)
 
+To start with a value already on screen, right-click its cell and choose
+**Filter table to this value**, or find the action via Ctrl+K. It replaces
+only that column's value filter. Click the chip above the table to remove
+it. No values are changed. If a live database value cannot be matched
+directly, choose it in the column header's filter list instead.
+
 Every column header carries a small **funnel** just left of its sort
 arrows. Clicking it opens a popup listing that column's most common
 values with their counts, each with a checkbox: tick the ones to keep,

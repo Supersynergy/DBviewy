@@ -375,13 +375,7 @@ impl OctaApp {
         // row, the header dot, the filtered row count and every export of
         // the filtered view keep working with no second code path.
         if let Some(result) = interaction.facet_result.clone() {
-            let tab = &mut self.tabs[self.active_tab];
-            if result.cleared {
-                tab.column_filters.remove(&result.col);
-            } else {
-                tab.column_filters.insert(result.col, result.allowed);
-            }
-            tab.filter_dirty = true;
+            self.apply_column_values(result);
         }
 
         // --- Facet popup on a database tab: its values come from the server ---

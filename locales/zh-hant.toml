@@ -3715,6 +3715,8 @@ strict_hint = "只要有值無法轉換就拒絕整次轉換，而不是轉換�
 refused = "沒有轉換任何內容：有 {count} 個值無法轉換。取消勾選嚴格選項即可仍然轉換其餘的值。"
 
 [facet]
+from_cell_hint = "此欄只顯示與這個儲存格同值的列。其他篩選條件仍然有效。"
+from_cell_list_hint = "請在欄標題的篩選清單中選取此值。"
 title = "按值篩選"
 open_hint = "按此欄的值進行篩選"
 search_hint = "搜尋全部值"

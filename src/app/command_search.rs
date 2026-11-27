@@ -255,6 +255,7 @@ impl OctaApp {
             | SA::GoToCell
             | SA::OpenPartition
             | SA::OpenTestData => need_table(),
+            SA::FilterToCellValue => self.selected_cell_filter().err().map(t),
             SA::SaveDbSql | SA::RunSqlOnServer => need_db(),
             SA::ToggleFollow
             | SA::OpenFileVersions

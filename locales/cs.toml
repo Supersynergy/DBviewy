@@ -3733,6 +3733,8 @@ strict_hint = "Odmítne celý převod, jakmile se něco převést nedá, místo 
 refused = "Nic se nepřevedlo: {count} hodnot(a) se převést nedaly. Zruš zaškrtnutí přísné volby, pokud chceš zbytek převést i tak."
 
 [facet]
+from_cell_hint = "V tomto sloupci ponech jen hodnotu z této buňky. Ostatní filtry zůstanou."
+from_cell_list_hint = "Tuto hodnotu vyber ze seznamu filtru v záhlaví sloupce."
 title = "Filtrovat podle hodnoty"
 open_hint = "Filtruje tento sloupec podle jeho hodnot"
 search_hint = "Prohledat všechny hodnoty"

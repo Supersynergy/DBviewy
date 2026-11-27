@@ -3729,6 +3729,8 @@ strict_hint = "Odbija cijelo pretvaranje čim se nešto ne može pretvoriti, umj
 refused = "Ništa nije pretvoreno: {count} vrijednosti se nisu pretvorile. Ukloni oznaku sa stroge opcije da ipak pretvoriš ostalo."
 
 [facet]
+from_cell_hint = "U ovom stupcu zadrži samo vrijednost ove ćelije. Ostali filtri ostaju aktivni."
+from_cell_list_hint = "Odaberi ovu vrijednost s popisa filtra u zaglavlju stupca."
 title = "Filtriraj po vrijednosti"
 open_hint = "Filtrira ovaj stupac po njegovim vrijednostima"
 search_hint = "Pretraži sve vrijednosti"

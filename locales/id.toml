@@ -3734,6 +3734,8 @@ strict_hint = "Menolak seluruh konversi begitu ada yang tidak bisa diubah, alih-
 refused = "Tidak ada yang diubah: {count} nilai tidak bisa diubah. Hapus centang opsi ketat untuk tetap mengubah sisanya."
 
 [facet]
+from_cell_hint = "Pertahankan hanya nilai sel ini di kolomnya. Filter lain tetap aktif."
+from_cell_list_hint = "Pilih nilai ini dari daftar filter di judul kolom."
 title = "Saring menurut nilai"
 open_hint = "Menyaring kolom ini berdasarkan nilainya"
 search_hint = "Cari di semua nilai"

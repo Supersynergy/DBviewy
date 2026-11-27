@@ -1,4 +1,6 @@
+mod cell_filter;
 mod focus_guides;
+pub use cell_filter::cell_filter_value;
 mod header;
 mod input;
 mod layout;

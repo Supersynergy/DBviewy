@@ -243,7 +243,15 @@ pub(crate) fn column_filter_chip_labels(
             let name = chip_excerpt(&table.columns.get(col)?.name);
             let values = filters.get(&col)?;
             let label = match values.len() {
-                1 => format!("{name}: {}", chip_excerpt(values.iter().next()?)),
+                1 => {
+                    let value = values.iter().next()?;
+                    let excerpt = if value.is_empty() {
+                        t("dialog.cf_empty")
+                    } else {
+                        chip_excerpt(value)
+                    };
+                    format!("{name}: {excerpt}")
+                }
                 n => format!(
                     "{name}: {}",
                     octa::i18n::t("facet.chip_values").replace("{count}", &n.to_string())
