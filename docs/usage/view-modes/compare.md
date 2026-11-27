@@ -123,6 +123,11 @@ logical column even if the names differ (`user_id` on the left,
 
 ### Buckets
 
+The numbers next to the columns show which fields are compared: 1 with 1,
+2 with 2, and so on. They follow the order you ticked. An unchecked side
+uses all its columns in file order. If the sides have different numbers
+of fields, pick matching counts before DBviewy shows any results.
+
 Once you've picked columns, the diff renders three collapsible
 sections:
 
@@ -134,7 +139,10 @@ sections:
 
 Each bucket can be expanded to show the actual row content. The
 display is capped at **50 rows per bucket** to keep rendering
-snappy on million-row diffs; the bucket count remains accurate.
+snappy on million-row diffs; the bucket count remains accurate. The
+context menu copies the unmatched preview only, up to 200 groups per
+side. It excludes shared rows. Tabs, quotes and line breaks inside a cell
+stay within that field.
 
 ### Empty column selection
 

@@ -75,6 +75,9 @@
 - Compare paired measurements with CORREL, SLOPE and sample or population
   covariance. Pick X and Y in Formula examples; missing values never shift the
   remaining pairs out of alignment.
+- See which columns pair in Row Hash Diff before reading the result. The
+  picker numbers each pair and asks for matching counts instead of showing
+  misleading differences.
 - Review the full ordered or keyed comparison with pinned column headers.
   Keyed results keep values under the right headings when columns move.
 - Keep zero-padded identifiers such as `0007` as text when opening CSV or
