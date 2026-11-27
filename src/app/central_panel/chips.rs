@@ -2,124 +2,226 @@
 
 use eframe::egui;
 
+use octa::data::SearchResultMode;
+use octa::i18n::t;
 use octa::ui;
 
-use crate::app::state::OctaApp;
+use crate::app::db_view::search_hides_rows;
+use crate::app::state::{OctaApp, TabState};
 
 impl OctaApp {
     pub(super) fn render_filter_chips(&mut self, ui: &mut egui::Ui) {
-        // --- The filter chip row --------------------------------
-        //
-        // ONE wrapped row for everything currently narrowing the view:
-        // the Ask-mode comparison filters, the duplicate filter and the
-        // per-column value filters. They used to be separate blocks that
-        // stacked into separate rows, which is the thing this row exists
-        // to avoid: a user looking for "why am I seeing 12 rows" should
-        // find every reason in one place.
-        let chips: Vec<(String, ChipRemoval, &'static str)> = {
-            let tab = &self.tabs[self.active_tab];
-            let mut chips: Vec<(String, ChipRemoval, &'static str)> = tab
-                .predicate_filters
-                .iter()
-                .enumerate()
-                .map(|(i, f)| {
-                    (
-                        f.label(&tab.table),
-                        ChipRemoval::Predicate(i),
-                        "search.ask_filter_remove",
-                    )
-                })
-                .collect();
-            if let Some(f) = tab.duplicate_filter.as_ref() {
-                let label = octa::i18n::t(if f.keep_duplicates {
-                    "search.dupfilter_dups"
-                } else {
-                    "search.dupfilter_unique"
-                });
-                chips.push((label, ChipRemoval::Duplicate, "search.dupfilter_remove"));
-            }
-            chips.extend(
-                column_filter_chip_labels(&tab.table, &tab.column_filters)
-                    .into_iter()
-                    .map(|(col, label)| (label, ChipRemoval::Column(col), "facet.chip_remove")),
-            );
-            chips
-        };
-
-        if !chips.is_empty() {
-            let predicate_count = self.tabs[self.active_tab].predicate_filters.len();
-            let mut remove: Option<ChipRemoval> = None;
-            let mut clear_all = false;
-            ui.horizontal_wrapped(|ui| {
-                ui.add_space(8.0);
-                // Only the Ask-mode chips get this heading, and only
-                // immediately before them: it says where those filters
-                // came from, which is not true of the others.
-                if predicate_count > 0 {
+        let chips = filter_chips(&self.tabs[self.active_tab], self.search_result_mode);
+        if chips.is_empty() {
+            return;
+        }
+        let max_text_width = (ui.available_width() - 44.0).clamp(48.0, 240.0);
+        let mut action = None;
+        let mut keyboard = false;
+        ui.horizontal_wrapped(|ui| {
+            ui.add_space(8.0);
+            let mut ask_heading = false;
+            for chip in &chips {
+                // Ask comparisons come last so their heading cannot make
+                // ordinary search or column filters look assistant-generated.
+                if matches!(chip.removal, ChipRemoval::Predicate(_)) && !ask_heading {
                     ui.label(
-                        egui::RichText::new(octa::i18n::t("search.ask_filters"))
+                        egui::RichText::new(t("search.ask_filters"))
                             .size(11.0)
                             .color(ui::theme::ThemeColors::for_mode(self.theme_mode).text_muted),
                     );
+                    ask_heading = true;
                 }
-                for (label, removal, hint) in &chips {
-                    if ui
-                        .small_button(format!("{label}  x"))
-                        .on_hover_text(octa::i18n::t(hint))
-                        .clicked()
-                    {
-                        remove = Some(*removal);
-                    }
+                let response = ui
+                    .push_id(chip.removal, |ui| chip_button(ui, chip, max_text_width))
+                    .inner;
+                if response.clicked() {
+                    action = Some(ChipAction::Remove(chip.removal));
+                    keyboard = !response.clicked_by(egui::PointerButton::Primary);
                 }
-                // Clears the whole row, which is what the row now means.
-                if chips.len() > 1
-                    && ui
-                        .small_button(octa::i18n::t("search.ask_filters_clear"))
-                        .on_hover_text(octa::i18n::t("search.ask_filters_clear_hint"))
-                        .clicked()
-                {
-                    clear_all = true;
-                }
-            });
-            ui.add_space(4.0);
-
-            if clear_all || remove.is_some() {
-                let tab = &mut self.tabs[self.active_tab];
-                if clear_all {
-                    tab.predicate_filters.clear();
-                    tab.duplicate_filter = None;
-                    tab.duplicate_filter_cache = None;
-                    tab.column_filters.clear();
-                } else {
-                    match remove {
-                        Some(ChipRemoval::Predicate(i)) if i < tab.predicate_filters.len() => {
-                            tab.predicate_filters.remove(i);
-                        }
-                        Some(ChipRemoval::Duplicate) => {
-                            tab.duplicate_filter = None;
-                            tab.duplicate_filter_cache = None;
-                        }
-                        Some(ChipRemoval::Column(col)) => {
-                            tab.column_filters.remove(&col);
-                        }
-                        _ => {}
-                    }
-                }
-                tab.filter_dirty = true;
             }
+            if chips.len() > 1 {
+                let response = ui
+                    .small_button(t("search.ask_filters_clear"))
+                    .on_hover_text(t("search.ask_filters_clear_hint"));
+                if response.clicked() {
+                    action = Some(ChipAction::ClearAll);
+                    keyboard = !response.clicked_by(egui::PointerButton::Primary);
+                }
+            }
+        });
+        ui.add_space(4.0);
+
+        if let Some(action) = action {
+            self.apply_chip_action(action);
+            // The focused button is gone. Use the existing toolbar focus
+            // route on the next frame; mouse clicks keep the grid's focus.
+            self.search_focus_requested |= keyboard;
+            ui.ctx().request_repaint();
+        }
+    }
+
+    fn apply_chip_action(&mut self, action: ChipAction) {
+        use ChipAction::{ClearAll, Remove};
+        let tab = &self.tabs[self.active_tab];
+        if tab.mark_filter_active && matches!(action, ClearAll | Remove(ChipRemoval::Marked)) {
+            // This restores columns hidden by the mark filter without
+            // revealing columns that were already manually hidden.
+            self.toggle_filter_to_marked();
+        }
+        let tab = &mut self.tabs[self.active_tab];
+        let clear_search = matches!(action, ClearAll | Remove(ChipRemoval::Search))
+            && search_hides_rows(tab, self.search_result_mode);
+        if clear_search {
+            tab.search_text.clear();
+            tab.search_nav.reset();
+        }
+        match action {
+            ClearAll => {
+                tab.predicate_filters.clear();
+                tab.duplicate_filter = None;
+                tab.duplicate_filter_cache = None;
+                tab.column_filters.clear();
+            }
+            Remove(ChipRemoval::Predicate(i)) if i < tab.predicate_filters.len() => {
+                tab.predicate_filters.remove(i);
+            }
+            Remove(ChipRemoval::Duplicate) => {
+                tab.duplicate_filter = None;
+                tab.duplicate_filter_cache = None;
+            }
+            Remove(ChipRemoval::Column(col)) => {
+                tab.column_filters.remove(&col);
+            }
+            _ => {}
+        }
+        tab.filter_dirty = true;
+    }
+}
+
+#[derive(Clone, Copy)]
+enum ChipAction {
+    Remove(ChipRemoval),
+    ClearAll,
+}
+
+/// Which view filter a chip removes. No chip owns table rows or marks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum ChipRemoval {
+    Search,
+    Marked,
+    Predicate(usize),
+    Duplicate,
+    Column(usize),
+}
+
+struct FilterChip {
+    label: String,
+    removal: ChipRemoval,
+    hint: &'static str,
+}
+
+impl FilterChip {
+    fn new(label: String, removal: ChipRemoval, hint: &'static str) -> Self {
+        Self {
+            label,
+            removal,
+            hint,
         }
     }
 }
 
-/// Which filter a chip in the row removes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum ChipRemoval {
-    /// An Ask-mode comparison filter, by its index.
-    Predicate(usize),
-    /// The duplicate filter.
-    Duplicate,
-    /// One column's value filter, by column index.
-    Column(usize),
+fn filter_chips(tab: &TabState, mode: SearchResultMode) -> Vec<FilterChip> {
+    let mut chips = Vec::new();
+    if search_hides_rows(tab, mode) {
+        let scope = tab
+            .search_scope_col
+            .and_then(|col| tab.table.columns.get(col));
+        let title = t("menu.search");
+        let needle = chip_excerpt(&tab.search_text);
+        let label = match scope {
+            Some(col) => format!("{title} / {}: {needle}", chip_excerpt(&col.name)),
+            None => format!("{title}: {needle}"),
+        };
+        chips.push(FilterChip::new(
+            label,
+            ChipRemoval::Search,
+            "search.ask_filter_remove",
+        ));
+    }
+    if tab.mark_filter_active {
+        chips.push(FilterChip::new(
+            t("edit_menu.filter_to_marked"),
+            ChipRemoval::Marked,
+            "edit_menu.filter_to_marked_clear",
+        ));
+    }
+    if let Some(f) = &tab.duplicate_filter {
+        let label = t(if f.keep_duplicates {
+            "search.dupfilter_dups"
+        } else {
+            "search.dupfilter_unique"
+        });
+        chips.push(FilterChip::new(
+            label,
+            ChipRemoval::Duplicate,
+            "search.ask_filter_remove",
+        ));
+    }
+    chips.extend(
+        column_filter_chip_labels(&tab.table, &tab.column_filters)
+            .into_iter()
+            .map(|(col, label)| {
+                FilterChip::new(label, ChipRemoval::Column(col), "facet.chip_remove")
+            }),
+    );
+    chips.extend(tab.predicate_filters.iter().enumerate().map(|(i, f)| {
+        FilterChip::new(
+            chip_excerpt(&f.label(&tab.table)),
+            ChipRemoval::Predicate(i),
+            "search.ask_filter_remove",
+        )
+    }));
+    chips
+}
+
+fn chip_excerpt(text: &str) -> String {
+    let mut chars = text.chars();
+    let mut out: String = chars
+        .by_ref()
+        .take(120)
+        .map(|c| if c.is_control() { ' ' } else { c })
+        .collect();
+    if chars.next().is_some() {
+        out.push_str("...");
+    }
+    out
+}
+
+fn chip_button(ui: &mut egui::Ui, chip: &FilterChip, max_text_width: f32) -> egui::Response {
+    let font = egui::TextStyle::Small.resolve(ui.style());
+    let fmt = egui::TextFormat::simple(font, ui.visuals().text_color());
+    let mut job = egui::text::LayoutJob::simple_format(chip.label.clone(), fmt);
+    job.wrap.max_width = max_text_width;
+    job.wrap.max_rows = 1;
+    let text = ui.fonts_mut(|f| f.layout_job(job));
+    let close = ui::icons::icon_image(ui, ui::icons::Icon::Close)
+        .fit_to_exact_size(egui::Vec2::splat(11.0));
+    let response = ui.add(
+        egui::Button::new(egui::WidgetText::Galley(text))
+            .small()
+            .min_size(egui::vec2(0.0, 22.0))
+            .right_text(close),
+    );
+    let hint = t(chip.hint);
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(
+            egui::WidgetType::Button,
+            true,
+            format!("{}: {}", hint.trim_end_matches('.'), chip.label),
+        )
+    });
+    response.on_hover_text(format!("{}\n{hint}", chip.label))
 }
 
 /// Chip text for each active column filter, in COLUMN order (a `HashMap`
@@ -138,11 +240,10 @@ pub(crate) fn column_filter_chip_labels(
     cols.sort_unstable();
     cols.into_iter()
         .filter_map(|col| {
-            let name = &table.columns.get(col)?.name;
+            let name = chip_excerpt(&table.columns.get(col)?.name);
             let values = filters.get(&col)?;
             let label = match values.len() {
-                0 => return None,
-                1 => format!("{name}: {}", values.iter().next()?),
+                1 => format!("{name}: {}", chip_excerpt(values.iter().next()?)),
                 n => format!(
                     "{name}: {}",
                     octa::i18n::t("facet.chip_values").replace("{count}", &n.to_string())

@@ -272,11 +272,14 @@ there for columns too narrow to show the funnel.
 
 ## The chip row
 
-Applying a filter adds a removable chip above the grid, in the same row
-as the Ask-mode comparison chips and the duplicate-filter chip, so
-everything narrowing the view sits in one place. One kept value reads
-as the value; several read as a count. Each chip's x removes that one
-filter, and **Clear all** removes every filter in the row.
+The chips above the grid show active filters. Instant search gets a chip
+when it filters rows, not when it only highlights. **Filter to marked**
+and the duplicate filter get their own chips. Column filters show the
+kept value or a count; a zero-value filter still gets a chip.
+
+Click a chip or focus it and press Enter to remove that filter. Keyboard
+removal returns focus to instant search. **Clear all** leaves manual
+hiding, colour marks and highlight-only searches unchanged.
 
 ## Partly loaded files
 

@@ -56,6 +56,8 @@
   a command.
 - Check imported text with LEN, EXACT and FIND, with German formula names
   and searchable examples for ID length, case and separator positions.
+- Explain an empty grid with a removable zero-value filter chip. The same
+  strip now includes instant search filters and Filter to marked.
 - Keep fixed Excel-style references such as `$B$1` when filling a calculated
   column. Evaluate against the original table regardless of insertion position.
 - Fill single-column running sums such as `SUM(A$1:A1)` in one pass instead

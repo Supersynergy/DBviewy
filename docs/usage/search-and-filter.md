@@ -288,22 +288,22 @@ first filtered column.
 
 ### The filter chip row
 
-Everything currently narrowing the view is listed in one wrapped row
-above the grid, so "why am I only seeing twelve rows?" has a single
-place to look:
+The chips above the grid explain why rows or columns are missing.
 
-- **Comparison filters** from the search bar's Ask mode, under the
-  heading *From your question:* so their origin is obvious.
-- **The duplicate filter**, as *Duplicates only* or *Unique rows only*.
-- **One chip per filtered column**. A column keeping a single value
-  reads as `city: Aachen`; a column keeping several reads as a count
-  (`year: 2 values`), because a chip that lists fifteen values is not a
-  chip any more.
+- **Search** appears when instant search is filtering rows. It includes the
+  column name if the search is scoped to one column. Highlight-only search
+  does not get a filter chip.
+- **Filter to marked** appears while the colour-mark filter is active.
+- **The duplicate filter** says *Duplicates only* or *Unique rows only*.
+- **Column filters** appear in column order. One kept value reads as
+  `city: Aachen`; other counts read like `year: 2 values` or
+  `year: 0 values`. Zero values is an active filter, not a cleared one.
+- **Comparison filters** from Ask mode appear under *From your question:*.
 
-Every chip has an `x` that removes that one filter. When more than one
-chip is present, a **Clear all** button removes every filter in the row
-at once. The chips are ordered by column, so the row does not reshuffle
-itself as you work.
+Click a chip to remove its filter, or focus it and press **Enter**.
+Keyboard removal returns focus to instant search. **Clear all** removes
+every filter in this row without altering manually hidden rows or columns,
+colour marks, or a highlight-only search.
 
 ### Using the dialog
 

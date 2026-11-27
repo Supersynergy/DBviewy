@@ -2,8 +2,8 @@
 
 **Data > Filter to marked** hides everything except what you have colour-marked,
 so you can drill down to the rows and columns you care about. Choose the same
-menu entry again (now labelled "Clear filter to marked") to restore the full
-view.
+menu entry again (now labelled "Clear filter to marked"), or remove its
+chip above the grid. Either brings back columns that this filter hid.
 
 ## What stays
 
