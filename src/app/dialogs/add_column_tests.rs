@@ -1765,3 +1765,58 @@ fn formula_examples_are_keyboard_searchable_cancellable_and_return_to_the_formul
     assert_eq!(preview.values[0], None);
     assert_eq!(preview.values[2], Some(2.0));
 }
+
+#[test]
+fn imported_number_preview_and_cached_fill_keep_errors_separate_from_zero() {
+    use CellValue::{Float, Int, Null, String as Text};
+    let inputs = ["1.250,50", "N/A", " ", "1.250,50", "N/A", " "];
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = numeric_grid(inputs.map(|value| Text(value.into())));
+    tab.table.row_offset = 100;
+    let formula = r#"ZAHLENWERT(A1;",";".")"#;
+    tab.new_col_formula = format!("={formula}");
+    tab.new_col_name = "Parsed EUR".into();
+    tab.new_col_type = "Float64".into();
+
+    let sample = FormulaPreview::read(&tab.new_col_formula, &tab.table).unwrap();
+    assert_eq!(sample.values, [Some(1250.5), None, Some(0.0)]);
+    assert_eq!(sample.first_bad.as_ref().unwrap().row, 1);
+    assert_eq!(tab.table.col_count(), 1);
+    assert!(tab.table.undo_stack.is_empty());
+
+    let template = FormulaRows::new(formula);
+    let keys = template.memo_inputs().unwrap();
+    assert_eq!(keys, [(1, 0)]);
+    assert!(
+        FormulaRows::new(r#"NUMBERVALUE(A1,B1,",")"#)
+            .memo_inputs()
+            .is_none(),
+        "the moving separator must not be memoised from the value alone"
+    );
+    let mut calls = 0;
+    let (cached, error) = fill_shifted_template(&template, &tab.table, &keys, |expr, table| {
+        calls += 1;
+        data::evaluate_formula_with_diagnostics(expr, table)
+    });
+    assert_eq!(calls, 3);
+    let (direct, direct_error) = fill_shifted_template(
+        &template,
+        &tab.table,
+        &[],
+        data::evaluate_formula_with_diagnostics,
+    );
+    assert_eq!(cached, direct);
+    assert_eq!(error.unwrap().content, direct_error.unwrap().content);
+    assert_eq!(cached, [(0, 1250.5), (2, 0.0), (3, 1250.5), (5, 0.0)]);
+
+    add_formula_column(&mut app);
+    let table = &mut app.tabs[0].table;
+    assert_eq!(table.get(0, 1), Some(&Float(1250.5)));
+    assert_eq!(table.get(1, 1), Some(&Null));
+    assert_eq!(table.get(2, 1), Some(&Int(0)));
+    assert_eq!(table.undo_stack.len(), 1);
+    table.undo();
+    assert_eq!(table.col_count(), 1);
+    assert_eq!(table.get(1, 0), Some(&Text("N/A".into())));
+}

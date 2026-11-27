@@ -17,6 +17,7 @@ enum Form {
     Round,
     Percentile,
     Workday,
+    NumberValue,
 }
 
 #[derive(Clone, Copy)]
@@ -68,6 +69,11 @@ const RECIPES: &[Recipe] = &[
         form: Form::Whole,
     },
     Recipe {
+        english: "NUMBERVALUE",
+        german: "ZAHLENWERT",
+        form: Form::NumberValue,
+    },
+    Recipe {
         english: "WORKDAY",
         german: "ARBEITSTAG",
         form: Form::Workday,
@@ -97,6 +103,8 @@ impl Recipe {
             Form::Round => format!("{c}1{sep}2"),
             Form::Percentile => format!("${c}$1:${c}${n}{sep}95%"),
             Form::Workday => format!("{c}1{sep}5"),
+            Form::NumberValue if german => format!(r#"{c}1;",";".""#),
+            Form::NumberValue => format!(r#"{c}1,".",",""#),
         };
         format!("={name}({args})")
     }

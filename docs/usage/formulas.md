@@ -33,6 +33,27 @@ table, even on a page that starts at a later source row.
 
 Start a formula with `=` in the cell editor or the Insert Column dialog.
 
+## Convert imported number text
+
+If an imported column contains text such as `2.500,27`, calculate a numeric
+column with `=ZAHLENWERT(A1;",";".")`. Its first argument is the input,
+then the decimal separator and the grouping separator. The result is 2500.27.
+Use `NUMBERVALUE` for the English name. Both are in **Formula examples...**.
+
+Specify the separators of the source data, not those of your display
+language. DBviewy defaults to a decimal point and comma grouping. If you
+give a comma as the decimal separator and omit grouping, DBviewy uses a
+point for grouping. An explicit empty grouping argument disables punctuation
+grouping. Spaces in the input are ignored. Only the first character of a
+separator argument is used.
+
+A trailing percent sign scales the number: `NUMBERVALUE("9%%")` returns
+0.0009. Blank cells and empty text return zero. Use `ISBLANK` first if a
+missing value must stay distinct from zero. Unexpected currency symbols,
+repeated decimals or grouping after the decimal give no numeric result.
+For example, the Insert Column preview identifies the source cell with an
+invalid value. The original text column is not changed.
+
 ## Percentages and powers
 
 `=A1*(1-15%)` applies a 15% discount. The percent operator divides by

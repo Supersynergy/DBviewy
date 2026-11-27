@@ -22,6 +22,8 @@ mod dispersion;
 mod lex;
 #[path = "formulas_lookup.rs"]
 mod lookup;
+#[path = "formulas_numbervalue.rs"]
+mod numbervalue;
 #[path = "formulas_presence.rs"]
 mod presence;
 #[path = "formulas_product.rs"]
@@ -197,6 +199,7 @@ enum Function {
     Clock(time::Clock),
     Workdays(workdays::Kind, bool),
     SumProduct,
+    NumberValue,
     Power,
 }
 
@@ -255,6 +258,8 @@ fn function_named(name: &str) -> Option<Function> {
         ("ISBLANK", Function::Presence(presence::Presence::IsBlank)),
         ("ISTLEER", Function::Presence(presence::Presence::IsBlank)),
         ("MEDIAN", Function::Aggregate(Median)),
+        ("NUMBERVALUE", Function::NumberValue),
+        ("ZAHLENWERT", Function::NumberValue),
         ("PERCENTILE.INC", Quantile(PercentileInc)),
         ("PERCENTILE.EXC", Quantile(PercentileExc)),
         ("QUANTIL.INKL", Quantile(PercentileInc)),
@@ -734,6 +739,7 @@ fn eval_function(
             return workdays::evaluate(kind, intl, tokens, pos, context);
         }
         Function::SumProduct => return product::evaluate(tokens, pos, context),
+        Function::NumberValue => return numbervalue::evaluate(tokens, pos, context),
         Function::If => return control::evaluate_if(tokens, pos, context),
         Function::IfError => return control::evaluate_if_error(tokens, pos, context),
         Function::Ifs => return control::evaluate_ifs(tokens, pos, context),

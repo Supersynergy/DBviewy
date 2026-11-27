@@ -3290,3 +3290,170 @@ fn production_spread_report_reopens_as_numeric_xlsx_cells() {
         assert!((actual - want).abs() < 1e-12, "{c}: {actual} != {want}");
     }
 }
+
+#[test]
+fn numbervalue_matches_documented_examples_and_fixed_separator_defaults() {
+    let table = formula_table();
+    for (formula, expected) in [
+        (r#"NUMBERVALUE("2.500,27",",",".")"#, 2500.27),
+        (r#"ZAHLENWERT("2,500.27";".";",")"#, 2500.27),
+        (r#"NUMBERVALUE("2.500,27",",decimal",".group")"#, 2500.27),
+        (r#"NUMBERVALUE("2,500.27")"#, 2500.27),
+        (r#"ZAHLENWERT("2.500,27";",")"#, 2500.27),
+        (r#"NUMBERVALUE("2,500.27",,",")"#, 2500.27),
+        (r#"NUMBERVALUE("3.5%")"#, 0.035),
+        (r#"ZAHLENWERT("3,5%";",";".")"#, 0.035),
+        (r#"NUMBERVALUE("9%%")"#, 0.0009),
+        (r#"NUMBERVALUE(" 3 000 ")"#, 3000.0),
+        (r#"NUMBERVALUE("1 234,50",","," ")"#, 1234.5),
+        (r#"NUMBERVALUE("-5·25","·","")"#, -5.25),
+        (r#"NUMBERVALUE("")"#, 0.0),
+        (r#"NUMBERVALUE("   ")"#, 0.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn numbervalue_uses_edited_separator_cells_and_pinpoints_bad_input() {
+    use CellValue::{Float, Int, Null, String as Text};
+    let mut table = DataTable {
+        rows: vec![
+            vec![Text("1.234,50".into()), Text(",".into()), Text(".".into())],
+            vec![Text("1,2.34".into()), Null, Null],
+            vec![Int(13), Null, Null],
+            vec![Null, Null, Null],
+            vec![Float(f64::INFINITY), Null, Null],
+        ],
+        row_offset: 7000,
+        ..formula_table()
+    };
+    table.set(0, 0, Text("3.027,50".into()));
+    assert_eq!(
+        evaluate_formula("NUMBERVALUE(A1,$B$1,$C$1)", &table),
+        Some(3027.5)
+    );
+    assert_eq!(
+        evaluate_formula("NUMBERVALUE((A3),B1,C1)", &table),
+        Some(13.0)
+    );
+    assert_eq!(evaluate_formula("NUMBERVALUE(A4,B1,C1)", &table), Some(0.0));
+    assert_eq!(
+        evaluate_formula("NUMBERVALUE(11+3,B1,C1)", &table),
+        Some(14.0)
+    );
+    let invalid = evaluate_formula_with_diagnostics("NUMBERVALUE(A2,B1,C1)", &table);
+    assert!(invalid.value.is_none());
+    let offender = invalid.bad_cell.unwrap();
+    assert_eq!(
+        (offender.row, offender.col, offender.content.as_str()),
+        (1, 0, "1,2.34")
+    );
+    assert_eq!(evaluate_formula("NUMBERVALUE(A5)", &table), None);
+    assert_eq!(evaluate_formula("NUMBERVALUE(A7001)", &table), None);
+    let bad_option = evaluate_formula_with_diagnostics("NUMBERVALUE(A1,A3,C1)", &table);
+    assert!(bad_option.value.is_none() && bad_option.bad_cell.is_none());
+}
+
+#[test]
+fn numbervalue_rejects_ambiguous_text_and_parses_lazy_branches_without_reading_them() {
+    let table = formula_table();
+    for formula in [
+        "NUMBERVALUE()",
+        r#"NUMBERVALUE("2,2,4", ",", ".")"#,
+        r#"NUMBERVALUE("1,2.3", ",", ".")"#,
+        r#"NUMBERVALUE("1.2,3")"#,
+        r#"NUMBERVALUE("1,234", ".", "")"#,
+        r#"NUMBERVALUE("12", ",", ",")"#,
+        r#"NUMBERVALUE("12", "", ".")"#,
+        r#"NUMBERVALUE("12", " ", ".")"#,
+        r#"NUMBERVALUE("12", 5, ".")"#,
+        r#"NUMBERVALUE("12%", ".", "%")"#,
+        r#"NUMBERVALUE("12", ".", ",", 3)"#,
+        r#"NUMBERVALUE("EUR 12.5")"#,
+        r#"NUMBERVALUE("9%7")"#,
+        r#"NUMBERVALUE("1,2e3,4", ",", ".")"#,
+        r#"NUMBERVALUE("1.2e3,4")"#,
+        r#"NUMBERVALUE("1e")"#,
+        r#"NUMBERVALUE("NaN")"#,
+        r#"NUMBERVALUE("Infinity")"#,
+        r#"NUMBERVALUE("...")"#,
+        r#"NUMBERVALUE("%")"#,
+        r#"IF(FALSE,NUMBERVALUE("12",1+1),7)"#,
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+    for formula in [
+        r#"IF(FALSE,ZAHLENWERT("EUR 12";",";"."),7)"#,
+        r#"IFERROR(NUMBERVALUE("12x"),7)"#,
+        "IF(FALSE,NUMBERVALUE(A999,C999,B999),7)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(7.0), "{formula}");
+    }
+}
+
+#[test]
+fn numbervalue_applies_percent_scaling_before_the_decimal_conversion() {
+    let table = formula_table();
+    for (formula, expected) in [
+        (r#"NUMBERVALUE("1.20e3%")"#, 12.0),
+        (r#"NUMBERVALUE("-1,50e+2%%",",",".")"#, -0.015),
+        (r#"NUMBERVALUE("1e310%")"#, 1e308),
+        (r#"NUMBERVALUE("1e-310%")"#, 1e-312),
+        (r#"NUMBERVALUE("0e1000%%")"#, 0.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+    assert_eq!(evaluate_formula(r#"NUMBERVALUE("1e400%")"#, &table), None);
+    assert_eq!(evaluate_formula(r#"NUMBERVALUE("1e+%")"#, &table), None);
+}
+
+#[test]
+fn numbervalue_supplier_amounts_remain_numeric_through_xlsx() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::Workbook;
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("supplier-import.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet();
+    for (c, label) in ["Original amount", "Numeric amount"]
+        .into_iter()
+        .enumerate()
+    {
+        sheet.write_string(0, c as u16, label).unwrap();
+    }
+    let inputs = ["1.250,50", "-75,25", "9%%"];
+    for (r, input) in inputs.into_iter().enumerate() {
+        sheet.write_string(r as u32 + 1, 0, input).unwrap();
+        sheet.write_number(r as u32 + 1, 1, 0).unwrap();
+    }
+    book.save(&source).unwrap();
+    let mut table = ExcelReader.read_file(&source).unwrap();
+    for r in 0..3 {
+        let formula = format!(r#"=ZAHLENWERT(A{};",";".")"#, r + 1);
+        assert!(commit_cell_text(
+            &mut table,
+            r,
+            1,
+            formula,
+            BinaryDisplayMode::default()
+        ));
+    }
+    let output = dir.path().join("supplier-amounts.xlsx");
+    ExcelReader.write_file(&output, &table).unwrap();
+    let table = ExcelReader.read_file(&output).unwrap();
+    for (r, want) in [1250.50, -75.25, 0.0009].into_iter().enumerate() {
+        assert_eq!(table.get(r, 0), Some(&CellValue::String(inputs[r].into())));
+        assert_eq!(table.get(r, 1), Some(&CellValue::Float(want)));
+    }
+    assert!((evaluate_formula("SUM(B1:B3)", &table).unwrap() - 1175.2509).abs() < 1e-12);
+}

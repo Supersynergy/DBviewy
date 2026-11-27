@@ -664,6 +664,11 @@ Esc keeps the old draft. The table changes only when you choose Add.
   deviation names are STABW.S and STABW.N. A sample needs at least two
   numbers; a population needs at least one. In Insert Column,
   `=STABW.S(A$1:A1)` measures the spread so far without rereading rows.
+- **`ZAHLENWERT(A1;",";".")`** turns text such as 2.500,27 into a number.
+  The arguments after the source are its decimal and grouping separators.
+  Use NUMBERVALUE in English. DBviewy uses stable defaults, not the display
+  language. An empty source gives zero. A grouping mark after the decimal
+  or other unexpected text gives no result.
 - **`PERCENTILE.INC(A1:A100,95%)`** finds the 95th percentile, for
   example of response times. `PERCENTILE.EXC` returns no result when the
   sample cannot support the chosen percentile. For quartiles, use

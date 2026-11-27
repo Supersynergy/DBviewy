@@ -57,3 +57,30 @@ fn search_accepts_english_german_and_formula_punctuation() {
     assert!(matching("unregistered fx").is_empty());
     assert_eq!(matching("").len(), RECIPES.len());
 }
+
+#[test]
+fn numbervalue_recipe_sets_explicit_input_separators_for_each_language() {
+    for (query, german, input, expected_formula) in [
+        ("zahlenwert", true, "2.500,27", r#"ZAHLENWERT(A1;",";".")"#),
+        (
+            "numbervalue",
+            false,
+            "2,500.27",
+            r#"NUMBERVALUE(A1,".",",")"#,
+        ),
+    ] {
+        let recipes = matching(query);
+        assert_eq!(recipes.len(), 1);
+        let draft = recipes[0].expression(0, 1, german);
+        assert_eq!(draft.strip_prefix('='), Some(expected_formula));
+        let table = DataTable {
+            columns: vec![ColumnInfo {
+                name: "import".into(),
+                data_type: "Utf8".into(),
+            }],
+            rows: vec![vec![CellValue::String(input.into())]],
+            ..DataTable::empty()
+        };
+        assert_eq!(evaluate_formula(expected_formula, &table), Some(2500.27));
+    }
+}
