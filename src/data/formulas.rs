@@ -24,6 +24,8 @@ mod dispersion;
 mod lex;
 #[path = "formulas_lookup.rs"]
 mod lookup;
+#[path = "formulas_means.rs"]
+mod means;
 #[path = "formulas_numbervalue.rs"]
 mod numbervalue;
 #[path = "formulas_order.rs"]
@@ -211,6 +213,7 @@ enum Function {
     SumProduct,
     NumberValue,
     Text(text::Kind),
+    Mean(means::Kind),
     Rank(rank_math::Kind),
     Pairs(pairs::Kind),
     Nth(order::Extent),
@@ -275,6 +278,12 @@ fn function_named(name: &str) -> Option<Function> {
         ("ISBLANK", Function::Presence(presence::Presence::IsBlank)),
         ("ISTLEER", Function::Presence(presence::Presence::IsBlank)),
         ("MEDIAN", Function::Aggregate(Median)),
+        ("GEOMEAN", Function::Mean(means::Kind::Geometric)),
+        ("GEOMITTEL", Function::Mean(means::Kind::Geometric)),
+        ("HARMEAN", Function::Mean(means::Kind::Harmonic)),
+        ("HARMITTEL", Function::Mean(means::Kind::Harmonic)),
+        ("TRIMMEAN", Function::Mean(means::Kind::Trimmed)),
+        ("GESTUTZTMITTEL", Function::Mean(means::Kind::Trimmed)),
         ("NUMBERVALUE", Function::NumberValue),
         ("ZAHLENWERT", Function::NumberValue),
         ("NPV", Function::NetPresentValue),
@@ -802,6 +811,7 @@ fn eval_function(
         Function::NetPresentValue => return cashflow::periodic(tokens, pos, context),
         Function::DatedNetPresentValue => return cashflow::dated(tokens, pos, context),
         Function::Text(kind) => return text::evaluate(kind, tokens, pos, context),
+        Function::Mean(kind) => return means::evaluate(kind, tokens, pos, context),
         Function::Rank(kind) => return order::rank(kind, tokens, pos, context),
         Function::Pairs(kind) => return pairs::evaluate(kind, tokens, pos, context),
         Function::Nth(extent) => return order::nth(extent, tokens, pos, context),

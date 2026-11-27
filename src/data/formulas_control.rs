@@ -9,7 +9,7 @@ type Arguments<'a, const N: usize> = [Option<&'a [Token]>; N];
 
 /// Take one argument and advance beyond its separator or final parenthesis.
 /// Nested calls stay together, and even an empty argument has a position.
-fn next_argument(tokens: &[Token], start: usize) -> Option<(&[Token], usize, bool)> {
+pub(super) fn next_argument(tokens: &[Token], start: usize) -> Option<(&[Token], usize, bool)> {
     let mut depth = 0usize;
     for (offset, token) in tokens.get(start..)?.iter().enumerate() {
         let pos = start + offset;
@@ -25,7 +25,7 @@ fn next_argument(tokens: &[Token], start: usize) -> Option<(&[Token], usize, boo
     None
 }
 
-fn argument_start(tokens: &[Token], open: usize) -> Option<usize> {
+pub(super) fn argument_start(tokens: &[Token], open: usize) -> Option<usize> {
     matches!(tokens.get(open), Some(Token::LParen)).then_some(open + 1)
 }
 

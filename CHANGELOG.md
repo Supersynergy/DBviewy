@@ -75,6 +75,8 @@
 - Compare paired measurements with CORREL, SLOPE and sample or population
   covariance. Pick X and Y in Formula examples; missing values never shift the
   remaining pairs out of alignment.
+- Average growth factors, equal-distance speeds or trimmed measurements with
+  GEOMEAN, HARMEAN and TRIMMEAN, with English and German examples.
 - Read Value Frequency shares as proportionate bars without hiding the
   exact percentages. Long results scroll with fixed headers.
 - See which columns pair in Row Hash Diff before reading the result. The

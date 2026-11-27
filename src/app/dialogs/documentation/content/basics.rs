@@ -738,6 +738,12 @@ Esc keeps the old draft. The table changes only when you choose Add.
   the best place; use **RANK.AVG** to average the tied places. Add a
   third argument of 1 to rank smallest first. Keeping the comparison
   range fixed lets Insert Column sort it once for the whole column.
+- **`GEOMEAN(A1:A20)`** averages positive growth factors. Subtract 1
+  for the growth rate. **`HARMEAN(A1:A20)`** averages positive rates
+  for equal amounts, such as speeds on equal-length legs.
+- **`TRIMMEAN(A1:A20,20%)`** removes equal counts from both ends before
+  averaging. Open **Examples** and search for GEOMITTEL, HARMITTEL or
+  GESTUTZTMITTEL for the German names. The draft fixes the loaded range.
 - **`LARGE(A1:A20,2)`** gives the second-largest value. **SMALL** starts
   from the smallest. Equal values occupy separate positions. Find the
   German names RANG.GLEICH, RANG.MITTELW, KGRÖSSTE and KKLEINSTE in **Examples**.

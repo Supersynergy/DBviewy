@@ -534,3 +534,60 @@ fn dated_recipe_names_amounts_and_dates_and_keyboard_only_updates_the_draft() {
     assert_eq!(tab.table.col_count(), 3);
     assert!(tab.table.undo_stack.is_empty());
 }
+
+#[test]
+fn localized_means_prepare_fixed_ranges_and_fill_numeric_results() {
+    let table = DataTable {
+        columns: vec![ColumnInfo {
+            name: "Rate".into(),
+            data_type: "Int64".into(),
+        }],
+        rows: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+            .map(|n| vec![CellValue::Int(n)])
+            .to_vec(),
+        ..DataTable::empty()
+    };
+    for (query, en, original, expected) in [
+        (
+            "geomittel",
+            "GEOMEAN",
+            "=GEOMITTEL($A$1:$A$10)",
+            3_628_800.0_f64.powf(0.1),
+        ),
+        (
+            "harmittel",
+            "HARMEAN",
+            "=HARMITTEL($A$1:$A$10)",
+            10.0 / (1..=10).map(|n| 1.0 / f64::from(n)).sum::<f64>(),
+        ),
+        (
+            "gestutztmittel",
+            "TRIMMEAN",
+            "=GESTUTZTMITTEL($A$1:$A$10;20%)",
+            5.5,
+        ),
+    ] {
+        let suggestion = matching(query)[0];
+        assert_eq!(suggestion.english, en);
+        assert_eq!(
+            suggestion
+                .expression(0, None, table.row_count(), true)
+                .unwrap(),
+            original
+        );
+        let english = suggestion
+            .expression(0, None, table.row_count(), false)
+            .unwrap();
+        assert!(english.starts_with(&format!("={en}($A$1:$A$10")));
+        let (rows, bad) = super::super::fill_formula_template(&original[1..], &table);
+        assert!(bad.is_none());
+        assert_eq!(rows.len(), table.row_count());
+        assert!(
+            rows.iter()
+                .enumerate()
+                .all(|(i, (row, value))| i == *row && (value - expected).abs() < 1e-10)
+        );
+        let other = evaluate_formula(&english[1..], &table).unwrap();
+        assert!((other - expected).abs() < 1e-10);
+    }
+}

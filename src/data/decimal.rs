@@ -620,13 +620,13 @@ pub fn settle_server_decimals(table: &mut super::DataTable) {
 /// Neumaier's compensated sum: the error stays at one rounding however many
 /// values go in, where a plain float sum gathers one per value.
 #[derive(Debug, Default, Clone, Copy)]
-struct CarefulSum {
+pub(super) struct CarefulSum {
     sum: f64,
     carry: f64,
 }
 
 impl CarefulSum {
-    fn add(&mut self, x: f64) {
+    pub(super) fn add(&mut self, x: f64) {
         let t = self.sum + x;
         self.carry += if self.sum.abs() >= x.abs() {
             (self.sum - t) + x
@@ -636,7 +636,12 @@ impl CarefulSum {
         self.sum = t;
     }
 
-    fn value(self) -> f64 {
+    pub(super) fn scale(&mut self, factor: f64) {
+        self.sum *= factor;
+        self.carry *= factor;
+    }
+
+    pub(super) fn value(self) -> f64 {
         self.sum + self.carry
     }
 }

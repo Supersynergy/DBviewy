@@ -14,6 +14,7 @@ use super::TabState;
 enum Form {
     Running,
     Whole,
+    Trimmed,
     Round,
     Scalar,
     Exact,
@@ -49,6 +50,21 @@ const RECIPES: &[Recipe] = &[
         english: "AVERAGE",
         german: "MITTELWERT",
         form: Form::Running,
+    },
+    Recipe {
+        english: "GEOMEAN",
+        german: "GEOMITTEL",
+        form: Form::Whole,
+    },
+    Recipe {
+        english: "HARMEAN",
+        german: "HARMITTEL",
+        form: Form::Whole,
+    },
+    Recipe {
+        english: "TRIMMEAN",
+        german: "GESTUTZTMITTEL",
+        form: Form::Trimmed,
     },
     Recipe {
         english: "COUNT",
@@ -240,6 +256,7 @@ impl Recipe {
         let args = match self.form {
             Form::Running => format!("{c}$1:{c}1"),
             Form::Whole => format!("${c}$1:${c}${n}"),
+            Form::Trimmed => format!("${c}$1:${c}${n}{sep}20%"),
             Form::Round => format!("{c}1{sep}2"),
             Form::Scalar => format!("{c}1"),
             Form::Exact => format!(r#"{c}1{sep}"SKU-01""#),

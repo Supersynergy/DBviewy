@@ -176,6 +176,38 @@ In Insert Column, `=STABW.S(A$1:A1)` reports the sample deviation so far.
 Keep the first row fixed and let the last row move. This form reads each
 newly included cell once. The first row with only one reading is blank.
 
+### Choose a mean for rates or noisy measurements
+
+| Formula | Use | German name |
+| --- | --- | --- |
+| `=GEOMEAN(A1:A12)` | Average positive growth **factors**. Subtract 1 from the result for the per-period growth rate. | GEOMITTEL |
+| `=HARMEAN(A1:A12)` | Average positive rates when each rate covers the same amount, such as speeds over equal distances. | HARMITTEL |
+| `=TRIMMEAN(A1:A12,20%)` | Average values after omitting the same number of low and high readings. | GESTUTZTMITTEL |
+
+GEOMEAN and HARMEAN take up to 255 arguments, including cells, ranges
+and numeric expressions. A numeric zero or negative value makes either
+mean undefined. Use factors such as `1.10` and `0.90` for growth of +10%
+and -10%. Averaging the rates directly gives a different answer.
+
+TRIMMEAN rounds the number of discarded readings down to an even number
+before removing half from each end. It accepts a fraction from 0 to 1.
+If trimming leaves no number, the result is undefined.
+
+These functions skip blank and Boolean cells and text stored in a range.
+A code such as `0007` isn't a measurement. Exact numbers in decimal
+columns are counted. For GEOMEAN and HARMEAN, a quoted number or a
+Boolean entered directly as an argument is converted to a number.
+
+Search for either function name under **Insert Column > Examples**. The
+draft fixes the input range, so evaluating the same result for an entire
+calculated column doesn't scan the range for each output row. Replace the
+trim example's 20% with your intended share before selecting **Add**.
+The range covers loaded rows, not only those visible through a filter.
+
+See Microsoft's [GEOMEAN](https://support.microsoft.com/en-us/excel/functions/geomean-function),
+[HARMEAN](https://support.microsoft.com/en-us/excel/functions/harmean-function) and
+[TRIMMEAN](https://support.microsoft.com/en-au/excel/functions/trimmean-function) references.
+
 ### Find percentiles and quartiles
 
 To find the 95th-percentile response time, enter

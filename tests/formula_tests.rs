@@ -4501,3 +4501,183 @@ fn forecast_applies_to_a_loaded_workbook_and_reopens_as_a_numeric_cell() {
     }
     assert_eq!(std::fs::read(input).unwrap(), original_bytes);
 }
+
+fn mean_sample(values: Vec<CellValue>) -> DataTable {
+    DataTable {
+        columns: vec![ColumnInfo {
+            name: "Reading".into(),
+            data_type: "Utf8".into(),
+        }],
+        rows: values.into_iter().map(|n| vec![n]).collect(),
+        ..DataTable::empty()
+    }
+}
+
+#[test]
+fn geometric_and_harmonic_means_handle_excel_examples_and_nonnumeric_references() {
+    let table = mean_sample(vec![
+        CellValue::Int(2),
+        CellValue::String("0007".into()),
+        CellValue::Null,
+        CellValue::Bool(false),
+        CellValue::Int(8),
+    ]);
+    for (formula, expected) in [
+        (
+            "GEOMEAN(4,5,8,7,11,4,3)",
+            (4.0_f64 * 5.0 * 8.0 * 7.0 * 11.0 * 4.0 * 3.0).powf(1.0 / 7.0),
+        ),
+        (
+            "HARMEAN(4,5,8,7,11,4,3)",
+            7.0 / [4.0_f64, 5.0, 8.0, 7.0, 11.0, 4.0, 3.0]
+                .into_iter()
+                .map(|x| 1.0 / x)
+                .sum::<f64>(),
+        ),
+        ("GEOMITTEL(A1:A5)", 4.0),
+        ("HARMITTEL(A1:A5)", 3.2),
+        (r#"GEOMEAN(A1;"8";A2;A4)"#, 4.0),
+        (r#"HARMITTEL("20";30*2)"#, 30.0),
+        ("GEOMEAN(TRUE,4)", 2.0),
+        ("GEOMEAN(A1:A999999999)", 4.0),
+    ] {
+        let actual =
+            evaluate_formula(formula, &table).unwrap_or_else(|| panic!("no result for {formula}"));
+        assert!(
+            (actual - expected).abs() < 1e-10,
+            "{formula}: {actual} != {expected}"
+        );
+    }
+
+    let mut decimal = mean_sample(vec![
+        CellValue::String("16.00000000000000001".into()),
+        CellValue::Int(4),
+    ]);
+    decimal.columns[0].data_type = "Decimal128(21,17)".into();
+    assert_eq!(evaluate_formula("GEOMEAN(A1:A2)", &decimal), Some(8.0));
+    assert_eq!(evaluate_formula("TRIMMEAN(A1:A2,0%)", &decimal), Some(10.0));
+}
+
+#[test]
+fn spreadsheet_means_avoid_overflow_and_reject_invalid_runtime_values() {
+    let empty = DataTable::empty();
+    for (formula, expected) in [
+        ("GEOMEAN(1e300,1e-300)", 1.0),
+        ("GEOMEAN(1.79e308,1.79e308)", 1.79e308),
+        ("HARMEAN(1e300,1e-320)", 2e-320),
+        ("HARMEAN(1e-320,1e300)", 2e-320),
+        ("HARMEAN(1.79e308,1.79e308)", 1.79e308),
+    ] {
+        let got = evaluate_formula(formula, &empty).unwrap();
+        assert!(
+            got.is_finite() && (got / expected - 1.0).abs() < 1e-12,
+            "{formula}: {got}"
+        );
+    }
+    for formula in [
+        "HARMEAN(2,0)",
+        "GEOMEAN(2,-1)",
+        "HARMEAN(2,FALSE)",
+        r#"GEOMEAN("not-a-number")"#,
+        "GEOMEAN()",
+        "GEOMEAN(1,)",
+        "TRIMMEAN(A1:A4,120%)",
+        "TRIMMEAN(A1:A4,-1%)",
+        "TRIMMEAN(1+1,20%)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &empty), None, "{formula}");
+    }
+    assert_eq!(
+        evaluate_formula("IFERROR(GEOMEAN(1,0),9)", &empty),
+        Some(9.0)
+    );
+    assert_eq!(
+        evaluate_formula("IF(TRUE,7,TRIMMEAN(Z1:Z99,-1))", &empty),
+        Some(7.0)
+    );
+    assert_eq!(
+        evaluate_formula(r#"IF(TRUE,7,GEOMEAN("not-numeric",Z1))"#, &empty),
+        Some(7.0)
+    );
+    assert_eq!(evaluate_formula("IF(TRUE,7,GEOMEAN(,Z1))", &empty), None);
+    let arguments = |n| {
+        format!(
+            "GEOMEAN({})",
+            std::iter::repeat_n("2", n).collect::<Vec<_>>().join(",")
+        )
+    };
+    assert_eq!(evaluate_formula(&arguments(255), &empty), Some(2.0));
+    assert_eq!(evaluate_formula(&arguments(256), &empty), None);
+}
+
+#[test]
+fn trimmed_mean_rounds_symmetric_tails_down_and_reports_empty_centres() {
+    let values = [1000, 11, 13, -200, 9];
+    let mut table = mean_sample(values.into_iter().map(CellValue::Int).collect());
+    // 1.95 excluded points rounds down to 0 (not 1); at 40%, 2.
+    for (formula, expected) in [
+        ("TRIMMEAN(A1:A5,39%)", 166.6),
+        ("GESTUTZTMITTEL(A1:A5;40%)", 11.0),
+        ("TRIMMEAN(A5:A1,100%)", 11.0),
+        ("TRIMMEAN(A1:A999999999,40%)", 11.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+    assert_eq!(evaluate_formula("TRIMMEAN(A1:A4,100%)", &table), None);
+    table.rows.push(vec![CellValue::Float(f64::NAN)]);
+    assert_eq!(evaluate_formula("TRIMMEAN(A1:A6,40%)", &table), None);
+    assert_eq!(evaluate_formula("GEOMEAN(A5:A6)", &table), None);
+
+    let huge = mean_sample(vec![CellValue::Float(1.6e308), CellValue::Float(1.4e308)]);
+    let expected = 1.5e308;
+    let actual = evaluate_formula("TRIMMEAN(A1:A2,0%)", &huge).unwrap();
+    assert!((actual / expected - 1.0).abs() < 1e-14);
+}
+
+#[test]
+fn three_mean_formulas_survive_as_numeric_xlsx_results() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::Workbook;
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("mean-data.xlsx");
+    let result = dir.path().join("mean-results.xlsx");
+    let mut b = Workbook::new();
+    let sheet = b.add_worksheet();
+    sheet.write_string(0, 0, "Reading").unwrap();
+    sheet.write_string(0, 1, "Result").unwrap();
+    for (i, value) in [2, 8, 64, 1, 16].into_iter().enumerate() {
+        sheet.write_number(i as u32 + 1, 0, value).unwrap();
+        sheet.write_number(i as u32 + 1, 1, 0.0).unwrap();
+    }
+    b.save(&source).unwrap();
+
+    let mut table = ExcelReader.read_file(&source).unwrap();
+    let cases = [
+        ("=GEOMITTEL(A1:A2)", 4.0),
+        ("=HARMITTEL(A1:A2)", 3.2),
+        ("=GESTUTZTMITTEL(A1:A5;40%)", 26.0 / 3.0),
+    ];
+    for (r, (formula, _)) in cases.into_iter().enumerate() {
+        assert!(commit_cell_text(
+            &mut table,
+            r,
+            1,
+            formula.into(),
+            BinaryDisplayMode::default()
+        ));
+    }
+    ExcelReader.write_file(&result, &table).unwrap();
+    let read = ExcelReader.read_file(&result).unwrap();
+    for (r, (_, answer)) in cases.into_iter().enumerate() {
+        let Some(CellValue::Float(got)) = read.get(r, 1) else {
+            panic!("result row {r} lost its numeric type");
+        };
+        assert!((got - answer).abs() < 1e-12, "row {r}: {got}");
+    }
+}
