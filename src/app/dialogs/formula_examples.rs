@@ -21,6 +21,8 @@ enum Form {
     Rank,
     Nth,
     Percentile,
+    Paired,
+    Slope,
     Workday,
     NumberValue,
 }
@@ -124,6 +126,26 @@ const RECIPES: &[Recipe] = &[
         form: Form::Whole,
     },
     Recipe {
+        english: "CORREL",
+        german: "KORREL",
+        form: Form::Paired,
+    },
+    Recipe {
+        english: "COVARIANCE.P",
+        german: "KOVARIANZ.P",
+        form: Form::Paired,
+    },
+    Recipe {
+        english: "COVARIANCE.S",
+        german: "KOVARIANZ.S",
+        form: Form::Paired,
+    },
+    Recipe {
+        english: "SLOPE",
+        german: "STEIGUNG",
+        form: Form::Slope,
+    },
+    Recipe {
         english: "NUMBERVALUE",
         german: "ZAHLENWERT",
         form: Form::NumberValue,
@@ -144,7 +166,17 @@ impl Recipe {
         }
     }
 
-    fn expression(self, col: usize, loaded: usize, german: bool) -> String {
+    fn uses_pair(self) -> bool {
+        matches!(self.form, Form::Paired | Form::Slope)
+    }
+
+    fn expression(
+        self,
+        col: usize,
+        partner: Option<usize>,
+        loaded: usize,
+        german: bool,
+    ) -> Option<String> {
         let c = letters(col);
         let n = loaded.max(1);
         let (name, sep) = if german {
@@ -160,16 +192,28 @@ impl Recipe {
             Form::Exact => format!(r#"{c}1{sep}"SKU-01""#),
             Form::Find => {
                 let fallback = if german { "WENNFEHLER" } else { "IFERROR" };
-                return format!(r#"={fallback}({name}("-"{sep}{c}1){sep}0)"#);
+                return Some(format!(r#"={fallback}({name}("-"{sep}{c}1){sep}0)"#));
             }
             Form::Rank => format!("{c}1{sep}${c}$1:${c}${n}"),
             Form::Nth => format!("${c}$1:${c}${n}{sep}{}", n.min(2)),
+            Form::Paired | Form::Slope => {
+                let other = partner.filter(|&other| other != col)?;
+                let y = letters(other);
+                let x_range = format!("${c}$1:${c}${n}");
+                let y_range = format!("${y}$1:${y}${n}");
+                if matches!(self.form, Form::Slope) {
+                    // Excel uses the response first, then the predictor.
+                    format!("{y_range}{sep}{x_range}")
+                } else {
+                    format!("{x_range}{sep}{y_range}")
+                }
+            }
             Form::Percentile => format!("${c}$1:${c}${n}{sep}95%"),
             Form::Workday => format!("{c}1{sep}5"),
             Form::NumberValue if german => format!(r#"{c}1;",";".""#),
             Form::NumberValue => format!(r#"{c}1,".",",""#),
         };
-        format!("={name}({args})")
+        Some(format!("={name}({args})"))
     }
 }
 
@@ -228,6 +272,7 @@ pub(crate) struct FormulaExamples {
     query: String,
     selected: usize,
     source: usize,
+    partner: Option<usize>,
     needs_focus: bool,
 }
 
@@ -237,6 +282,7 @@ impl FormulaExamples {
             query: String::new(),
             selected: 0,
             source: first_source(tab)?,
+            partner: None,
             needs_focus: true,
         })
     }
@@ -244,6 +290,74 @@ impl FormulaExamples {
 
 fn source_label(tab: &TabState, col: usize) -> String {
     format!("{}  |  {}", letters(col), tab.table.columns[col].name)
+}
+
+fn partner_source(tab: &TabState, primary: usize, preferred: Option<usize>) -> Option<usize> {
+    preferred
+        .filter(|&col| col != primary && visible(tab, col))
+        .or_else(|| (0..tab.table.col_count()).find(|&col| col != primary && visible(tab, col)))
+}
+
+fn choose_column(
+    ui: &mut egui::Ui,
+    tab: &TabState,
+    title: &str,
+    id: &str,
+    selected: Option<usize>,
+    excluded: Option<usize>,
+) -> Option<usize> {
+    let mut choice = selected;
+    control_line(ui, |ui| {
+        let hint = t("dialog.formula_examples_column_hint");
+        let label = ui.label(title).on_hover_text(&hint);
+        let width = (ui.available_width() - 8.0).max(80.0);
+        let response = ui
+            .add_enabled_ui(selected.is_some(), |ui| {
+                egui::ComboBox::from_id_salt(id)
+                    .width(width)
+                    .truncate()
+                    .selected_text(
+                        selected.map_or_else(|| t("greyed.none"), |col| source_label(tab, col)),
+                    )
+                    .show_ui(ui, |ui| {
+                        let columns: Vec<_> = (0..tab.table.col_count())
+                            .filter(|&col| Some(col) != excluded && visible(tab, col))
+                            .collect();
+                        egui::ScrollArea::vertical().max_height(190.0).show_rows(
+                            ui,
+                            ui.spacing().interact_size.y,
+                            columns.len(),
+                            |ui, rows| {
+                                for row in rows {
+                                    let col = columns[row];
+                                    ui.selectable_value(
+                                        &mut choice,
+                                        Some(col),
+                                        source_label(tab, col),
+                                    );
+                                }
+                            },
+                        );
+                    })
+                    .response
+            })
+            .inner
+            .labelled_by(label.id);
+        if selected.is_some() {
+            response.on_hover_text(hint);
+        } else {
+            response.on_disabled_hover_text(disabled_tip(&hint, &missing_partner(tab)));
+        }
+    });
+    choice
+}
+
+fn missing_partner(tab: &TabState) -> String {
+    if tab.table.col_count() > 1 {
+        t("edit_menu.show_hidden_columns")
+    } else {
+        t("greyed.need_two_cols")
+    }
 }
 
 pub(super) fn render(
@@ -287,34 +401,6 @@ pub(super) fn render(
         ui.label(t("dialog.formula_examples_hint"));
         ui.separator();
 
-        control_line(ui, |ui| {
-            let hint = t("dialog.formula_examples_column_hint");
-            let title = ui.label(t("dialog.date_column")).on_hover_text(&hint);
-            egui::ComboBox::from_id_salt("formula_example_source")
-                .width((width - 75.0).max(100.0))
-                .selected_text(source_label(tab, st.source))
-                .show_ui(ui, |ui| {
-                    let columns: Vec<_> = (0..tab.table.col_count())
-                        .filter(|&c| visible(tab, c))
-                        .collect();
-                    let row_height = ui.spacing().interact_size.y;
-                    egui::ScrollArea::vertical().max_height(190.0).show_rows(
-                        ui,
-                        row_height,
-                        columns.len(),
-                        |ui, rows| {
-                            for row in rows {
-                                let c = columns[row];
-                                ui.selectable_value(&mut st.source, c, source_label(tab, c));
-                            }
-                        },
-                    );
-                })
-                .response
-                .labelled_by(title.id)
-                .on_hover_text(hint);
-        });
-
         let name = ui.label(t("dialog.formula_examples_search"));
         let field = control_text_edit(
             ui,
@@ -345,7 +431,13 @@ pub(super) fn render(
         }
         st.selected = st.selected.min(recipes.len().saturating_sub(1));
         let loaded = tab.table.row_count();
-        let max_height = (ctx.content_rect().height() - 278.0).clamp(44.0, 188.0);
+        let sample_partner = partner_source(tab, st.source, st.partner);
+        let reserve = if recipes.get(st.selected).is_some_and(|r| r.uses_pair()) {
+            312.0
+        } else {
+            278.0
+        };
+        let max_height = (ctx.content_rect().height() - reserve).clamp(44.0, 188.0);
         egui::ScrollArea::vertical()
             .max_height(max_height)
             .show(ui, |ui| {
@@ -354,9 +446,13 @@ pub(super) fn render(
                         ui.weak(t("search.no_matches"));
                     }
                     for (i, recipe) in recipes.iter().copied().enumerate() {
-                        let row = ui
-                            .add(egui::Button::selectable(i == st.selected, recipe.label()))
-                            .on_hover_text(recipe.expression(st.source, loaded, german));
+                        let row =
+                            ui.add(egui::Button::selectable(i == st.selected, recipe.label()));
+                        let row = match recipe.expression(st.source, sample_partner, loaded, german)
+                        {
+                            Some(sample) => row.on_hover_text(sample),
+                            None => row.on_hover_text(missing_partner(tab)),
+                        };
                         if row.clicked() {
                             st.selected = i;
                         }
@@ -366,12 +462,43 @@ pub(super) fn render(
                     }
                 });
             });
-        let expression = recipes
-            .get(st.selected)
-            .map(|r| r.expression(st.source, loaded, german));
+        let recipe = recipes.get(st.selected).copied();
+        let paired = recipe.is_some_and(Recipe::uses_pair);
+        let column_label = t("dialog.date_column");
+        if recipe.is_some() {
+            let x_label = if paired {
+                format!("{column_label} (X)")
+            } else {
+                column_label.clone()
+            };
+            if let Some(primary) = choose_column(
+                ui,
+                tab,
+                &x_label,
+                "formula_example_source",
+                Some(st.source),
+                None,
+            ) {
+                st.source = primary;
+            }
+            if paired {
+                let available = partner_source(tab, st.source, st.partner);
+                st.partner = choose_column(
+                    ui,
+                    tab,
+                    &format!("{column_label} (Y)"),
+                    "formula_example_partner",
+                    available,
+                    Some(st.source),
+                );
+            }
+        }
+        let expression = recipe.and_then(|r| r.expression(st.source, st.partner, loaded, german));
         if let Some(draft) = &expression {
             ui.add(egui::Label::new(RichText::new(draft).monospace()).truncate())
                 .on_hover_text(draft);
+        } else if paired {
+            ui.weak(missing_partner(tab));
         }
         ui.separator();
         control_line(ui, |ui| {
@@ -383,7 +510,12 @@ pub(super) fn render(
             let apply = if expression.is_some() {
                 apply.on_hover_text(hint)
             } else {
-                apply.on_disabled_hover_text(disabled_tip(&hint, &t("search.no_matches")))
+                let reason = if paired {
+                    missing_partner(tab)
+                } else {
+                    t("search.no_matches")
+                };
+                apply.on_disabled_hover_text(disabled_tip(&hint, &reason))
             };
             let cancel = ui
                 .button(t("common.cancel"))

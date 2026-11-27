@@ -109,6 +109,33 @@ column, use **Columns > Calculated column > Running total** instead.
 
 In a range or a single-cell argument, these functions include numbers and numeric text, and skip blanks and other values. `COUNT` returns the number of included cells and scalar arguments. `MEDIAN` skips non-finite values and averages the two middle numbers when there is an even count. When there are no numbers, `AVERAGE` and `MEDIAN` return no numeric result; the other four functions return zero.
 
+### Compare two measurements
+
+| Formula | Returns | German name |
+| --- | --- | --- |
+| `=CORREL(A1:A20,B1:B20)` | Linear correlation from -1 to 1 | KORREL |
+| `=SLOPE(B1:B20,A1:A20)` | Change in B per unit change in A along the fitted line | STEIGUNG |
+| `=COVARIANCE.S(A1:A20,B1:B20)` | Sample covariance | KOVARIANZ.S |
+| `=COVARIANCE.P(A1:A20,B1:B20)` | Population covariance | KOVARIANZ.P |
+
+Use equal-sized ranges. DBviewy compares cells at the same relative
+position and skips a pair if either cell is blank, text, a Boolean, or
+non-finite. A true numeric zero counts; a value stored as text does not.
+Correlation is undefined if either series is constant. Slope needs
+variation in its second argument, the X series. Population covariance
+of a single numeric pair is zero; sample covariance requires at least
+two pairs. Undefined results have no numeric value; use `IFERROR` if
+you want a fallback.
+
+In **Formula examples**, select the function, then the visible X and Y
+columns. The draft shows the exact cell addresses and their order.
+Both ranges are fixed to the loaded rows. Review with **Preview**;
+**Use example** alone never changes the table. When you add the column,
+DBviewy reads the two fixed ranges once and repeats the result.
+
+See Microsoft's documentation for [CORREL](https://support.microsoft.com/en-us/excel/functions/correl-function)
+and [SLOPE](https://support.microsoft.com/en-au/excel/functions/slope-function).
+
 ### Measure how much readings vary
 
 For measurements of 96, 100 and 104, `=STDEV.S(A1:A3)` returns 4 in

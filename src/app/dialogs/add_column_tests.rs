@@ -1907,3 +1907,44 @@ fn imported_number_preview_and_cached_fill_keep_errors_separate_from_zero() {
     assert_eq!(table.col_count(), 1);
     assert_eq!(table.get(1, 0), Some(&Text("N/A".into())));
 }
+
+#[test]
+fn paired_statistics_use_the_same_fixed_sample_in_preview_and_fill() {
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = data::DataTable {
+        columns: ["Outdoor", "Consumption"]
+            .map(|name| ColumnInfo {
+                name: name.into(),
+                data_type: "Int64".into(),
+            })
+            .to_vec(),
+        rows: (0..80_000)
+            .map(|x| vec![CellValue::Int(2 * x), CellValue::Int(5 * x + 2)])
+            .collect(),
+        ..data::DataTable::empty()
+    };
+    tab.new_col_name = "Consumption per unit".into();
+    tab.new_col_type = "Float64".into();
+    tab.new_col_formula = "=STEIGUNG($B$1:$B$80000;$A$1:$A$80000)".into();
+    assert!(
+        FormulaRows::new(&tab.new_col_formula[1..])
+            .relative
+            .is_empty()
+    );
+    let preview = FormulaPreview::read(&tab.new_col_formula, &tab.table).unwrap();
+    assert!(preview.first_bad.is_none());
+    for value in preview.values {
+        assert!((value.unwrap() - 2.5).abs() < 1e-10);
+    }
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    for row in [0, 32_000, 79_999] {
+        let Some(CellValue::Float(value)) = tab.table.get(row, 2) else {
+            panic!("missing numeric result for {row}");
+        };
+        assert!((value - 2.5).abs() < 1e-10, "{value}");
+    }
+    tab.table.undo();
+    assert_eq!(tab.table.col_count(), 2);
+}

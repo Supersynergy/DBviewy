@@ -54,6 +54,9 @@
 - Give Find a command clearer rows with menu context and aligned shortcuts.
   Render only visible results, and match newly typed text before Enter runs
   a command.
+- Compare paired measurements with CORREL, SLOPE and sample or population
+  covariance. Pick X and Y in Formula examples; missing values never shift the
+  remaining pairs out of alignment.
 - Check imported text with LEN, EXACT and FIND, with German formula names
   and searchable examples for ID length, case and separator positions.
 - Explain an empty grid with a removable zero-value filter chip. The same

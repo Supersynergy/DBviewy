@@ -704,6 +704,15 @@ Esc keeps the old draft. The table changes only when you choose Add.
   from the smallest. Equal values occupy separate positions. Find the
   German names RANG.GLEICH, RANG.MITTELW, KGRÖSSTE and KKLEINSTE in **Examples**.
 
+**Compare two measurements**: `CORREL(A1:A20,B1:B20)` measures linear
+correlation. `SLOPE(B1:B20,A1:A20)` gives the change in B per unit of A
+along the fitted line. Enter the Y range first for SLOPE. COVARIANCE.S
+uses a sample; COVARIANCE.P uses a whole population. Search **Examples**
+for KORREL, STEIGUNG, KOVARIANZ.S or KOVARIANZ.P to select X and Y.
+The draft points to the loaded rows. Use ranges of the same size.
+A pair with text, a Boolean or a blank is skipped; numeric zero counts.
+Choosing an example changes the draft, not the table.
+
 **Conditional aggregates**: `=COUNTIF(A1:A20,"West")` counts West,
 `=SUMIF(A1:A20,"West",B1:B20)` adds the matching amounts, and
 `=AVERAGEIF(B1:B20,">="&D1)` averages values at or above D1.

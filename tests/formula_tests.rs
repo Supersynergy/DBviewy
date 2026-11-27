@@ -3946,3 +3946,176 @@ fn numbervalue_supplier_amounts_remain_numeric_through_xlsx() {
     }
     assert!((evaluate_formula("SUM(B1:B3)", &table).unwrap() - 1175.2509).abs() < 1e-12);
 }
+
+#[test]
+fn paired_statistics_align_rows_before_ignoring_non_numbers() {
+    use CellValue::{Bool, Float, Int, Null, String as Text};
+    let table = DataTable {
+        rows: vec![
+            vec![Int(0), Int(1)],
+            vec![Null, Int(-9000)],
+            vec![Int(1000), Text("9".into())],
+            vec![Int(1), Int(3)],
+            vec![Bool(true), Int(9000)],
+            vec![Int(2), Int(5)],
+            vec![Int(8000), Float(f64::INFINITY)],
+        ],
+        ..formula_table()
+    };
+    for (formula, want) in [
+        ("CORREL(A1:A7,B1:B7)", 1.0),
+        ("korrel(B7:B1;A7:A1)", 1.0),
+        ("PEARSON((A1:A7),B1:B7)", 1.0),
+        ("SLOPE(B1:B7,A1:A7)", 2.0),
+        ("STEIGUNG(A1:A7;B1:B7)", 0.5),
+        ("COVARIANCE.P(A1:A7,B1:B7)", 4.0 / 3.0),
+        ("COVARIANCE.S(A1:A7,B1:B7)", 2.0),
+        ("KOVARIANZ.P(A1:A7;B1:B7)", 4.0 / 3.0),
+        ("KOVARIANZ.S(B1:B7;A1:A7)", 2.0),
+        ("KOVAR(A1:A7;B1:B7)", 4.0 / 3.0),
+        ("COVAR(A1:A7,B1:B7)", 4.0 / 3.0),
+    ] {
+        let outcome = evaluate_formula_with_diagnostics(formula, &table);
+        assert!(outcome.bad_cell.is_none(), "{formula}");
+        assert!(
+            (outcome.value.unwrap() - want).abs() < 5e-14,
+            "{formula}: {outcome:?}"
+        );
+    }
+
+    let table = DataTable {
+        rows: vec![
+            vec![Int(0), Int(1)],
+            vec![Int(2), Int(3)],
+            vec![Int(8), Int(5)],
+        ],
+        ..formula_table()
+    };
+    // The equal rectangles live at different offsets. Their relative
+    // positions, not absolute columns, determine their pairs.
+    let value = evaluate_formula("CORREL(A1:B2,A2:B3)", &table).unwrap();
+    assert!((value - 0.6831300510639733).abs() < 1e-14, "{value}");
+}
+
+#[test]
+fn paired_statistics_are_stable_with_large_offsets_and_scales() {
+    use CellValue::Float;
+    let table = DataTable {
+        rows: (0..4)
+            .map(|n| vec![Float(1e15 + n as f64), Float(-1e15 - 2.0 * n as f64)])
+            .collect(),
+        ..formula_table()
+    };
+    for (formula, want) in [
+        ("SLOPE(B1:B4,A1:A4)", -2.0),
+        ("CORREL(A1:A4,B1:B4)", -1.0),
+        ("COVARIANCE.P(A1:A4,B1:B4)", -2.5),
+    ] {
+        let got = evaluate_formula(formula, &table).unwrap();
+        assert!((got - want).abs() < 1e-14, "{formula}: {got}");
+    }
+
+    let mut table = table;
+    table.rows = vec![
+        vec![Float(-1e308), Float(1e308), Float(1e-307)],
+        vec![Float(1e308), Float(-1e308), Float(-1e-307)],
+    ];
+    assert!((evaluate_formula("CORREL(A1:A2,B1:B2)", &table).unwrap() + 1.0).abs() < 1e-14);
+    assert!((evaluate_formula("SLOPE(A1:A2,B1:B2)", &table).unwrap() + 1.0).abs() < 1e-14);
+    assert!((evaluate_formula("COVARIANCE.P(A1:A2,C1:C2)", &table).unwrap() + 10.0).abs() < 1e-13);
+    assert_eq!(evaluate_formula("COVARIANCE.P(A1:A2,B1:B2)", &table), None);
+}
+
+#[test]
+fn paired_statistics_skip_unloaded_tails_and_separate_syntax_from_runtime() {
+    let mut table = formula_table();
+    table.row_offset = 2000;
+    table.total_rows = Some(9_999_999_999);
+    let base = evaluate_formula("CORREL(A1:A3,B1:B3)", &table);
+    assert!(base.is_some());
+    assert_eq!(
+        evaluate_formula("CORREL(A1:A9999999999,B1:B9999999999)", &table),
+        base
+    );
+    assert_eq!(evaluate_formula("CORREL(A1:A3,B1:B2)", &table), None);
+    assert_eq!(evaluate_formula("CORREL(A1:A3,A1:C1)", &table), None);
+    assert_eq!(
+        evaluate_formula("IFERROR(CORREL(A1:A3,B1:B2),17)", &table),
+        Some(17.0)
+    );
+    assert_eq!(
+        evaluate_formula("IF(0,SLOPE(A1:A99,B2:B7),17)", &table),
+        Some(17.0)
+    );
+    assert_eq!(evaluate_formula("IF(0,SLOPE(7,B2:B7),17)", &table), None);
+    assert_eq!(evaluate_formula("CORREL(A1:A3,B1:B3,17)", &table), None);
+}
+
+#[test]
+fn paired_statistics_handle_constant_series_and_the_sample_boundary() {
+    use CellValue::{Int, Null};
+    let table = DataTable {
+        rows: vec![
+            vec![Int(7), Int(0)],
+            vec![Int(7), Int(2)],
+            vec![Null, Int(3)],
+        ],
+        ..formula_table()
+    };
+    for (formula, expected) in [
+        ("CORREL(A1:A3,B1:B3)", None),
+        ("SLOPE(B1:B3,A1:A3)", None),
+        ("SLOPE(A1:A3,B1:B3)", Some(0.0)),
+        ("COVARIANCE.S(A1:A3,B1:B3)", Some(0.0)),
+        ("COVARIANCE.P(A1,B1)", Some(0.0)),
+        ("COVARIANCE.S(A1,B1)", None),
+        ("COVARIANCE.P(A3,B3)", None),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+}
+
+#[test]
+fn paired_statistics_remain_numeric_after_xlsx_reopen() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    let temp = tempfile::tempdir().unwrap();
+    let path = temp.path().join("paired-sensors.xlsx");
+    let mut table = DataTable {
+        rows: [0, 1, 2, 3]
+            .map(|x| {
+                vec![
+                    CellValue::Int(x),
+                    CellValue::Int(2 * x + 1),
+                    CellValue::Null,
+                ]
+            })
+            .to_vec(),
+        ..formula_table()
+    };
+    table.columns[2].data_type = "Float64".into();
+    for (row, formula) in [
+        "=KORREL(A1:A4;B1:B4)",
+        "=SLOPE(B1:B4,A1:A4)",
+        "=COVARIANCE.P(A1:A4,B1:B4)",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert!(commit_cell_text(
+            &mut table,
+            row,
+            2,
+            formula.into(),
+            BinaryDisplayMode::default()
+        ));
+    }
+    ExcelReader.write_file(&path, &table).unwrap();
+    let read = ExcelReader.read_file(&path).unwrap();
+    for (row, want) in [1.0, 2.0, 2.5].into_iter().enumerate() {
+        let Some(CellValue::Float(value)) = read.get(row, 2) else {
+            panic!("expected a numeric XLSX value after re-opening {row}");
+        };
+        assert!((value - want).abs() < 1e-14, "{value}");
+    }
+}

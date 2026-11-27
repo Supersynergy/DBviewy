@@ -22,7 +22,9 @@ fn every_example_evaluates_in_both_languages_with_wide_column_references() {
     assert_eq!(letters(702), "AAA");
     for &recipe in RECIPES {
         for german in [false, true] {
-            let formula = recipe.expression(26, table.row_count(), german);
+            let formula = recipe
+                .expression(26, Some(27), table.row_count(), german)
+                .unwrap();
             let expr = formula.strip_prefix('=').unwrap();
             let value = evaluate_formula(expr, &table);
             if matches!(recipe.form, Form::Running) && recipe.english == "STDEV.S" {
@@ -50,7 +52,7 @@ fn search_accepts_english_german_and_formula_punctuation() {
         assert_eq!(hits.len(), 1, "{q}");
         assert_eq!(hits[0].english, "PERCENTILE.INC");
         assert_eq!(
-            hits[0].expression(27, 105, true),
+            hits[0].expression(27, None, 105, true).unwrap(),
             "=QUANTIL.INKL($AB$1:$AB$105;95%)"
         );
     }
@@ -98,11 +100,14 @@ fn ranking_recipes_pin_the_sample_and_offer_both_language_names() {
     ] {
         let hit = matching(query)[0];
         assert_eq!(hit.english, function);
-        assert_eq!(hit.expression(0, 4, german), draft);
+        assert_eq!(hit.expression(0, None, 4, german).unwrap(), draft);
         assert_eq!(evaluate_formula(&draft[1..], &table), Some(expected));
     }
     let lone = matching("kkleinste")[0];
-    assert_eq!(lone.expression(26, 1, true), "=KKLEINSTE($AA$1:$AA$1;1)");
+    assert_eq!(
+        lone.expression(26, None, 1, true).unwrap(),
+        "=KKLEINSTE($AA$1:$AA$1;1)"
+    );
 }
 
 #[test]
@@ -133,7 +138,7 @@ fn text_checks_are_searchable_and_examples_evaluate_in_both_languages() {
     ] {
         let got = matching(query);
         assert_eq!(got[0].english, english, "{query}");
-        assert_eq!(got[0].expression(0, 1, german), draft);
+        assert_eq!(got[0].expression(0, None, 1, german).unwrap(), draft);
         assert_eq!(evaluate_formula(&draft[1..], &table), Some(value));
     }
 }
@@ -158,7 +163,7 @@ fn directed_rounding_recipes_find_both_names_and_set_correct_arity() {
     ] {
         let hits = matching(query);
         assert_eq!(hits.len(), 1, "{query}");
-        let draft = hits[0].expression(0, 1, german);
+        let draft = hits[0].expression(0, None, 1, german).unwrap();
         assert_eq!(draft, expected_expr);
         assert_eq!(evaluate_formula(&draft[1..], &table), Some(value));
     }
@@ -177,7 +182,7 @@ fn numbervalue_recipe_sets_explicit_input_separators_for_each_language() {
     ] {
         let recipes = matching(query);
         assert_eq!(recipes.len(), 1);
-        let draft = recipes[0].expression(0, 1, german);
+        let draft = recipes[0].expression(0, None, 1, german).unwrap();
         assert_eq!(draft.strip_prefix('='), Some(expected_formula));
         let table = DataTable {
             columns: vec![ColumnInfo {
@@ -189,4 +194,193 @@ fn numbervalue_recipe_sets_explicit_input_separators_for_each_language() {
         };
         assert_eq!(evaluate_formula(expected_formula, &table), Some(2500.27));
     }
+}
+
+#[test]
+fn paired_examples_anchor_both_columns_and_keep_slope_argument_order() {
+    let table = DataTable {
+        columns: ["Y", "Other", "X"]
+            .map(|name| ColumnInfo {
+                name: name.into(),
+                data_type: "Int64".into(),
+            })
+            .to_vec(),
+        rows: (0..5)
+            .map(|x| {
+                vec![
+                    CellValue::Int(3 * x + 1),
+                    CellValue::Int(-100),
+                    CellValue::Int(x),
+                ]
+            })
+            .collect(),
+        ..DataTable::empty()
+    };
+    for (query, german, expected, number) in [
+        ("korrel", true, "=KORREL($C$1:$C$5;$A$1:$A$5)", 1.0),
+        ("steigung", true, "=STEIGUNG($A$1:$A$5;$C$1:$C$5)", 3.0),
+        ("slope", false, "=SLOPE($A$1:$A$5,$C$1:$C$5)", 3.0),
+        (
+            "covariance.p",
+            false,
+            "=COVARIANCE.P($C$1:$C$5,$A$1:$A$5)",
+            6.0,
+        ),
+        (
+            "kovarianz.s",
+            true,
+            "=KOVARIANZ.S($C$1:$C$5;$A$1:$A$5)",
+            7.5,
+        ),
+    ] {
+        let recipe = matching(query)[0];
+        assert!(recipe.uses_pair());
+        assert_eq!(recipe.expression(2, None, 5, german), None);
+        assert_eq!(recipe.expression(2, Some(2), 5, german), None);
+        let draft = recipe.expression(2, Some(0), 5, german).unwrap();
+        assert_eq!(draft, expected);
+        let got = evaluate_formula(&draft[1..], &table).unwrap();
+        assert!((got - number).abs() < 1e-14, "{query}: {got}");
+    }
+}
+
+fn examples_app() -> crate::app::OctaApp {
+    let mut app = crate::app::OctaApp::new(
+        vec![],
+        octa::ui::settings::AppSettings::default(),
+        octa::ui::settings::IconVariant::Rose,
+    );
+    let tab = &mut app.tabs[0];
+    tab.table = DataTable {
+        columns: ["Measured demand", "Hidden units", "Temperature"]
+            .map(|name| ColumnInfo {
+                name: name.into(),
+                data_type: "Int64".into(),
+            })
+            .to_vec(),
+        rows: (0..4)
+            .map(|x| {
+                vec![
+                    CellValue::Int(4 * x + 1),
+                    CellValue::Int(7),
+                    CellValue::Int(x),
+                ]
+            })
+            .collect(),
+        ..DataTable::empty()
+    };
+    tab.table_state.selected_cell = Some((0, 2));
+    tab.hidden_columns.insert(1);
+    tab.new_col_formula = "=11".into();
+    tab.new_col_examples = FormulaExamples::open(tab);
+    app
+}
+
+fn picker_frame(
+    ctx: &egui::Context,
+    tab: &mut TabState,
+    id: egui::Id,
+    events: Vec<egui::Event>,
+) -> egui::FullOutput {
+    let mut out = ctx.run_ui(
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(360.0, 600.0),
+            )),
+            events,
+            ..Default::default()
+        },
+        |ui| render(ui.ctx(), tab, id, true),
+    );
+    out.textures_delta.clear();
+    out
+}
+
+fn key(key: egui::Key) -> egui::Event {
+    egui::Event::Key {
+        key,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: egui::Modifiers::NONE,
+    }
+}
+
+#[test]
+fn paired_recipe_keyboard_applies_only_the_visible_two_column_draft() {
+    let mut app = examples_app();
+    let tab = &mut app.tabs[0];
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    let draft = egui::Id::new("worksheet-formula");
+    let query = egui::Id::new(("dbviewy_formula_examples", tab.id)).with("query");
+    picker_frame(&ctx, tab, draft, vec![]);
+    assert!(ctx.memory(|m| m.has_focus(query)));
+    let out = picker_frame(&ctx, tab, draft, vec![egui::Event::Text("steigung".into())]);
+    let expression = if current_language() == "de" {
+        "=STEIGUNG($A$1:$A$4;$C$1:$C$4)"
+    } else {
+        "=SLOPE($A$1:$A$4,$C$1:$C$4)"
+    };
+    let texts: Vec<_> = out
+        .shapes
+        .iter()
+        .filter_map(|item| match &item.shape {
+            egui::Shape::Text(shape) if item.clip_rect.intersects(shape.visual_bounding_rect()) => {
+                Some(shape.galley.text())
+            }
+            _ => None,
+        })
+        .collect();
+    assert!(texts.contains(&expression), "{texts:?}");
+    let column = t("dialog.date_column");
+    assert!(texts.contains(&format!("{column} (X)").as_str()));
+    assert!(texts.contains(&format!("{column} (Y)").as_str()));
+    assert!(texts.iter().all(|line| !line.contains("Hidden units")));
+    assert_eq!(tab.new_col_formula, "=11");
+    picker_frame(&ctx, tab, draft, vec![key(egui::Key::Escape)]);
+    assert_eq!(tab.new_col_formula, "=11");
+    assert!(tab.new_col_examples.is_none());
+    assert!(ctx.memory(|m| m.has_focus(draft)));
+
+    tab.new_col_examples = FormulaExamples::open(tab);
+    picker_frame(&ctx, tab, draft, vec![]);
+    picker_frame(&ctx, tab, draft, vec![egui::Event::Text("steigung".into())]);
+    picker_frame(&ctx, tab, draft, vec![key(egui::Key::Enter)]);
+    assert_eq!(tab.new_col_formula, expression);
+    assert!(tab.new_col_examples.is_none());
+    assert!(ctx.memory(|m| m.has_focus(draft)));
+    assert_eq!(tab.table.col_count(), 3);
+    assert_eq!(tab.table.get(0, 0), Some(&CellValue::Int(1)));
+    assert!(tab.table.undo_stack.is_empty());
+}
+
+#[test]
+fn paired_recipe_with_no_visible_partner_never_overwrites_the_draft() {
+    let mut app = examples_app();
+    let tab = &mut app.tabs[0];
+    tab.hidden_columns.insert(0);
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    let draft = egui::Id::new("worksheet-formula");
+    picker_frame(&ctx, tab, draft, vec![]);
+    let out = picker_frame(&ctx, tab, draft, vec![egui::Event::Text("korrel".into())]);
+    let expected = t("dialog.formula_examples_use");
+    let update = out.platform_output.accesskit_update.unwrap();
+    assert!(
+        update
+            .nodes
+            .iter()
+            .any(|(_, node)| { node.label() == Some(expected.as_str()) && node.is_disabled() })
+    );
+    assert_eq!(partner_source(tab, 2, Some(0)), None);
+    picker_frame(&ctx, tab, draft, vec![key(egui::Key::Enter)]);
+    assert_eq!(tab.new_col_formula, "=11");
+    assert!(tab.new_col_examples.is_some());
+    picker_frame(&ctx, tab, draft, vec![key(egui::Key::Escape)]);
+    assert_eq!(tab.new_col_formula, "=11");
+
+    tab.hidden_columns.remove(&0);
+    assert_eq!(partner_source(tab, 2, Some(1)), Some(0));
 }

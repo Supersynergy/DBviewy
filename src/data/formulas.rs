@@ -26,6 +26,8 @@ mod lookup;
 mod numbervalue;
 #[path = "formulas_order.rs"]
 mod order;
+#[path = "formulas_pairs.rs"]
+mod pairs;
 #[path = "formulas_presence.rs"]
 mod presence;
 #[path = "formulas_product.rs"]
@@ -208,6 +210,7 @@ enum Function {
     NumberValue,
     Text(text::Kind),
     Rank(rank_math::Kind),
+    Pairs(pairs::Kind),
     Nth(order::Extent),
     Power,
 }
@@ -465,6 +468,7 @@ fn function_named(name: &str) -> Option<Function> {
         .find(|(word, _)| word.eq_ignore_ascii_case(name))
         .map(|&(_, function)| function)
         .or_else(|| rank_math::Kind::named(name).map(Function::Rank))
+        .or_else(|| pairs::Kind::named(name).map(Function::Pairs))
         .or_else(|| {
             dispersion::Kind::named(name)
                 .map(|kind| Function::Aggregate(Aggregate::Dispersion(kind)))
@@ -778,6 +782,7 @@ fn eval_function(
         Function::NumberValue => return numbervalue::evaluate(tokens, pos, context),
         Function::Text(kind) => return text::evaluate(kind, tokens, pos, context),
         Function::Rank(kind) => return order::rank(kind, tokens, pos, context),
+        Function::Pairs(kind) => return pairs::evaluate(kind, tokens, pos, context),
         Function::Nth(extent) => return order::nth(extent, tokens, pos, context),
         Function::If => return control::evaluate_if(tokens, pos, context),
         Function::IfError => return control::evaluate_if_error(tokens, pos, context),
