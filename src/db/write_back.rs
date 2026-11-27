@@ -24,7 +24,9 @@ use anyhow::{Context, bail};
 
 use crate::data::{CellValue, ColumnInfo, DataTable};
 
-use std::collections::HashMap;
+use std::borrow::Cow;
+use std::collections::{HashMap, HashSet};
+use std::fmt::Write as _;
 
 use super::{DbConnector, DbEngine, sql_literal};
 
@@ -511,17 +513,31 @@ pub fn merge_row(
     }
 }
 
-/// A hashable spelling of key values. Both sides come through the same
-/// connector decoding; a whole `Float` prints as its `Int` so a key Oracle
-/// typed differently per result (see [`same_cell`]) still matches.
+/// An opaque, hashable spelling of key values, not a display label.
+/// Both sides come through the same connector decoding. Keep the whole
+/// Float / Int equivalence for Oracle, but take each field's byte length
+/// so controls or punctuation in key text never become field separators.
 pub fn key_text(key: &[CellValue]) -> String {
-    key.iter()
-        .map(|v| match v {
-            CellValue::Float(f) => whole_i64(*f).map_or_else(|| v.to_string(), |i| i.to_string()),
-            _ => v.to_string(),
-        })
-        .collect::<Vec<_>>()
-        .join("\u{1f}")
+    let mut encoded = String::new();
+    for value in key {
+        append_key_field(&mut encoded, value);
+    }
+    encoded
+}
+
+fn append_key_field(encoded: &mut String, value: &CellValue) {
+    let value: Cow<'_, str> = match value {
+        CellValue::String(s)
+        | CellValue::Date(s)
+        | CellValue::DateTime(s)
+        | CellValue::Nested(s) => s.as_str().into(),
+        CellValue::Float(f) => whole_i64(*f)
+            .map_or_else(|| value.to_string(), |i| i.to_string())
+            .into(),
+        other => other.to_string().into(),
+    };
+    write!(encoded, "{}:", value.len()).expect("writing to a String is infallible");
+    encoded.push_str(&value);
 }
 
 /// Check every planned update and delete against `server` (key text ->
@@ -793,17 +809,34 @@ fn read_server_rows(
                 .with_context(|| format!("key column '{k}' not found in the table"))
         })
         .collect::<anyhow::Result<_>>()?;
+    if key_idx.is_empty() {
+        bail!("a key is required to check database changes before saving");
+    }
     let keys: Vec<Vec<CellValue>> = plan
         .updates
         .iter()
         .map(|(k, _)| k.clone())
         .chain(plan.deletes.iter().cloned())
         .collect();
+    let encoded_keys: Vec<_> = keys
+        .iter()
+        .map(|key| {
+            if key.len() != key_idx.len() || key.iter().any(|cell| matches!(cell, CellValue::Null))
+            {
+                bail!("an edited row has an incomplete key; reload the table before saving");
+            }
+            Ok(key_text(key))
+        })
+        .collect::<anyhow::Result<_>>()?;
+    if encoded_keys.iter().collect::<HashSet<_>>().len() != keys.len() {
+        bail!("edited rows have an ambiguous key; reload the table before saving");
+    }
     // `query` stops at the load cap; a batch above it would cut rows off and
     // make them look deleted on the server.
     let batch_len = CONFLICT_READ_BATCH.min(crate::formats::initial_load_rows());
     let mut server = HashMap::new();
-    for batch in keys.chunks(batch_len) {
+    for (batch, encoded) in keys.chunks(batch_len).zip(encoded_keys.chunks(batch_len)) {
+        let expected: HashSet<&str> = encoded.iter().map(String::as_str).collect();
         let sql = reread_sql(engine, schema, table, &info.base_columns, key_cols, batch);
         let rows = connector
             .query(&sql)
@@ -819,11 +852,22 @@ fn read_server_rows(
             );
         }
         for row in rows.rows {
-            let key: Vec<CellValue> = key_idx
-                .iter()
-                .map(|&i| row.get(i).cloned().unwrap_or(CellValue::Null))
-                .collect();
-            server.insert(key_text(&key), row);
+            if row.len() != info.base_columns.len() {
+                bail!("the database returned an incomplete row while checking this save");
+            }
+            let mut key = String::new();
+            for &i in &key_idx {
+                let Some(value) = row.get(i).filter(|v| !matches!(v, CellValue::Null)) else {
+                    bail!("the database returned an incomplete key while checking this save");
+                };
+                append_key_field(&mut key, value);
+            }
+            if !expected.contains(key.as_str()) {
+                bail!("the database returned an unexpected key; reload the table before saving");
+            }
+            if server.insert(key, row).is_some() {
+                bail!("the database returned more than one row for a key while checking this save");
+            }
         }
     }
     Ok(server)

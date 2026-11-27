@@ -32,6 +32,7 @@
 - Compare duplicate keys field by field, including text with embedded controls.
   A duplicate review tab includes pending edits without changing its source.
 - Preview duplicate removals before confirming, including rows hidden by the current filter.
+- Keep composite database keys separate when checking a save. Refuse ambiguous or incomplete rereads before updating rows.
 - Calculate percentiles and quartiles, including p95 response times, with inclusive and exclusive Excel formulas.
 - Measure sample and population spread with standard deviation and variance, including running columns.
 - Reveal the correct row when navigating filtered tables with zoomed or resized rows.

@@ -142,6 +142,10 @@ have changed the same rows. Octa does not simply overwrite their work. When
 you save, it first reads every row you changed or deleted again, inside the
 same transaction, and compares three versions of each: the row as it was when
 you opened the table, as it is on the server now, and as it is in your tab.
+For a multi-column key, each value is matched separately, even when a text
+value contains a control character. If a reread returns an incomplete,
+unexpected or repeated key, DBviewy stops instead of guessing which row
+to write. Reload the table before retrying.
 
 - Their change and yours in **different cells** of one row are both kept.
   The save writes the combined row, the tab shows their values afterwards,

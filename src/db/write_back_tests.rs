@@ -77,6 +77,7 @@ fn an_edit_after_eviction_still_addresses_its_own_row() {
 struct CountingConnector {
     affected: u64,
     statements: Vec<String>,
+    server_rows: Vec<Vec<CellValue>>,
 }
 
 impl DbConnector for CountingConnector {
@@ -90,9 +91,9 @@ impl DbConnector for CountingConnector {
         Ok(vec![])
     }
     fn query(&mut self, _: &str) -> anyhow::Result<DataTable> {
-        // The conflict re-read: the server still holds the baseline rows.
-        let mut server = base_table();
-        server.db_meta = None;
+        let mut server = DataTable::empty();
+        server.columns = base_table().columns;
+        server.rows = self.server_rows.clone();
         Ok(server)
     }
     fn execute(&mut self, sql: &str) -> anyhow::Result<u64> {
@@ -179,6 +180,7 @@ fn a_full_row_update_that_touches_exactly_one_row_commits() {
     let mut c = CountingConnector {
         affected: 1,
         statements: vec![],
+        server_rows: vec![],
     };
     let plan = one_update_plan();
     let report = apply_write_back(
@@ -203,6 +205,7 @@ fn a_full_row_update_matching_two_rows_rolls_back() {
     let mut c = CountingConnector {
         affected: 2,
         statements: vec![],
+        server_rows: vec![],
     };
     let plan = one_update_plan();
     let err = apply_write_back(
@@ -228,6 +231,7 @@ fn a_full_row_update_matching_no_row_rolls_back() {
     let mut c = CountingConnector {
         affected: 0,
         statements: vec![],
+        server_rows: vec![],
     };
     let plan = one_update_plan();
     let err = apply_write_back(
@@ -253,6 +257,7 @@ fn a_keyed_update_is_not_subject_to_the_count_check() {
     let mut c = CountingConnector {
         affected: 0,
         statements: vec![],
+        server_rows: vec![vec![CellValue::Int(2), CellValue::String("b".into())]],
     };
     let mut t = base_table();
     t.rows[1][1] = CellValue::String("B".into());
@@ -1123,6 +1128,7 @@ struct ScriptedConnector {
     /// Rows the server holds from the second SELECT on (someone changed
     /// them in between), when set.
     later: Option<Vec<Vec<CellValue>>>,
+    batches: std::collections::VecDeque<Vec<Vec<CellValue>>>,
     statements: Vec<String>,
 }
 
@@ -1138,7 +1144,10 @@ impl DbConnector for ScriptedConnector {
     }
     fn query(&mut self, sql: &str) -> anyhow::Result<DataTable> {
         self.statements.push(sql.to_string());
-        let answer = self.server.clone();
+        let mut answer = self.server.clone();
+        if let Some(batch) = self.batches.pop_front() {
+            answer.rows = batch;
+        }
         if let Some(rows) = self.later.take() {
             self.server.rows = rows;
         }
@@ -1168,6 +1177,7 @@ fn scripted(engine: DbEngine, rows: Vec<Vec<CellValue>>) -> ScriptedConnector {
         engine,
         server,
         later: None,
+        batches: Default::default(),
         statements: vec![],
     }
 }
@@ -1326,8 +1336,19 @@ fn the_re_read_asks_for_at_most_a_batch_of_keys_at_a_time() {
             ]
         })
         .collect();
-    let mut c = scripted(DbEngine::Postgres, rows);
+    let mut c = scripted(DbEngine::Postgres, vec![]);
+    c.batches = plan
+        .updates
+        .chunks(CONFLICT_READ_BATCH)
+        .map(|batch| {
+            batch
+                .iter()
+                .map(|(key, _)| rows.iter().find(|r| r[..1] == key[..]).unwrap().clone())
+                .collect()
+        })
+        .collect();
     apply(&mut c, &t, &plan).unwrap();
+    assert!(c.batches.is_empty());
     let keys_per_select: Vec<usize> = c
         .statements
         .iter()
@@ -1632,4 +1653,154 @@ fn adopting_added_columns_keeps_the_resolutions_working() {
             vec![CellValue::Int(2), s("B"), s("x1")]
         )]
     );
+}
+
+#[test]
+fn composite_key_fields_keep_control_text_and_numeric_normalization() {
+    let a = [s("Nord\u{1f}Lager"), s("Tür:11"), CellValue::Int(7)];
+    let b = [s("Nord"), s("Lager\u{1f}Tür:11"), CellValue::Float(7.0)];
+    assert_ne!(key_text(&a), key_text(&b));
+    assert_eq!(
+        key_text(&a),
+        key_text(&[a[0].clone(), a[1].clone(), CellValue::Float(7.0)])
+    );
+    assert_ne!(key_text(&[s("X:4"), s("")]), key_text(&[s("X:4")]));
+}
+
+#[test]
+fn unexpected_ambiguous_and_incomplete_conflict_reads_roll_back_before_dml() {
+    let (table, plan) = edited_plan();
+    let cases = [
+        (
+            vec![
+                vec![CellValue::Int(2), s("b")],
+                vec![CellValue::Float(2.0), s("bad")],
+            ],
+            "more than one row for a key",
+        ),
+        (
+            vec![vec![CellValue::Int(9), s("stranger")]],
+            "unexpected key",
+        ),
+        (vec![vec![CellValue::Null, s("bad")]], "incomplete key"),
+        (vec![vec![CellValue::Int(2)]], "incomplete row"),
+    ];
+    for (rows, expected) in cases {
+        let mut connector = scripted(DbEngine::Postgres, rows);
+        let error = apply(&mut connector, &table, &plan).unwrap_err();
+        assert!(format!("{error:#}").contains(expected), "{error:#}");
+        assert_eq!(
+            connector
+                .statements
+                .iter()
+                .map(|sql| sql.split_whitespace().next().unwrap())
+                .collect::<Vec<_>>(),
+            ["BEGIN", "SELECT", "ROLLBACK"]
+        );
+    }
+}
+
+#[test]
+fn duplicate_planned_identity_is_rejected_before_rereading_or_writing() {
+    let (table, mut plan) = edited_plan();
+    plan.deletes.push(vec![CellValue::Float(2.0)]);
+    let mut connector = scripted(DbEngine::Postgres, vec![]);
+    let error = apply(&mut connector, &table, &plan).unwrap_err();
+    assert!(format!("{error:#}").contains("ambiguous key"), "{error:#}");
+    assert_eq!(connector.statements, ["BEGIN", "ROLLBACK"]);
+
+    plan.deletes.pop();
+    plan.deletes[0] = vec![CellValue::Null];
+    connector.statements.clear();
+    let error = apply(&mut connector, &table, &plan).unwrap_err();
+    assert!(format!("{error:#}").contains("incomplete key"), "{error:#}");
+    assert_eq!(connector.statements, ["BEGIN", "ROLLBACK"]);
+}
+
+#[test]
+fn sqlite_write_back_merges_each_composite_key_with_its_own_server_row() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("warehouse.sqlite");
+    let mut file = rusqlite::Connection::open(&path).unwrap();
+    file.execute_batch(
+        "CREATE TABLE pallet (
+            hall TEXT NOT NULL, slot TEXT NOT NULL, amount INTEGER,
+            note TEXT, PRIMARY KEY(hall, slot)
+        )",
+    )
+    .unwrap();
+    let keys = [("Nord\u{1f}Lager", "Tor"), ("Nord", "Lager\u{1f}Tor")];
+    for ((hall, slot), old_amount, note) in [(keys[0], 10, "alt A"), (keys[1], 20, "alt B")] {
+        file.execute(
+            "INSERT INTO pallet VALUES (?,?,?,?)",
+            (hall, slot, old_amount, note),
+        )
+        .unwrap();
+    }
+    let conn = crate::db::DbConnection::file(
+        "test-composite-pallet".into(),
+        "synthetic pallet inventory",
+        DbEngine::Sqlite,
+        &path.to_string_lossy(),
+        true,
+    );
+    let mut connector = crate::db::connect(&conn, None, None).unwrap();
+    let mut tab = connector
+        .query("SELECT hall, slot, amount, note FROM main.pallet ORDER BY rowid")
+        .unwrap();
+    assert_eq!(tab.row_count(), 2);
+    tab.db_meta = Some(DbRowMeta {
+        table_name: "pallet".into(),
+        schema: Some("main".into()),
+        row_tags: vec![Some(0), Some(1)],
+        original: tab
+            .rows
+            .iter()
+            .cloned()
+            .enumerate()
+            .map(|(i, row)| (i as i64, row))
+            .collect(),
+        original_columns: names(&["hall", "slot", "amount", "note"]),
+    });
+    tab.set(0, 3, s("lokal A"));
+    tab.set(1, 3, s("lokal B"));
+    let identity = RowIdentity::Key(names(&["hall", "slot"]));
+    let plan = build_write_back_plan(&tab, &identity).unwrap();
+    assert_eq!(plan.updates.len(), 2);
+    {
+        let other = file.transaction().unwrap();
+        for ((hall, slot), amount) in [(keys[0], 11), (keys[1], 22)] {
+            other
+                .execute(
+                    "UPDATE pallet SET amount = ? WHERE hall = ? AND slot = ?",
+                    (amount, hall, slot),
+                )
+                .unwrap();
+        }
+        other.commit().unwrap();
+    }
+
+    let report = apply_write_back(
+        connector.as_mut(),
+        DbEngine::Sqlite,
+        "main",
+        "pallet",
+        &tab.columns,
+        &identity,
+        &plan,
+    )
+    .unwrap();
+    assert_eq!((report.updated, report.deleted, report.inserted), (2, 0, 0));
+    assert_eq!(report.merged.len(), 2);
+    assert!(report.gone.is_empty());
+    for ((hall, slot), amount, note) in [(keys[0], 11, "lokal A"), (keys[1], 22, "lokal B")] {
+        let actual: (i64, String) = file
+            .query_row(
+                "SELECT amount, note FROM pallet WHERE hall = ? AND slot = ?",
+                (hall, slot),
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(actual, (amount, note.into()));
+    }
 }
