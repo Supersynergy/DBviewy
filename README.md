@@ -8,6 +8,7 @@
 
 <p align="center">
   <a href="#try-it-with-six-orders">Quickstart</a> ·
+  <a href="https://github.com/Supersynergy/DBviewy/releases">Mac downloads</a> ·
   <a href="#build-from-source">Build from source</a> ·
   <a href="#workbook-safety">Workbook safety</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
@@ -18,6 +19,14 @@ DBviewy is a native fork of [Octa](https://github.com/thorstenfoltz/octa), based
 on Octa 0.22.1. Open an Excel workbook, CSV file, SQLite database or Parquet
 file and work with it in a tabbed grid. Run DuckDB SQL on open tables without
 moving them to another app.
+
+## Install on Apple Silicon
+
+Download the DBviewy arm64 ZIP and its checksum from the
+[DBviewy releases](https://github.com/Supersynergy/DBviewy/releases).
+The Mac preview is signed locally, not notarised. Follow the
+[macOS installation guide](pkg/README-macos.md) before opening it.
+The source is available for other platforms.
 
 ## Try it with six orders
 

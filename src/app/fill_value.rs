@@ -412,7 +412,6 @@ impl OctaApp {
 
     pub(crate) fn open_value_fill(&mut self, ctx: &egui::Context) {
         if self.value_fill.is_some()
-            || self.paste_special.is_some()
             || self.replace_review.is_some()
             || self.fill_value_unavailable().is_some()
         {

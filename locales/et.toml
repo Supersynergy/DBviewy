@@ -1015,7 +1015,7 @@ modified = "Muudetud"
 no_file = "Faili pole laaditud"
 dismiss_hint = "Sulge see teade"
 no_file_dialog = "Selles süsteemis pole failidialoogi. Paigalda xdg-desktop-portal-gtk või zenity, või ava failid nii: octa FILE"
-zoom_hint = "Kogu akna suurendus. Klõpsa, et minna tagasi 100 protsendile."
+zoom_hint = "Tabeli suurendus. Klõpsa, et minna tagasi 100 protsendile."
 zoom_in_hint = "Suurenda {n}% võrra"
 zoom_out_hint = "Vähenda {n}% võrra"
 

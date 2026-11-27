@@ -503,6 +503,131 @@ fn frame_with_font(
     out
 }
 
+fn painted_row(output: &egui::FullOutput, row: usize) -> bool {
+    let prefix = format!("r{row}");
+    output.shapes.iter().any(|item| match &item.shape {
+        egui::Shape::Text(text) => text.galley.text().starts_with(&prefix),
+        _ => false,
+    })
+}
+
+#[test]
+fn zoom_keeps_the_same_visible_row_and_fraction() {
+    let mut table = scrollable_table();
+    let ctx = egui::Context::default();
+    let mut state = TableViewState::default();
+    run_frame_at(&ctx, &mut table, &mut state, vec![], None, 13.0);
+    state.set_scroll_y(137.0 * 26.0 + 8.0);
+    state.set_scroll_x(117.0);
+    for font in [13.0, 26.0, 16.25, 13.0] {
+        let output = run_frame_at(&ctx, &mut table, &mut state, vec![], None, font);
+        let row_height = 2.0 * font;
+        let expected = row_height * (137.0 + 8.0 / 26.0);
+        assert!((state.scroll_y - expected).abs() < 0.002);
+        assert_eq!(state.scroll_x, 117.0);
+        assert!(painted_row(&output, 137), "row 137 missing at {font}");
+    }
+}
+
+#[test]
+fn zoom_keeps_both_split_panes_when_the_later_pane_measures_earlier_rows() {
+    let mut table = scrollable_table();
+    for (row, cells) in table.rows.iter_mut().enumerate() {
+        if row % 3 == 0 {
+            cells[0] =
+                crate::data::CellValue::String(format!("r{row}c0\nReceipt checked\nLooks good"));
+        }
+    }
+    let ctx = egui::Context::default();
+    let mut state = TableViewState::default();
+    state.set_split(true, false);
+    let render = |state: &mut TableViewState, table: &mut DataTable, font| {
+        frame_with_font(
+            &ctx,
+            table,
+            state,
+            vec![],
+            None,
+            font,
+            |ui, table, state, mut cx| {
+                cx.cell_line_breaks = true;
+                draw_table_split(ui, table, state, cx);
+            },
+        );
+    };
+    render(&mut state, &mut table, 13.0);
+    state.scroll_y = state.row_y_offsets[177] + 7.0;
+    state.pane_scroll[0].1 = state.row_y_offsets[42] + 7.0;
+    render(&mut state, &mut table, 13.0);
+    let positions = |state: &TableViewState| {
+        let y = [state.scroll_y, state.pane_scroll[0].1];
+        y.map(|y| {
+            let row = state.row_y_offsets.partition_point(|p| *p <= y) - 1;
+            let top = state.row_y_offsets[row];
+            let height = state.row_y_offsets[row + 1] - top;
+            (row, (y - top) / height)
+        })
+    };
+    let before = positions(&state);
+    assert_eq!(before.map(|(row, _)| row), [177, 42]);
+    for font in [19.5, 26.0, 13.0] {
+        state.invalidate_row_heights(); // the app does this before drawing
+        for _ in 0..2 {
+            render(&mut state, &mut table, font);
+            for ((row, fraction), (old_row, old_fraction)) in
+                positions(&state).into_iter().zip(before)
+            {
+                assert_eq!(row, old_row, "font {font}");
+                assert!(
+                    (fraction - old_fraction).abs() < 0.002,
+                    "row {row} at font {font}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn explicit_navigation_still_wins_when_the_grid_zooms() {
+    let mut table = scrollable_table();
+    let ctx = egui::Context::default();
+    let mut state = TableViewState::default();
+    run_frame_at(&ctx, &mut table, &mut state, vec![], None, 13.0);
+    state.set_scroll_y(100.0 * 26.0);
+    state.scroll_to_row(300);
+    let output = run_frame_at(&ctx, &mut table, &mut state, vec![], None, 26.0);
+    assert!(painted_row(&output, 300));
+    assert!(!painted_row(&output, 100));
+}
+
+#[test]
+fn passive_grid_keeps_the_bottom_edge_in_view_when_zooming_out() {
+    let mut table = scrollable_table();
+    let ctx = egui::Context::default();
+    let mut state = TableViewState::default();
+    run_frame_at(&ctx, &mut table, &mut state, vec![], None, 26.0);
+    state.scroll_y = f32::MAX;
+    run_frame_at(&ctx, &mut table, &mut state, vec![], None, 26.0);
+    let out = frame_with_font(
+        &ctx,
+        &mut table,
+        &mut state,
+        vec![],
+        None,
+        13.0,
+        |ui, table, state, mut cx| {
+            cx.takes_wheel = false;
+            cx.handles_input = false;
+            draw_table(ui, table, state, cx);
+        },
+    );
+    assert!(painted_row(&out, 399));
+    assert!(
+        state.scroll_y <= 400.0 * 26.0 - 750.0,
+        "bottom has empty space below it"
+    );
+}
+
 /// One wheel notch downwards, optionally with Alt held.
 ///
 /// Two events, because that is what a real backend sends: egui tracks the held

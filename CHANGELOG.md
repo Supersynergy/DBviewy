@@ -12,6 +12,9 @@
 - Calculate invoice ages and weekday groups with spreadsheet date functions.
   Preserve imported XLSX dates as dates when exporting the report.
 - Keep tabs, line breaks and quotes inside cells when copying and pasting tables.
+- Apply zoom to the table without resizing menus, tabs or the ribbon.
+- Keep the visible row in each table pane when the zoom changes.
+- Name the table zoom actions in the View menu, ribbon and status bar for screen readers.
 - Paste and undo large row blocks without repeatedly rebuilding existing edits.
 - Look up a value by row and column with `INDEX` and `MATCH` (`VERGLEICH`).
 - Count workdays and calculate deadlines with holidays and custom weekends.
@@ -123,6 +126,8 @@
   other workbook parts. Refill a cleared final row from the same tab.
 - Build the macOS bundle without a Homebrew runtime dependency and check
   all three bundled executables before signing.
+- Keep formula-bar drafts attached to the selected cell across focus changes.
+  Use the displayed source rows in the ribbon's name box on loaded pages.
 
 - Fix the native macOS About, Hide and Quit labels without moving settings
   or session storage. Load the current DBviewy icon directly in native About.

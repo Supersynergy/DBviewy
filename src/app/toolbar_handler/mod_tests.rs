@@ -94,6 +94,93 @@ fn text(s: &str) -> CellValue {
     CellValue::String(s.into())
 }
 
+#[test]
+fn ribbon_uses_displayed_row_numbers_and_saves_a_formula_at_the_selected_cell() {
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("ribbon.csv");
+    std::fs::write(&file, "qty,price\n2,10\n3,20\n").unwrap();
+    let mut app = OctaApp::new(
+        vec![],
+        octa::ui::settings::AppSettings::default(),
+        octa::ui::settings::IconVariant::Rose,
+    );
+    app.settings.show_ribbon = true;
+    app.load_file(file.clone());
+    let tab = &mut app.tabs[app.active_tab];
+    tab.table.row_offset = 100;
+    tab.filtered_rows = vec![0, 1];
+    tab.table_state.selected_cell = Some((0, 0));
+    let ctx = egui::Context::default();
+    let key = |key, modifiers| egui::Event::Key {
+        key,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers,
+    };
+
+    let texts = step(&mut app, &ctx, vec![]);
+    click_on(&mut app, &ctx, "A101", &texts);
+    step(
+        &mut app,
+        &ctx,
+        vec![
+            key(egui::Key::A, egui::Modifiers::COMMAND),
+            egui::Event::Paste("B102".into()),
+        ],
+    );
+    let texts = step(
+        &mut app,
+        &ctx,
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE)],
+    );
+    assert_eq!(
+        app.tabs[app.active_tab].table_state.selected_cell,
+        Some((1, 1))
+    );
+
+    let texts = if texts.iter().any(|(s, _)| s == "20") {
+        texts
+    } else {
+        step(&mut app, &ctx, vec![])
+    };
+    click_on(&mut app, &ctx, "20", &texts);
+    step(
+        &mut app,
+        &ctx,
+        vec![
+            key(egui::Key::A, egui::Modifiers::COMMAND),
+            egui::Event::Paste("=B2*2".into()),
+        ],
+    );
+    step(
+        &mut app,
+        &ctx,
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE)],
+    );
+    assert_eq!(
+        app.tabs[app.active_tab].table.get(1, 1),
+        Some(&CellValue::Int(40))
+    );
+    assert_eq!(
+        app.tabs[app.active_tab].table.get(0, 1),
+        Some(&CellValue::Int(10))
+    );
+    // Row offset models a loaded page. The fixture itself is a complete file.
+    app.tabs[app.active_tab].table.row_offset = 0;
+    app.save_tab(app.active_tab);
+    let mut reopened = OctaApp::new(
+        vec![],
+        octa::ui::settings::AppSettings::default(),
+        octa::ui::settings::IconVariant::Rose,
+    );
+    reopened.load_file(file);
+    assert_eq!(
+        reopened.tabs[reopened.active_tab].table.get(1, 1),
+        Some(&CellValue::Int(40))
+    );
+}
+
 /// The user's report: a file naming countries left View > Map greyed, while F4
 /// reached the map. The menu asked "is this GeoJSON?" and the tab knew better.
 #[test]

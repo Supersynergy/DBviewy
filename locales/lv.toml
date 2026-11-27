@@ -1015,7 +1015,7 @@ modified = "Mainīts"
 no_file = "Nav ielādēts fails"
 dismiss_hint = "Aizvērt šo ziņojumu"
 no_file_dialog = "Šajā sistēmā nav failu dialoga. Uzstādi xdg-desktop-portal-gtk vai zenity, vai atver failus tā: octa FILE"
-zoom_hint = "Visa loga tālummaiņa. Noklikšķini, lai atgrieztos pie 100 procentiem."
+zoom_hint = "Tabulas tālummaiņa. Noklikšķini, lai atgrieztos pie 100 procentiem."
 zoom_in_hint = "Tuvināt par {n}%"
 zoom_out_hint = "Tālināt par {n}%"
 

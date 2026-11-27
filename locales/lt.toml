@@ -1015,7 +1015,7 @@ modified = "Pakeista"
 no_file = "Failas neįkeltas"
 dismiss_hint = "Užverti šį pranešimą"
 no_file_dialog = "Šioje sistemoje nėra failų dialogo. Įdiek xdg-desktop-portal-gtk arba zenity, arba atidaryk failus taip: octa FILE"
-zoom_hint = "Viso lango mastelis. Spustelėk, kad grįžtum į 100 procentų."
+zoom_hint = "Lentelės mastelis. Spustelėk, kad grįžtum į 100 procentų."
 zoom_in_hint = "Padidinti {n} %"
 zoom_out_hint = "Sumažinti {n} %"
 

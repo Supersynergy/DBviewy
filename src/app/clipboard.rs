@@ -395,37 +395,46 @@ impl OctaApp {
         }
     }
 
-    /// Zoom to `percent`, held to 25-500%, remember it for the next start and
-    /// re-measure the active tab's rows. The shortcuts, the View menu and the
-    /// status bar all end here.
+    /// Change only the table scale. Shortcuts, the View menu and the status bar
+    /// all end here, without rebuilding the app's theme or fonts.
     pub(crate) fn set_zoom(&mut self, ctx: &egui::Context, percent: u32) {
-        self.remember_zoom(percent);
-        self.settings.save();
-        self.apply_zoom(ctx);
-        self.tabs[self.active_tab]
-            .table_state
-            .invalidate_row_heights();
+        if self.remember_zoom(percent) {
+            self.settings.save();
+            ctx.request_repaint();
+        }
     }
 
-    fn remember_zoom(&mut self, percent: u32) {
+    fn remember_zoom(&mut self, percent: u32) -> bool {
+        let percent = percent.clamp(25, 500);
         self.settings.zoom_percent = percent;
-        self.zoom_percent = self.settings.zoom_percent();
+        if self.zoom_percent == percent {
+            return false;
+        }
+        self.zoom_percent = percent;
+        // Zoom is shared across all grids, including open tiles. None of
+        // their cached row measurements should survive a scale change.
+        for tab in &mut self.tabs {
+            tab.table_state.invalidate_row_heights();
+        }
+        true
     }
 
-    pub(crate) fn apply_zoom(&self, ctx: &egui::Context) {
-        let base_font_size = self.settings.font_size;
-        let effective_font_size = base_font_size * self.zoom_percent as f32 / 100.0;
+    pub(crate) fn apply_app_theme(&self, ctx: &egui::Context) {
         ui::theme::apply_theme(
             ctx,
             self.theme_mode,
             ui::theme::FontSettings {
-                size: effective_font_size,
+                size: self.settings.font_size,
                 body: self.settings.body_font,
                 custom_path: Some(self.settings.custom_font_path.as_str()),
             },
         );
     }
 }
+
+#[cfg(test)]
+#[path = "table_zoom_tests.rs"]
+mod zoom_tests;
 
 /// Extend the grid only when its source allows it. Both paste routes
 /// coalesce growth and cell edits into one undo entry.

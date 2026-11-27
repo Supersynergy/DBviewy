@@ -9,7 +9,7 @@
 
 use egui::{RichText, Ui};
 
-use crate::data::{BinaryDisplayMode, MarkColor, MarkKey};
+use crate::data::{BinaryDisplayMode, CellValue, DataTable, MarkColor, MarkKey};
 use crate::i18n::t;
 use crate::ui::icons::{Icon, icon_button};
 use crate::ui::theme::ThemeColors;
@@ -52,9 +52,134 @@ pub(super) fn parse_cell_ref(text: &str) -> Option<(usize, usize)> {
     Some((row.checked_sub(1)?, col - 1))
 }
 
+pub(super) fn loaded_cell_ref(text: &str, table: &DataTable) -> Option<(usize, usize)> {
+    let (row, col) = parse_cell_ref(text)?;
+    let local_row = row.checked_sub(table.row_offset)?;
+    (local_row < table.row_count() && col < table.col_count()).then_some((local_row, col))
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct FormulaTarget {
+    editor: egui::Id,
+    cell: (usize, usize),
+    row_offset: usize,
+    row_storage: usize,
+    column_count: usize,
+    column_name_storage: usize,
+    value_type: std::mem::Discriminant<CellValue>,
+    original: String,
+}
+
+#[derive(Clone)]
+struct FormulaDraft {
+    target: FormulaTarget,
+    text: String,
+}
+
+fn formula_button(ui: &mut Ui, icon: Icon, label: &str, enabled: bool) -> egui::Response {
+    let button = egui::Button::image(crate::ui::icons::icon_image(ui, icon)).min_size(
+        egui::Vec2::splat(crate::ui::control_row::control_height(ui)),
+    );
+    let response = ui.add_enabled(enabled, button);
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, label));
+    response.on_hover_text(label)
+}
+
+pub(super) fn draw_formula_editor(
+    ui: &mut Ui,
+    table: &DataTable,
+    selected: Option<(usize, usize)>,
+    can_edit: bool,
+    editor: egui::Id,
+    action: &mut ToolbarAction,
+) -> (egui::Rect, egui::Rect) {
+    // Only one formula draft for the window. Tab and cell changes drop it,
+    // but focus can move to an action button without dropping the edit.
+    let draft_id = egui::Id::new("dbviewy_ribbon_draft");
+    let value = selected.and_then(|(row, col)| table.get(row, col));
+    let usable = can_edit && value.is_some_and(|v| !matches!(v, CellValue::Binary(_)));
+    let current = value
+        .map(|v| v.display_with_binary_mode(BinaryDisplayMode::default()))
+        .unwrap_or_default();
+    let target = selected
+        .zip(value)
+        .filter(|_| usable)
+        .and_then(|(cell, value)| {
+            let column = table.columns.get(cell.1)?;
+            Some(FormulaTarget {
+                editor,
+                cell,
+                row_offset: table.row_offset,
+                // Allocations move with their rows and column headings.
+                // Changing either identity must discard the old draft even
+                // if the coordinate and the visible value stay the same.
+                row_storage: table.rows.get(cell.0)?.as_ptr() as usize,
+                column_count: table.col_count(),
+                column_name_storage: column.name.as_ptr() as usize,
+                value_type: std::mem::discriminant(value),
+                original: current.clone(),
+            })
+        });
+    let saved = ui
+        .data_mut(|d| d.remove_temp::<Option<FormulaDraft>>(draft_id))
+        .flatten();
+    let mut text = match saved {
+        Some(draft) if Some(&draft.target) == target.as_ref() => draft.text,
+        Some(draft) => {
+            ui.memory_mut(|m| m.surrender_focus(draft.target.editor));
+            current.clone()
+        }
+        None => current.clone(),
+    };
+    let focused = ui.memory(|m| m.has_focus(editor));
+    let dirty = usable && text != current;
+    let apply = formula_button(ui, Icon::Check, &t("common.apply"), dirty);
+    let cancel = formula_button(
+        ui,
+        Icon::Close,
+        &t("common.cancel"),
+        usable && (dirty || focused),
+    );
+    ui.label(
+        RichText::new("fx")
+            .italics()
+            .color(ui.visuals().weak_text_color()),
+    );
+    let edit = ui
+        .add_enabled(
+            usable,
+            egui::TextEdit::singleline(&mut text)
+                .id(editor)
+                .desired_width(ui.available_width().max(40.0))
+                .font(egui::TextStyle::Monospace),
+        )
+        .on_hover_text(t("ribbon.formula_hint"));
+    let enter = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+    // Egui clears keyboard focus at the start of the Escape frame,
+    // before drawing the former owner. Its lost-focus flag is still set.
+    let owns_escape = focused
+        || edit.has_focus()
+        || edit.lost_focus()
+        || (dirty && (apply.lost_focus() || cancel.lost_focus()));
+    let escape =
+        owns_escape && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape));
+    if escape || cancel.clicked() {
+        edit.surrender_focus();
+    } else if let Some(target) = target.filter(|_| text != current) {
+        if enter || apply.clicked() {
+            action.commit_cell_text = Some((target.cell.0, target.cell.1, text));
+        } else {
+            ui.data_mut(|d| d.insert_temp(draft_id, Some(FormulaDraft { target, text })));
+        }
+    }
+    if enter {
+        ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter));
+    }
+    (apply.rect, cancel.rect)
+}
+
 pub(super) fn draw(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAction) {
     let ToolbarCtx {
-        colors,
         has_data,
         selected_cell,
         can_undo,
@@ -71,14 +196,29 @@ pub(super) fn draw(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAction) 
 
     // Row 1: quick actions.
     ui.horizontal(|ui| {
-        if icon_button(ui, can_undo && can_edit, Icon::Undo, t("edit_menu.undo_hint")) {
+        if icon_button(
+            ui,
+            can_undo && can_edit,
+            Icon::Undo,
+            t("edit_menu.undo_hint"),
+        ) {
             action.undo = true;
         }
-        if icon_button(ui, can_redo && can_edit, Icon::Redo, t("edit_menu.redo_hint")) {
+        if icon_button(
+            ui,
+            can_redo && can_edit,
+            Icon::Redo,
+            t("edit_menu.redo_hint"),
+        ) {
             action.redo = true;
         }
         ui.separator();
-        if icon_button(ui, has_data && selected_cell.is_some(), Icon::Copy, t("header.copy")) {
+        if icon_button(
+            ui,
+            has_data && selected_cell.is_some(),
+            Icon::Copy,
+            t("header.copy"),
+        ) {
             action.copy_cells = true;
         }
         if icon_button(
@@ -151,33 +291,22 @@ pub(super) fn draw(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAction) 
         mark_menu(ui, cx, can_edit, action);
 
         // Zoom sits at the right edge, where Excel keeps it.
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if icon_button(ui, true, Icon::ZoomIn, t("view_menu.zoom")) {
-                action.zoom_in = true;
-            }
-            if ui
-                .small_button(format!("{zoom_percent}%"))
-                .on_hover_text(t("view_menu.zoom_reset_hint"))
-                .clicked()
-            {
-                action.zoom_reset = true;
-            }
-            if icon_button(ui, true, Icon::ZoomOut, t("view_menu.zoom")) {
-                action.zoom_out = true;
-            }
-        });
+        crate::ui::table_zoom::ribbon_controls(ui, zoom_percent, action);
     });
 
     // Row 2: name box, apply / cancel, formula bar.
-    ui.horizontal(|ui| {
-        let formula_id = egui::Id::new("dbviewy_ribbon_formula");
-        let name_id = egui::Id::new("dbviewy_ribbon_namebox");
-
+    let editor = ui.make_persistent_id("dbviewy_ribbon_formula");
+    let name_id = ui.make_persistent_id("dbviewy_ribbon_namebox");
+    crate::ui::control_row::control_line(ui, |ui| {
         // Name box: shows `B12`; typing another reference and Enter jumps there.
-        let current_ref = selected_cell.map(|(r, c)| format!("{}{}", column_letters(c), r + 1));
+        let current_ref = selected_cell.and_then(|(r, c)| {
+            let row = table.row_offset.checked_add(r)?.checked_add(1)?;
+            Some(format!("{}{row}", column_letters(c)))
+        });
         let name_focused = ui.memory(|m| m.has_focus(name_id));
         let mut name_buf: String = if name_focused {
-            ui.data(|d| d.get_temp::<String>(name_id)).unwrap_or_default()
+            ui.data(|d| d.get_temp::<String>(name_id))
+                .unwrap_or_default()
         } else {
             current_ref.clone().unwrap_or_default()
         };
@@ -192,65 +321,10 @@ pub(super) fn draw(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAction) 
             .on_hover_text(t("ribbon.cell_hint"));
         ui.data_mut(|d| d.insert_temp(name_id, name_buf.clone()));
         if name.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-            if let Some((r, c)) = parse_cell_ref(&name_buf)
-                && r < table.row_count()
-                && c < table.col_count()
-            {
-                action.goto_cell = Some((r, c));
-            }
+            action.goto_cell = loaded_cell_ref(&name_buf, table);
+            ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Enter));
         }
-
-        // Formula bar text: the selected cell as the in-cell editor shows it.
-        let current_text = selected_cell
-            .and_then(|(r, c)| table.get(r, c))
-            .map(|v| v.display_with_binary_mode(BinaryDisplayMode::default()))
-            .unwrap_or_default();
-        let is_binary = selected_cell
-            .and_then(|(r, c)| table.get(r, c))
-            .is_some_and(|v| matches!(v, crate::data::CellValue::Binary(_)));
-        let usable = can_edit && selected_cell.is_some() && !is_binary;
-        let focused = ui.memory(|m| m.has_focus(formula_id));
-        let mut buf: String = if focused {
-            ui.data(|d| d.get_temp::<String>(formula_id))
-                .unwrap_or_else(|| current_text.clone())
-        } else {
-            current_text.clone()
-        };
-
-        let apply = ui
-            .add_enabled(usable && buf != current_text, egui::Button::new("OK"))
-            .on_hover_text(t("common.apply"))
-            .clicked();
-        let cancel = ui
-            .add_enabled(usable && focused, egui::Button::new("x"))
-            .on_hover_text(t("common.cancel"))
-            .clicked();
-        ui.label(RichText::new("fx").italics().color(colors.text_secondary));
-
-        let edit = ui
-            .add_enabled(
-                usable,
-                egui::TextEdit::singleline(&mut buf)
-                    .id(formula_id)
-                    .desired_width(ui.available_width().max(60.0))
-                    .font(egui::TextStyle::Monospace),
-            )
-            .on_hover_text(t("ribbon.formula_hint"));
-        ui.data_mut(|d| d.insert_temp(formula_id, buf.clone()));
-
-        let enter = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-        let escape = edit.has_focus() && ui.input(|i| i.key_pressed(egui::Key::Escape));
-        if (enter || apply)
-            && usable
-            && buf != current_text
-            && let Some((r, c)) = selected_cell
-        {
-            action.commit_cell_text = Some((r, c, buf));
-        }
-        if escape || cancel {
-            ui.data_mut(|d| d.remove::<String>(formula_id));
-            edit.surrender_focus();
-        }
+        draw_formula_editor(ui, table, selected_cell, can_edit, editor, action);
     });
 }
 
@@ -288,7 +362,9 @@ fn mark_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, can_edit: bool, action: &mut Toolb
             for &color in MarkColor::ALL {
                 let swatch = ThemeColors::mark_swatch(color);
                 if ui
-                    .add(egui::Button::new(RichText::new(color.label_t()).color(swatch)))
+                    .add(egui::Button::new(
+                        RichText::new(color.label_t()).color(swatch),
+                    ))
                     .clicked()
                 {
                     for k in &keys {

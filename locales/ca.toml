@@ -1006,7 +1006,7 @@ modified = "Modificat"
 no_file = "No hi ha cap fitxer carregat"
 dismiss_hint = "Tanca aquest missatge"
 no_file_dialog = "En aquest sistema no hi ha cap diàleg de fitxers. Instal·la xdg-desktop-portal-gtk o zenity, o obre els fitxers així: octa FILE"
-zoom_hint = "Zoom de tota la finestra. Fes clic per tornar al 100 per cent."
+zoom_hint = "Zoom de la taula. Fes clic per tornar al 100 per cent."
 zoom_in_hint = "Amplia un {n}%"
 zoom_out_hint = "Redueix un {n}%"
 

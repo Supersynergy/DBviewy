@@ -1019,7 +1019,7 @@ modified = "Změněno"
 no_file = "Není načten žádný soubor"
 dismiss_hint = "Zavřít tuto zprávu"
 no_file_dialog = "V tomhle systému není žádný souborový dialog. Nainstaluj xdg-desktop-portal-gtk nebo zenity, nebo otevírej soubory takhle: octa FILE"
-zoom_hint = "Zvětšení celého okna. Kliknutím se vrátíš na 100 procent."
+zoom_hint = "Zvětšení tabulky. Kliknutím se vrátíš na 100 procent."
 zoom_in_hint = "Přiblížit o {n} %"
 zoom_out_hint = "Oddálit o {n} %"
 

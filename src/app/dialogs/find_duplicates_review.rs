@@ -250,7 +250,6 @@ impl OctaApp {
     pub(crate) fn open_duplicate_review(&mut self, keys: &[usize], keep: KeepWhich) -> bool {
         if self.duplicate_review.is_some()
             || self.value_fill.is_some()
-            || self.paste_special.is_some()
             || self.replace_review.is_some()
         {
             return false;

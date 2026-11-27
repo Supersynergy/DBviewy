@@ -1019,7 +1019,7 @@ modified = "Modificat"
 no_file = "Niciun fișier încărcat"
 dismiss_hint = "Închide acest mesaj"
 no_file_dialog = "Pe sistemul ăsta nu există niciun dialog de fișiere. Instalează xdg-desktop-portal-gtk sau zenity, sau deschide fișierele așa: octa FILE"
-zoom_hint = "Zoomul întregii ferestre. Dă clic ca să revii la 100 la sută."
+zoom_hint = "Zoomul tabelului. Dă clic ca să revii la 100 la sută."
 zoom_in_hint = "Mărește cu {n}%"
 zoom_out_hint = "Micșorează cu {n}%"
 

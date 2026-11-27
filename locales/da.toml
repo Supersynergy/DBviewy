@@ -1018,7 +1018,7 @@ modified = "Ændret"
 no_file = "Ingen fil indlæst"
 dismiss_hint = "Luk denne besked"
 no_file_dialog = "Der er ingen fildialog på dette system. Installer xdg-desktop-portal-gtk eller zenity, eller åbn filer med: octa FILE"
-zoom_hint = "Zoom for hele vinduet. Klik for at gå tilbage til 100 procent."
+zoom_hint = "Zoom for tabellen. Klik for at gå tilbage til 100 procent."
 zoom_in_hint = "Zoom ind {n} %"
 zoom_out_hint = "Zoom ud {n} %"
 

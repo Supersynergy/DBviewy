@@ -186,7 +186,6 @@ fn main() -> ExitCode {
     let resolved_icon = settings.icon_variant.resolve();
     let icon_svg = resolved_icon.svg_source();
     let icon = render_icon(icon_svg);
-    let default_theme = settings.default_theme;
 
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size(settings.window_size.dimensions())
@@ -223,15 +222,6 @@ fn main() -> ExitCode {
             // costs per request; the definitions live in this binary, so hand
             // them over before any UI runs.
             app::chat::tool_groups::publish_to_settings();
-            ui::theme::apply_theme(
-                &cc.egui_ctx,
-                default_theme,
-                ui::theme::FontSettings {
-                    size: settings.font_size * settings.zoom_percent() as f32 / 100.0,
-                    body: settings.body_font,
-                    custom_path: Some(settings.custom_font_path.as_str()),
-                },
-            );
             // Suppress egui's id-clash warning (the red outline it paints
             // around widgets in debug builds). The virtual table briefly
             // reuses a widget id at a new rect during a search/filter reflow;
@@ -251,6 +241,7 @@ fn main() -> ExitCode {
             #[cfg(target_os = "macos")]
             macos_documents::attach(&cc.egui_ctx);
             let mut app = OctaApp::new(initial_files, settings, resolved_icon);
+            app.apply_app_theme(&cc.egui_ctx);
             // Mark this session running and detect an unclean prior exit or a
             // waiting crash file, to offer a debug report once. Here and not in
             // `OctaApp::new`, which the unit tests call: they wrote the real

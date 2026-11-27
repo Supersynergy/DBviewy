@@ -1008,7 +1008,7 @@ modified = "수정됨"
 no_file = "불러온 파일 없음"
 dismiss_hint = "이 메시지 닫기"
 no_file_dialog = "이 시스템에는 파일 대화상자가 없어. xdg-desktop-portal-gtk나 zenity를 설치하거나, octa FILE 로 파일을 열어"
-zoom_hint = "창 전체의 확대 비율이에요. 클릭하면 100%로 돌아가요."
+zoom_hint = "표의 확대 비율이에요. 클릭하면 100%로 돌아가요."
 zoom_in_hint = "{n}% 확대"
 zoom_out_hint = "{n}% 축소"
 

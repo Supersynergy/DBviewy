@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use eframe::egui;
 use egui::{Color32, Stroke};
 
-use octa::ui::theme::{FontSettings, ThemeMode, apply_theme};
+use octa::ui::theme::ThemeMode;
 
 use super::state::OctaApp;
 
@@ -145,15 +145,7 @@ impl OctaApp {
         if self.logo_click_count >= LOGO_CLICK_TARGET && !self.rainbow_active {
             self.rainbow_active = true;
             self.theme_mode = ThemeMode::Rainbow;
-            apply_theme(
-                ctx,
-                ThemeMode::Rainbow,
-                FontSettings {
-                    size: self.settings.font_size * self.zoom_percent as f32 / 100.0,
-                    body: self.settings.body_font,
-                    custom_path: Some(self.settings.custom_font_path.as_str()),
-                },
-            );
+            self.apply_app_theme(ctx);
             // Invalidate the cached textures so `ensure_logo_textures` swaps
             // to the rainbow rosette (`assets/octa-random.svg`) on the next
             // frame. `resolved_icon` is left untouched so leaving Rainbow

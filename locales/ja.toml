@@ -1008,7 +1008,7 @@ modified = "変更済み"
 no_file = "ファイルが読み込まれていません"
 dismiss_hint = "このメッセージを閉じる"
 no_file_dialog = "このシステムにはファイルダイアログがないよ。xdg-desktop-portal-gtk か zenity を入れるか、octa FILE でファイルを開いてね"
-zoom_hint = "ウィンドウ全体の拡大率。クリックすると100%に戻ります。"
+zoom_hint = "表の拡大率。クリックすると100%に戻ります。"
 zoom_in_hint = "{n}%拡大"
 zoom_out_hint = "{n}%縮小"
 

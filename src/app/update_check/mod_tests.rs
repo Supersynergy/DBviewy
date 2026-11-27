@@ -50,11 +50,11 @@ fn parse_sha256sums_lowercases_hashes() {
 fn parse_release_reads_the_tag_from_the_redirect() {
     for (location, want) in [
         (
-            "https://github.com/thorstenfoltz/octa/releases/tag/0.21.2",
+            "https://github.com/Supersynergy/DBviewy/releases/tag/0.21.2",
             "0.21.2",
         ),
         (
-            "https://github.com/thorstenfoltz/octa/releases/tag/v0.17.0",
+            "https://github.com/Supersynergy/DBviewy/releases/tag/v0.17.0",
             "0.17.0",
         ),
     ] {
@@ -65,8 +65,8 @@ fn parse_release_reads_the_tag_from_the_redirect() {
 #[test]
 fn parse_release_rejects_an_address_without_a_tag() {
     // A repository with no release yet redirects to the release list.
-    assert!(parse_release("https://github.com/thorstenfoltz/octa/releases").is_err());
-    assert!(parse_release("https://github.com/thorstenfoltz/octa/releases/tag/").is_err());
+    assert!(parse_release("https://github.com/Supersynergy/DBviewy/releases").is_err());
+    assert!(parse_release("https://github.com/Supersynergy/DBviewy/releases/tag/").is_err());
 }
 
 #[test]
@@ -83,37 +83,86 @@ fn only_a_higher_version_is_an_update() {
     assert!(is_newer("1.0.0", "0.99.99"));
 }
 
+#[cfg(target_os = "macos")]
 #[test]
-fn the_mac_update_command_replaces_the_running_bundle() {
-    use std::path::Path;
-    let home = Path::new("/Users/ann");
-    let plain = GET_OCTA.to_string();
-    // get-octa.sh's default folder needs no argument.
-    assert_eq!(
-        mac_update_command(
-            Path::new("/Users/ann/Applications/Octa.app/Contents/MacOS/octa"),
-            home
+fn mac_update_dialog_opens_only_dbviewy_downloads_without_copying_a_command() {
+    use crate::app::dialogs::update_dialog::render_update_dialog;
+    use octa::ui::settings::{AppSettings, IconVariant};
+
+    const RELEASES: &str = "https://github.com/Supersynergy/DBviewy/releases";
+
+    fn hyperlink_in_shape(shape: &egui::Shape) -> Option<egui::Pos2> {
+        match shape {
+            egui::Shape::Text(text) if text.galley.text() == RELEASES => {
+                Some(text.pos + text.galley.size() * 0.5)
+            }
+            egui::Shape::Vec(shapes) => shapes.iter().find_map(hyperlink_in_shape),
+            _ => None,
+        }
+    }
+
+    for (name, state) in [
+        ("up to date", UpdateState::UpToDate),
+        (
+            "update available",
+            UpdateState::Available {
+                version: String::from("0.22.2"),
+            },
         ),
-        plain
-    );
-    // Anywhere else is passed through, so no second copy appears.
-    assert_eq!(
-        mac_update_command(
-            Path::new("/Applications/Octa.app/Contents/MacOS/octa"),
-            home
+        (
+            "no final release yet",
+            UpdateState::Error(String::from("No final release yet")),
         ),
-        format!("{plain} -s -- '/Applications'")
-    );
-    assert_eq!(
-        mac_update_command(
-            Path::new("/Users/o'neil/My Apps/Octa.app/Contents/MacOS/octa"),
-            home
-        ),
-        format!(r"{plain} -s -- '/Users/o'\''neil/My Apps'")
-    );
-    // A binary outside a bundle (a source build) gets the plain installer.
-    assert_eq!(
-        mac_update_command(Path::new("/Users/ann/octa/target/release/octa"), home),
-        plain
-    );
+    ] {
+        let ctx = egui::Context::default();
+        let mut app = OctaApp::new(vec![], AppSettings::default(), IconVariant::Rose);
+        app.show_update_dialog = true;
+        *app.update_state.lock().unwrap() = state.clone();
+        let mut frame = |events| {
+            let mut out = ctx.run_ui(
+                egui::RawInput {
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(900.0, 650.0),
+                    )),
+                    events,
+                    ..Default::default()
+                },
+                |ui| render_update_dialog(&mut app, ui.ctx()),
+            );
+            // This headless frame does not have a renderer to apply textures.
+            out.textures_delta.clear();
+            out
+        };
+        frame(vec![]);
+        let drawn = frame(vec![]);
+        let pos = drawn
+            .shapes
+            .iter()
+            .find_map(|s| hyperlink_in_shape(&s.shape))
+            .unwrap_or_else(|| panic!("missing official downloads link for {name}"));
+        let pointer = |pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::NONE,
+        };
+        frame(vec![egui::Event::PointerMoved(pos)]);
+        frame(vec![pointer(true)]);
+        let clicked = frame(vec![pointer(false)]);
+        let commands = &clicked.platform_output.commands;
+        let opened: Vec<_> = commands
+            .iter()
+            .filter_map(|command| match command {
+                egui::OutputCommand::OpenUrl(url) => Some(url.url.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(opened, [RELEASES], "incorrect download destination for {name}");
+        assert!(
+            commands
+                .iter()
+                .all(|cmd| !matches!(cmd, egui::OutputCommand::CopyText(_)))
+        );
+    }
 }

@@ -1,42 +1,25 @@
-# Octa for macOS
+# DBviewy for macOS
 
-A multi-format data viewer and editor for Parquet, CSV, JSON, XLSX, and more.
-
-This build is for Apple Silicon (arm64) Macs.
+The packaged app runs on Apple Silicon (arm64).
 
 ## Install
 
-Drag `DBviewy.app` into `/Applications` (or `~/Applications`).
+1. Download **DBviewy macOS arm64** and **SHA256SUMS** from the
+   [DBviewy releases](https://github.com/Supersynergy/DBviewy/releases).
+2. Save both files in the same folder and run `shasum -a 256 -c SHA256SUMS`
+   in that folder. Do not install if verification fails.
+3. Extract the ZIP. Quit any running copy of DBviewy. Keep the old app
+   as a backup before copying `DBviewy.app` into `/Applications` or
+   `~/Applications`. You do not need to change or delete your settings.
 
-The app is **ad-hoc signed but not notarised**, so macOS Gatekeeper refuses
-the first launch of a copy downloaded with a browser. Two ways past it:
+The app is ad hoc signed, not notarised. If macOS blocks it after you have
+verified the checksum, follow the per-app **Open Anyway** option under
+**System Settings → Privacy & Security**. Leave Gatekeeper enabled for all
+other apps. The Octa installer does **not** install DBviewy.
 
-### Option A: Open Anyway
-
-1. Double-click `DBviewy.app` and click **Done** (or **OK**) when macOS refuses.
-2. Open **System Settings > Privacy & Security**, scroll down to
-   *"DBviewy.app was blocked"* and click **Open Anyway**.
-3. Confirm with your password and **Open Anyway** once more.
-
-After that, double-clicking opens the app normally. (Control-click > Open did
-this up to macOS 14; macOS 15 removed it.)
-
-### Option B: clear the quarantine attribute
-
-```bash
-xattr -d com.apple.quarantine /Applications/DBviewy.app
-
-# If that fails with "No such xattr" but the warning persists, or macOS
-# says "DBviewy.app is damaged", use the recursive form once:
-# xattr -cr /Applications/DBviewy.app
-```
-
-**Next time, skip all of this** with the one-line install, which downloads
-with `curl` and so never triggers Gatekeeper:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/thorstenfoltz/octa/master/get-octa.sh | bash
-```
+On a Mac, **Check for Updates** links to the DBviewy releases. Download
+the new bundle there and verify its checksum; DBviewy does not install
+an update over the running app.
 
 ## Run from the command line
 
@@ -53,12 +36,12 @@ ln -s /Applications/DBviewy.app/Contents/MacOS/octa ~/.local/bin/octa
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
 ```
 
-## Uninstall
+## Remove or roll back
 
-```bash
-rm -rf /Applications/DBviewy.app ~/.local/bin/octa
-```
+Quit DBviewy and move the application bundle to the Trash, or replace it
+with the previous app. If you created a command-line link, remove that
+link separately. This does not delete documents or settings.
 
-In Finder, choose **Open With > Octa** for a workbook or data file. Select
-several files to open them as tabs. Octa registers as an alternate editor,
-so installing it leaves the current default applications in place.
+In Finder, **Open With → DBviewy** opens an Excel workbook or data file.
+DBviewy registers as an alternate editor. Installing it does not change
+your default apps.

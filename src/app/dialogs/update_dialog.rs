@@ -1,6 +1,6 @@
 //! "Check for Updates" dialog. Matches on [`UpdateState`] and renders the
 //! appropriate UI: spinner, "up to date", "new version available" with an
-//! update button (on macOS the installer command instead), pkexec elevation
+//! update button (on macOS a manual download link instead), pkexec elevation
 //! prompt (Linux), "updated, restart", or "error".
 
 use eframe::egui;
@@ -11,6 +11,7 @@ use octa::ui::settings::{
 };
 
 use super::super::state::{OctaApp, UpdateState};
+use super::super::update_check::DBVIEWY_RELEASES_URL;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -64,6 +65,9 @@ pub(crate) fn render_update_dialog(app: &mut OctaApp, ctx: &egui::Context) {
                         octa::i18n::t("dialog.ud_latest"),
                         VERSION
                     ));
+                    if cfg!(target_os = "macos") {
+                        ui.hyperlink(DBVIEWY_RELEASES_URL);
+                    }
                     ui.add_space(8.0);
                     if ui.button(octa::i18n::t("common.close")).clicked() {
                         app.show_update_dialog = false;
@@ -93,35 +97,13 @@ pub(crate) fn render_update_dialog(app: &mut OctaApp, ctx: &egui::Context) {
                         ui.label(octa::i18n::t("release.store"));
                         ui.add_space(8.0);
                     }
-                    // A Mac copy cannot replace itself (see
-                    // `mac_update_command`), so it gets the installer command.
-                    let mac_cmd = cfg!(target_os = "macos").then(|| {
-                        let exe = std::env::current_exe()
-                            .and_then(std::fs::canonicalize)
-                            .unwrap_or_default();
-                        let home = std::env::var_os("HOME").unwrap_or_default();
-                        super::super::update_check::mac_update_command(&exe, home.as_ref())
-                    });
-                    if let Some(cmd) = &mac_cmd {
-                        ui.label(octa::i18n::t("dialog.ud_mac_manual"));
-                        ui.add_space(4.0);
-                        ui.add(egui::Label::new(RichText::new(cmd).monospace()).selectable(true));
-                        ui.add_space(8.0);
-                    }
                     octa::ui::control_row::control_line(ui, |ui| {
                         let version = new_version.clone();
-                        if let Some(cmd) = mac_cmd {
-                            if ui
-                                .button(octa::i18n::t("dialog.ud_copy_command"))
-                                .on_hover_text(octa::i18n::t("dialog.ud_copy_command_hint"))
-                                .clicked()
-                            {
-                                ctx.copy_text(cmd);
-                                app.status_message = Some((
-                                    octa::i18n::t("dialog.ud_command_copied"),
-                                    std::time::Instant::now(),
-                                ));
-                            }
+                        if cfg!(target_os = "macos") {
+                            // Replacing the executable inside a signed bundle
+                            // invalidates its signature. Download the whole
+                            // DBviewy bundle instead.
+                            ui.hyperlink(DBVIEWY_RELEASES_URL);
                         } else if !store
                             && ui.button(octa::i18n::t("dialog.ud_update_now")).clicked()
                         {
@@ -198,6 +180,9 @@ pub(crate) fn render_update_dialog(app: &mut OctaApp, ctx: &egui::Context) {
                 }
                 UpdateState::Error(ref msg) => {
                     ui.label(format!("{}: {}", octa::i18n::t("dialog.ud_failed"), msg));
+                    if cfg!(target_os = "macos") {
+                        ui.hyperlink(DBVIEWY_RELEASES_URL);
+                    }
                     ui.add_space(8.0);
                     if ui.button(octa::i18n::t("common.close")).clicked() {
                         app.show_update_dialog = false;

@@ -1018,7 +1018,7 @@ modified = "Gewijzigd"
 no_file = "Geen bestand geladen"
 dismiss_hint = "Dit bericht sluiten"
 no_file_dialog = "Op dit systeem is er geen bestandsvenster. Installeer xdg-desktop-portal-gtk of zenity, of open bestanden zo: octa FILE"
-zoom_hint = "Zoom van het hele venster. Klik om terug te gaan naar 100 procent."
+zoom_hint = "Zoom van de tabel. Klik om terug te gaan naar 100 procent."
 zoom_in_hint = "{n}% inzoomen"
 zoom_out_hint = "{n}% uitzoomen"
 

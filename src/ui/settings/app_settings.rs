@@ -30,7 +30,7 @@ pub struct AppSettings {
     /// View menu, the status bar's - and +), 1 to 25. Read it through
     /// [`Self::zoom_step`], which holds a hand-edited value to that range.
     pub zoom_step: u32,
-    /// The zoom Octa was last left at, in percent. Read it through
+    /// The table zoom Octa was last left at, in percent. Read it through
     /// [`Self::zoom_percent`], which holds a hand-edited value to 25 to 500.
     pub zoom_percent: u32,
     /// Default theme when the application starts.

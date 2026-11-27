@@ -267,14 +267,19 @@ rows and columns, and undo / redo are on the [Editing page](editing.md).
 
 The zoom level always shows at the right end of the status bar, 100%
 included, between a **-** and a **+** button. Click either to zoom out or in
-by one step, or click the percentage to go back to 100%. **View -> Zoom** has
-the same buttons, plus **Reset (100%)** once it is not at 100%. The keyboard
+by one step, or click the percentage to go back to 100%. Under **View**,
+the zoom section identifies the table as the target. It has the same buttons
+and a **Reset (100%)** command. The zoom buttons in the ribbon and status
+bar also name their actions for screen readers. The keyboard
 does the same: <kbd>Ctrl</kbd>+<kbd>+</kbd> and <kbd>Ctrl</kbd>+<kbd>-</kbd>
 step between 25% and 500%, and <kbd>Ctrl</kbd>+<kbd>0</kbd> goes back to
 100%. A step is 5% unless you change it under
 [**Settings > Appearance > Zoom step**](../reference/settings.md#appearance),
-anywhere from 1% to 25%. Zoom scales the whole window, not only the table, and
-Octa starts at the zoom you last used; the size it scales is **Font size** under
+anywhere from 1% to 25%. Zoom changes the table's text and automatic row
+and header heights. Menus, the ribbon, tabs and the status bar stay the same
+size. Zoom keeps the current row in view, separately for each split pane.
+DBviewy remembers the zoom when you restart. To change the base text
+size of the whole app, use **Font size** under
 [Settings > Appearance](../reference/settings.md#appearance).
 
 ## Number display (separators and rounding)

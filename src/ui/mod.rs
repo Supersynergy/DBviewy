@@ -16,6 +16,7 @@ pub mod status_bar;
 pub mod syntax;
 pub mod table_picker;
 pub mod table_view;
+mod table_zoom;
 pub mod text_selection;
 pub mod theme;
 pub mod tiles;

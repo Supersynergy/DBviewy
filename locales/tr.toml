@@ -1018,7 +1018,7 @@ modified = "Değiştirildi"
 no_file = "Dosya yüklenmedi"
 dismiss_hint = "Bu mesajı kapat"
 no_file_dialog = "Bu sistemde dosya penceresi yok. xdg-desktop-portal-gtk ya da zenity kur, ya da dosyaları şöyle aç: octa FILE"
-zoom_hint = "Tüm pencerenin yakınlaştırması. Tıklarsan yüzde 100'e döner."
+zoom_hint = "Tablo yakınlaştırması. Tıklarsan yüzde 100'e döner."
 zoom_in_hint = "%{n} yakınlaştır"
 zoom_out_hint = "%{n} uzaklaştır"
 

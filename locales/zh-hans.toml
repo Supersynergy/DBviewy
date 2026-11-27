@@ -1008,7 +1008,7 @@ modified = "已修改"
 no_file = "未加载文件"
 dismiss_hint = "关闭这条消息"
 no_file_dialog = "这个系统没有文件对话框。装一个 xdg-desktop-portal-gtk 或 zenity，或者用 octa FILE 打开文件"
-zoom_hint = "整个窗口的缩放比例。点击即可恢复到 100%。"
+zoom_hint = "表格的缩放比例。点击即可恢复到 100%。"
 zoom_in_hint = "放大 {n}%"
 zoom_out_hint = "缩小 {n}%"
 

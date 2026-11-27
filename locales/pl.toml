@@ -1018,7 +1018,7 @@ modified = "Zmodyfikowano"
 no_file = "Nie załadowano pliku"
 dismiss_hint = "Zamknij ten komunikat"
 no_file_dialog = "W tym systemie nie ma okna wyboru plików. Zainstaluj xdg-desktop-portal-gtk albo zenity, albo otwieraj pliki tak: octa FILE"
-zoom_hint = "Powiększenie całego okna. Kliknij, aby wrócić do 100 procent."
+zoom_hint = "Powiększenie tabeli. Kliknij, aby wrócić do 100 procent."
 zoom_in_hint = "Powiększ o {n}%"
 zoom_out_hint = "Pomniejsz o {n}%"
 

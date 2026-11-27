@@ -1018,7 +1018,7 @@ modified = "Modificado"
 no_file = "Ningún archivo cargado"
 dismiss_hint = "Cerrar este mensaje"
 no_file_dialog = "En este sistema no hay ningún diálogo de archivos. Instala xdg-desktop-portal-gtk o zenity, o abre archivos así: octa FILE"
-zoom_hint = "Zoom de toda la ventana. Haz clic para volver al 100 por ciento."
+zoom_hint = "Zoom de la tabla. Haz clic para volver al 100 por ciento."
 zoom_in_hint = "Acercar un {n} %"
 zoom_out_hint = "Alejar un {n} %"
 

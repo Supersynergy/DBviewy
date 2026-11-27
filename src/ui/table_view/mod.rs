@@ -72,6 +72,12 @@ pub struct TableViewState {
     resizing_col: Option<usize>,
     /// Vertical scroll offset in pixels (persisted across frames).
     scroll_y: f32,
+    /// Last drawn font and base row height, before any zoom invalidation.
+    row_scale: Option<(f32, f32)>,
+    /// Row position to restore when the changed scale has been laid out.
+    zoom_row_anchor: Option<RowAnchor>,
+    /// Same one-shot position for each additional split pane.
+    pane_zoom_anchors: [Option<RowAnchor>; MAX_SPLIT_PANES - 1],
     /// Whether the table is scrolled above its end. Written every frame
     /// where the offset is final (wheel, keys, scrollbar and programmatic
     /// scrolls all land before it). Follow file reads it to scroll new rows
@@ -310,6 +316,7 @@ impl TableViewState {
     /// Park every extra pane where the first one is.
     fn reset_pane_scroll(&mut self) {
         self.pane_scroll.fill((0.0, 0.0));
+        self.pane_zoom_anchors.fill(None);
     }
 
     /// Keep the per-pane vectors the length the pane count implies, and the
@@ -1196,6 +1203,8 @@ pub fn draw_table(
     // Either one needs the prefix-sum path.
     let image_thumb_px = image_thumbs.map(|t| t.px).unwrap_or(0);
     let variable_heights = cell_line_breaks || !state.row_heights.is_empty() || image_thumb_px > 0;
+    anchor_zoomed_rows(state, font_size, row_height);
+    let restoring_zoom = state.zoom_row_anchor.is_some();
     let total_data_height = if variable_heights {
         ensure_row_y_offsets(
             ui,
@@ -1215,6 +1224,9 @@ pub fn draw_table(
     } else {
         state.row_y_offsets.clear();
         state.measured_heights = Vec::new();
+        if let Some(anchor) = state.zoom_row_anchor.take() {
+            state.scroll_y = anchor.offset(&[], row_height);
+        }
         row_count as f32 * row_height
     };
 
@@ -1236,6 +1248,13 @@ pub fn draw_table(
         0.0
     };
     let total_content_height = header_h + 1.0 + total_data_height + horizontal_scrollbar_height;
+    if restoring_zoom {
+        // A shorter table can show more rows at once. Let its bottom
+        // edge take precedence, even in a split pane without the wheel.
+        state.scroll_y = state
+            .scroll_y
+            .clamp(0.0, (total_content_height - view_height).max(0.0));
+    }
 
     // A row someone else asked us to scroll onto, honoured now that the real
     // row height and viewport are known. Deliberately outside the keyboard

@@ -304,12 +304,16 @@ its existing shortcut.
 
 The zoom level always shows at the right end of the status bar, 100%
 included, between a **-** and a **+** button. Click either to zoom out or in
-by one step, or click the percentage to go back to 100%. **View > Zoom** has
-the same buttons, plus **Reset (100%)** once it is not at 100%. **Ctrl+Plus**
+by one step, or click the percentage to go back to 100%. The zoom section
+under **View** names the table as the target and includes **Reset (100%)**.
+Screen readers get an action name for each zoom button. **Ctrl+Plus**
 and **Ctrl+Minus** step between 25% and 500%, and **Ctrl+0** goes back to
 100%. A step is 5% unless you change it under **Settings > Appearance > Zoom
-step**, anywhere from 1% to 25%. Zoom scales the whole window and Octa starts at the
-zoom you last used; the size it scales is **Font size** under **Settings > Appearance**.
+step**, anywhere from 1% to 25%. Only the table zooms. Menus, the ribbon,
+tabs and the status bar keep their size. Each pane keeps its visible
+row when you zoom. The table zoom is remembered when you restart.
+To resize app text as well, change **Font size** under
+**Settings > Appearance**.
 
 ## Resizing rows and columns
 
@@ -670,6 +674,11 @@ formula. You can also open it from **Find a command**. Choose a column
 and search for the English or German function name. Use the arrow keys
 and Enter from the search field to put the example into your draft.
 Esc keeps the old draft. The table changes only when you choose Add.
+
+In the ribbon's formula bar, press **Enter** or click the check mark to
+apply a draft. **Esc** or the cross cancels. Switching cells or tabs
+discards the draft. The name box uses the row numbers shown in the grid;
+formulas count from the first loaded row.
 
 - **Cell references**: A1, B2, AA1, etc. (column letter + 1-based row number;
   the column letter appears in each header).

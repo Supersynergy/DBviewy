@@ -1019,7 +1019,7 @@ modified = "Đã sửa"
 no_file = "Chưa nạp tệp"
 dismiss_hint = "Đóng thông báo này"
 no_file_dialog = "Hệ thống này không có hộp thoại chọn tệp. Cài xdg-desktop-portal-gtk hoặc zenity, hoặc mở tệp bằng: octa FILE"
-zoom_hint = "Mức thu phóng của cả cửa sổ. Bấm để về lại 100 phần trăm."
+zoom_hint = "Mức thu phóng của bảng. Bấm để về lại 100 phần trăm."
 zoom_in_hint = "Phóng to {n} phần trăm"
 zoom_out_hint = "Thu nhỏ {n} phần trăm"
 

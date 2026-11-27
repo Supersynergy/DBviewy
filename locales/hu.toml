@@ -1019,7 +1019,7 @@ modified = "Módosítva"
 no_file = "Nincs betöltött fájl"
 dismiss_hint = "Üzenet bezárása"
 no_file_dialog = "Ezen a rendszeren nincs fájlválasztó ablak. Telepítsd az xdg-desktop-portal-gtk vagy a zenity csomagot, vagy így nyisd meg a fájlokat: octa FILE"
-zoom_hint = "Az egész ablak nagyítása. Kattints rá, és visszaáll 100 százalékra."
+zoom_hint = "A táblázat nagyítása. Kattints rá, és visszaáll 100 százalékra."
 zoom_in_hint = "Nagyítás {n}%-kal"
 zoom_out_hint = "Kicsinyítés {n}%-kal"
 

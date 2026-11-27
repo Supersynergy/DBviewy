@@ -150,6 +150,64 @@ pub(super) fn row_at_offset(offsets: &[f32], scroll_y: f32) -> usize {
     lo
 }
 
+/// An offset within a displayed row, independent of its pixel height.
+#[derive(Clone, Copy)]
+pub(super) struct RowAnchor {
+    row: usize,
+    fraction: f32,
+}
+
+impl RowAnchor {
+    fn capture(offsets: &[f32], base: f32, y: f32) -> Self {
+        let row = if offsets.len() > 1 {
+            row_at_offset(offsets, y)
+        } else {
+            (y / base).floor() as usize
+        };
+        let (top, height) = Self::bounds(offsets, base, row);
+        Self {
+            row,
+            fraction: ((y - top) / height).clamp(0.0, 1.0_f32.next_down()),
+        }
+    }
+
+    pub(super) fn offset(self, offsets: &[f32], base: f32) -> f32 {
+        let row = if offsets.len() > 1 {
+            self.row.min(offsets.len() - 2)
+        } else {
+            self.row
+        };
+        let (top, height) = Self::bounds(offsets, base, row);
+        top + height * self.fraction
+    }
+
+    fn bounds(offsets: &[f32], base: f32, row: usize) -> (f32, f32) {
+        if offsets.len() > 1 {
+            let top = offsets[row];
+            (top, (offsets[row + 1] - top).max(1.0))
+        } else {
+            (row as f32 * base, base)
+        }
+    }
+}
+
+/// The split renderer always draws pane 0 first. Capture all its anchors
+/// from the old geometry while it still has the other panes' saved offsets.
+pub(super) fn anchor_zoomed_rows(state: &mut TableViewState, font: f32, base: f32) {
+    let Some((last_font, last_base)) = state.row_scale.replace((font, base)) else {
+        return;
+    };
+    if last_font == font {
+        return;
+    }
+    let offsets = &state.row_y_offsets;
+    state.zoom_row_anchor = Some(RowAnchor::capture(offsets, last_base, state.scroll_y));
+    for (anchor, &(_, y)) in state.pane_zoom_anchors.iter_mut().zip(&state.pane_scroll) {
+        *anchor = Some(RowAnchor::capture(offsets, last_base, y));
+    }
+    state.invalidate_row_heights();
+}
+
 /// What measuring a row costs beyond the table itself. Bundled so
 /// [`ensure_row_y_offsets`] stays under clippy's argument limit; the four
 /// always travel together and all four come from the same settings block.
@@ -198,6 +256,10 @@ pub(super) fn ensure_row_y_offsets(
         state.row_y_offsets.resize(filtered_rows.len() + 1, 0.0);
         refresh_offsets(state, filtered_rows, opts.base_row_height);
     }
+    let zoom_anchor = state.zoom_row_anchor.take();
+    if let Some(anchor) = zoom_anchor {
+        state.scroll_y = anchor.offset(&state.row_y_offsets, opts.base_row_height);
+    }
     if !opts.wrap && opts.image_thumb_px == 0 {
         return;
     }
@@ -227,6 +289,17 @@ pub(super) fn ensure_row_y_offsets(
         idx += 1;
     }
     if let Some(&(from, _)) = grown.first() {
+        // Every saved pane uses these same offsets. In particular, a
+        // pane drawn later can measure wrapped rows above a pane that
+        // already restored its position at the new scale.
+        let mut other_anchors = [None; MAX_SPLIT_PANES - 1];
+        for (anchor, &(_, y)) in other_anchors.iter_mut().zip(&state.pane_scroll) {
+            *anchor = Some(RowAnchor::capture(
+                &state.row_y_offsets,
+                opts.base_row_height,
+                y,
+            ));
+        }
         // Rows that grew above the anchor would push it down: scrolling up
         // into rows not seen yet made the table jump. Scroll by as much, as
         // a browser does, so the anchor stays where it was on screen.
@@ -249,6 +322,14 @@ pub(super) fn ensure_row_y_offsets(
                 grown.next();
             }
             *offset += shift;
+        }
+        for (anchor, (_, y)) in other_anchors.into_iter().zip(&mut state.pane_scroll) {
+            if let Some(anchor) = anchor {
+                *y = anchor.offset(&state.row_y_offsets, opts.base_row_height);
+            }
+        }
+        if let Some(anchor) = zoom_anchor {
+            state.scroll_y = anchor.offset(&state.row_y_offsets, opts.base_row_height);
         }
         // Rows grew, so rows further down may now be the ones in view.
         ui.ctx().request_repaint();

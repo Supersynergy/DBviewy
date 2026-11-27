@@ -630,7 +630,9 @@ pub fn draw_status_bar(
         // edge of the bar.
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.add_space(8.0);
-            if let Some(percent) = zoom_controls(ui, zoom_percent, zoom_step, colors.text_muted) {
+            if let Some(percent) =
+                super::table_zoom::status_controls(ui, zoom_percent, zoom_step, colors.text_muted)
+            {
                 action.zoom_to = Some(percent);
             }
 
@@ -659,37 +661,6 @@ pub fn draw_status_bar(
     });
 
     action
-}
-
-/// `-  100%  +` at the right end of the bar, drawn right to left. Returns
-/// the zoom a click asks for: one `step` either way, or 100% from the
-/// percentage.
-fn zoom_controls(ui: &mut Ui, zoom_percent: u32, step: u32, muted: Color32) -> Option<u32> {
-    let mut zoom_to = None;
-    let mut button = |ui: &mut Ui, text: String, hint: &str, target: u32| {
-        let hint = crate::i18n::t(hint).replace("{n}", &step.to_string());
-        if ui
-            .add(egui::Button::new(RichText::new(text).size(11.0).color(muted)).frame(false))
-            .on_hover_text(hint)
-            .clicked()
-        {
-            zoom_to = Some(target);
-        }
-    };
-    button(
-        ui,
-        "+".into(),
-        "status_bar.zoom_in_hint",
-        zoom_percent + step,
-    );
-    button(ui, format!("{zoom_percent}%"), "status_bar.zoom_hint", 100);
-    button(
-        ui,
-        "-".into(),
-        "status_bar.zoom_out_hint",
-        zoom_percent.saturating_sub(step),
-    );
-    zoom_to
 }
 
 /// Parse navigation input into a (row, col) target.

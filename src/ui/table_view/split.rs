@@ -49,9 +49,14 @@ pub(crate) fn split_sizes(total: f32, panes: usize, fractions: &[f32]) -> Vec<f3
 /// around that pane's `draw_table`, so the state comes out as it went in.
 /// Pane 0 is not in `pane_scroll`: it uses `scroll_x` / `scroll_y` directly.
 pub(super) fn swap_pane_scroll(state: &mut TableViewState, pane: usize) {
-    let Some(slot) = state.pane_scroll.get_mut(pane.wrapping_sub(1)) else {
+    let index = pane.wrapping_sub(1);
+    let Some(slot) = state.pane_scroll.get_mut(index) else {
         return;
     };
+    std::mem::swap(
+        &mut state.zoom_row_anchor,
+        &mut state.pane_zoom_anchors[index],
+    );
     let saved = *slot;
     *slot = (state.scroll_x, state.scroll_y);
     state.scroll_x = saved.0;

@@ -65,6 +65,7 @@ pub(crate) fn render_settings_dialog(app: &mut OctaApp, ctx: &egui::Context) {
     let font_changed = app.settings_dialog.font_changed;
     let theme_changed = app.settings_dialog.theme_changed;
     let thumbs_changed = new_settings.image_thumbnails != app.settings.image_thumbnails;
+    let zoom_changed = new_settings.zoom_percent() != app.zoom_percent;
     let window_size_changed = new_settings.window_size != app.settings.window_size;
     let maximized_changed = new_settings.start_maximized != app.settings.start_maximized;
 
@@ -129,9 +130,8 @@ pub(crate) fn render_settings_dialog(app: &mut OctaApp, ctx: &egui::Context) {
         app.settings.retype_layout_sample
     });
 
-    // A new thumbnail size changes which rows are taller: their measured
-    // heights are stale and must be taken again.
-    if thumbs_changed {
+    // Thumbnails and typography affect measured rows, including in other tabs.
+    if thumbs_changed || font_changed || zoom_changed {
         for tab in &mut app.tabs {
             tab.table_state.invalidate_row_heights();
         }
@@ -173,7 +173,7 @@ pub(crate) fn render_settings_dialog(app: &mut OctaApp, ctx: &egui::Context) {
         }
     }
     if font_changed || theme_changed {
-        app.apply_zoom(ctx);
+        app.apply_app_theme(ctx);
     }
     if icon_changed {
         // Re-roll for `Random`; identity for any concrete variant.

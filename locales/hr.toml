@@ -1015,7 +1015,7 @@ modified = "Izmijenjeno"
 no_file = "Nema učitane datoteke"
 dismiss_hint = "Zatvori ovu poruku"
 no_file_dialog = "Na ovom sustavu nema dijaloga za datoteke. Instaliraj xdg-desktop-portal-gtk ili zenity, ili otvaraj datoteke ovako: octa FILE"
-zoom_hint = "Povećanje cijelog prozora. Klikni za povratak na 100 posto."
+zoom_hint = "Povećanje tablice. Klikni za povratak na 100 posto."
 zoom_in_hint = "Povećaj za {n} %"
 zoom_out_hint = "Smanji za {n} %"
 

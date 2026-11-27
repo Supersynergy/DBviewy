@@ -8,6 +8,13 @@ Octa supports a small subset of Excel-like formulas in two places:
    treated as a row-1 template and applied to **every row** when the
    column is created.
 
+You can also edit the selected cell in the ribbon's formula bar. Press
+**Enter** or select the check mark to apply; **Esc** or the cross drops
+the draft. Changing the selected cell or tab discards the draft instead
+of applying it to the new target. The name box uses source row numbers
+shown in the grid. On a loaded page, formula references still start at
+its first loaded row.
+
 ## Start with an example
 
 Open **Formula examples...** from **Insert Column** or **Find a command**.

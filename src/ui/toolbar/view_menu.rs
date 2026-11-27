@@ -394,31 +394,7 @@ pub(super) fn view_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
             }
 
             ui.separator();
-            ui.label(
-                RichText::new(crate::i18n::t("view_menu.zoom"))
-                    .strong()
-                    .size(11.0)
-                    .color(colors.text_muted),
-            );
-            ui.horizontal(|ui| {
-                if ui.button("-").clicked() {
-                    action.zoom_out = true;
-                }
-                ui.label(format!("{}%", zoom_percent));
-                if ui.button("+").clicked() {
-                    action.zoom_in = true;
-                }
-            });
-            let why_zoom = (zoom_percent == 100).then(|| t("greyed.zoom_is_100"));
-            if crate::ui::menu_entry::keyed_menu_entry(
-                ui,
-                "view_menu.zoom_reset",
-                &t("view_menu.zoom_reset_hint"),
-                why_zoom.as_deref(),
-            ) {
-                action.zoom_reset = true;
-                ui.close();
-            }
+            crate::ui::table_zoom::view_controls(ui, zoom_percent, colors.text_muted, action);
         },
     );
 }

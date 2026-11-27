@@ -1019,7 +1019,7 @@ modified = "Diubah"
 no_file = "Tidak ada berkas dimuat"
 dismiss_hint = "Tutup pesan ini"
 no_file_dialog = "Tidak ada dialog file di sistem ini. Pasang xdg-desktop-portal-gtk atau zenity, atau buka file lewat: octa FILE"
-zoom_hint = "Zoom seluruh jendela. Klik untuk kembali ke 100 persen."
+zoom_hint = "Zoom tabel. Klik untuk kembali ke 100 persen."
 zoom_in_hint = "Perbesar {n} persen"
 zoom_out_hint = "Perkecil {n} persen"
 

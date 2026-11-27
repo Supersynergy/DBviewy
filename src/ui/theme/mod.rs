@@ -397,7 +397,7 @@ pub fn apply_theme(ctx: &egui::Context, mode: ThemeMode, font: FontSettings) {
     // epaint panics on a family bound to no face.
     let custom = readable_custom_font(font.custom_path);
     let has_custom = custom.is_some();
-    // egui caches by content hash, so a repeat (settings, zoom) is cheap.
+    // egui caches by content hash, so a repeat from Settings is cheap.
     ctx.set_fonts(font_definitions(custom));
 
     let proportional = primary_family(&font, has_custom);

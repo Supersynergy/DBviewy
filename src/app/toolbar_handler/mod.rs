@@ -397,12 +397,25 @@ impl OctaApp {
                     full_scan,
                 };
                 let source = tab.table.source_path.as_deref();
+                let toolbar_tab = tab.id.0;
                 let mut command_submitted = (false, false);
                 let command_width = (ui.available_width() * 0.30).clamp(108.0, 285.0);
-                let action =
-                    ui::toolbar::draw_toolbar_with_command(ui, cx, search, command_width, |ui| {
-                        command_submitted = self.chat.compact_command(ui, source);
-                    });
+                let mut action = ui
+                    .push_id(("dbviewy_toolbar_tab", toolbar_tab), |ui| {
+                        ui::toolbar::draw_toolbar_with_command(
+                            ui,
+                            cx,
+                            search,
+                            command_width,
+                            |ui| {
+                                command_submitted = self.chat.compact_command(ui, source);
+                            },
+                        )
+                    })
+                    .inner;
+                // Apply ribbon edits before any command or menu can activate
+                // a different tab. The editor ID above includes the tab ID.
+                self.dispatch_ribbon_action(&mut action);
                 self.handle_compact_command(ctx, command_submitted);
                 self.search_focus_requested = false;
 
@@ -488,6 +501,24 @@ impl OctaApp {
         }
     }
 
+    fn dispatch_ribbon_action(&mut self, action: &mut ui::toolbar::ToolbarAction) {
+        if let Some((row, col, text)) = action.commit_cell_text.take()
+            && !self.is_readonly()
+        {
+            let mode = self.settings.binary_display_mode;
+            let tab = &mut self.tabs[self.active_tab];
+            if tab.table_state.selected_cell == Some((row, col))
+                && octa::ui::table_view::commit_cell_text(&mut tab.table, row, col, text, mode)
+            {
+                tab.table_state.invalidate_row_heights();
+                tab.filter_dirty = true;
+            }
+        }
+        if let Some((row, col)) = action.goto_cell.take() {
+            self.jump_to_cell(row, col);
+        }
+    }
+
     fn dispatch_toolbar_action(&mut self, ctx: &egui::Context, action: ui::toolbar::ToolbarAction) {
         self.dispatch_file_menu(ctx, &action);
         if action.toggle_theme {
@@ -498,25 +529,12 @@ impl OctaApp {
                 self.logo_texture = None;
                 self.welcome_logo_texture = None;
             }
-            self.apply_zoom(ctx);
+            self.apply_app_theme(ctx);
         }
         self.dispatch_view_menu(ctx, &action);
         if action.toggle_ribbon {
             self.settings.show_ribbon = !self.settings.show_ribbon;
             self.settings.save();
-        }
-        if let Some((row, col)) = action.goto_cell {
-            self.jump_to_cell(row, col);
-        }
-        if let Some((row, col, text)) = action.commit_cell_text.clone()
-            && !self.is_readonly()
-        {
-            let mode = self.settings.binary_display_mode;
-            let tab = &mut self.tabs[self.active_tab];
-            if octa::ui::table_view::commit_cell_text(&mut tab.table, row, col, text, mode) {
-                tab.table_state.invalidate_row_heights();
-                tab.filter_dirty = true;
-            }
         }
         if action.copy_cells {
             self.do_copy(ctx);

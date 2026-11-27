@@ -1018,7 +1018,7 @@ modified = "Muokattu"
 no_file = "Ei tiedostoa ladattu"
 dismiss_hint = "Sulje tämä viesti"
 no_file_dialog = "Tässä järjestelmässä ei ole tiedostoikkunaa. Asenna xdg-desktop-portal-gtk tai zenity, tai avaa tiedostot näin: octa FILE"
-zoom_hint = "Koko ikkunan zoomaus. Napsauta, niin palaat 100 prosenttiin."
+zoom_hint = "Taulukon zoomaus. Napsauta, niin palaat 100 prosenttiin."
 zoom_in_hint = "Lähennä {n} %"
 zoom_out_hint = "Loitonna {n} %"
 
