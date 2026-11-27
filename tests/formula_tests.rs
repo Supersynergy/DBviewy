@@ -4231,3 +4231,167 @@ fn month_formulas_accept_typed_xlsx_dates_and_keep_date_diagnostics() {
     assert_eq!(table.get(0, 1), Some(&CellValue::Int(2)));
     assert_eq!(std::fs::read(source).unwrap(), original);
 }
+
+#[test]
+fn linear_regression_matches_independent_rational_references_and_german_names() {
+    let reference_table = |xs: &[i64], ys: &[i64]| DataTable {
+        rows: xs
+            .iter()
+            .zip(ys)
+            .map(|(&x, &y)| vec![CellValue::Int(x), CellValue::Int(y), CellValue::Null])
+            .collect(),
+        ..formula_table()
+    };
+    // The published examples use different measurements. The expectations
+    // below are the corresponding exact fractions from two-pass sums of
+    // deviations, independently of the evaluator's online calculation.
+    let forecast = reference_table(&[20, 28, 31, 38, 40], &[6, 7, 9, 15, 21]);
+    for (formula, expected) in [
+        ("FORECAST.LINEAR(20+10,B1:B5,A1:A5)", 13747.0 / 1296.0),
+        ("PROGNOSE.LINEAR(30;$B$1:$B$5;$A$1:$A$5)", 13747.0 / 1296.0),
+        ("FORECAST(30,B1:B5,A1:A5)", 13747.0 / 1296.0),
+        ("PROGNOSE(30;B1:B5;A1:A5)", 13747.0 / 1296.0),
+    ] {
+        let got = evaluate_formula(formula, &forecast).unwrap();
+        assert!((got - expected).abs() < 1e-12, "{formula}: {got}");
+    }
+    let intercept = reference_table(&[6, 5, 11, 7, 5], &[2, 3, 9, 1, 8]);
+    for formula in ["INTERCEPT(B1:B5,A1:A5)", "ACHSENABSCHNITT(B1:B5;A1:A5)"] {
+        let got = evaluate_formula(formula, &intercept).unwrap();
+        assert!((got - 3.0 / 62.0).abs() < 1e-13, "{formula}: {got}");
+    }
+    let rsq = reference_table(&[6, 5, 11, 7, 5, 4, 4], &[2, 3, 9, 1, 8, 7, 5]);
+    for formula in ["RSQ(B1:B7,A1:A7)", "BESTIMMTHEITSMASS(B1:B7;A1:A7)"] {
+        let got = evaluate_formula(formula, &rsq).unwrap();
+        assert!((got - 121.0 / 2088.0).abs() < 1e-14, "{formula}: {got}");
+    }
+}
+
+#[test]
+fn regression_keeps_pair_positions_and_distinguishes_a_flat_response_from_a_flat_predictor() {
+    use CellValue::{Bool, Float, Int, Null, String as Text};
+    let table = DataTable {
+        rows: vec![
+            vec![Int(0), Int(5), Int(7)],
+            vec![Null, Int(60), Int(7)],
+            vec![Int(2), Int(11), Int(7)],
+            vec![Int(99), Text("1000".into()), Int(7)],
+            vec![Bool(false), Int(88), Int(7)],
+            vec![Int(100), Float(f64::NAN), Int(7)],
+            vec![Int(4), Int(17), Int(7)],
+        ],
+        ..formula_table()
+    };
+    for (formula, want) in [
+        ("INTERCEPT(B1:B7,A1:A7)", 5.0),
+        ("FORECAST.LINEAR(8,B1:B7,A1:A7)", 29.0),
+        ("RSQ(B1:B7,A1:A7)", 1.0),
+        ("INTERCEPT(C1:C7,A1:A7)", 7.0),
+        ("FORECAST.LINEAR(500,C1:C7,A1:A7)", 7.0),
+        ("IFERROR(FORECAST.LINEAR(500,A1:A7,C1:C7),16)", 16.0),
+        ("IF(0,FORECAST.LINEAR(1/0,A1:A7,C1:C7),17)", 17.0),
+    ] {
+        let got = evaluate_formula(formula, &table).unwrap();
+        assert!((got - want).abs() < 1e-13, "{formula}: {got}");
+    }
+    for formula in [
+        "RSQ(C1:C7,A1:A7)",
+        "RSQ(A1:A7,C1:C7)",
+        "INTERCEPT(A1:A7,C1:C7)",
+        "FORECAST.LINEAR(2,A1:A7,C1:C7)",
+        "FORECAST.LINEAR(2,B1:B7,A1:A6)",
+        "FORECAST.LINEAR(2,B1,A1)",
+        "FORECAST.LINEAR(2,B1:B7,A1:A7,3)",
+        "FORECAST.LINEAR(2,B1:B7)",
+        "FORECAST.LINEAR(\"wrong\",B1:B7,A1:A7)",
+        "IF(0,FORECAST.LINEAR(4,7,C1:C7),17)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}
+
+#[test]
+fn regression_handles_large_translation_overflowing_differences_and_tiny_training_scale() {
+    let table = DataTable {
+        rows: vec![
+            vec![CellValue::Float(1.0e12), CellValue::Float(2.0e12 + 5.0)],
+            vec![
+                CellValue::Float(1.0e12 + 2.0),
+                CellValue::Float(2.0e12 + 9.0),
+            ],
+            vec![CellValue::Float(-1.0e308), CellValue::Float(-1.0e308)],
+            vec![CellValue::Float(1.0e308), CellValue::Float(1.0e308)],
+            vec![CellValue::Float(0.0), CellValue::Float(0.0)],
+            vec![CellValue::Float(1.0e-300), CellValue::Float(1.0e-300)],
+        ],
+        ..formula_table()
+    };
+    for (formula, expected) in [
+        (
+            "FORECAST.LINEAR(1000000000004,B1:B2,A1:A2)",
+            2000000000013.0,
+        ),
+        ("INTERCEPT(B1:B2,A1:A2)", 5.0),
+        ("FORECAST.LINEAR(0,B3:B4,A3:A4)", 0.0),
+        ("FORECAST.LINEAR(1E300,B5:B6,A5:A6)", 1e300),
+    ] {
+        let value = evaluate_formula(formula, &table).unwrap();
+        let tolerance = 2.0 * f64::EPSILON * f64::abs(expected).max(1.0);
+        assert!((value - expected).abs() <= tolerance, "{formula}: {value}");
+    }
+    let got = evaluate_formula("RSQ(B3:B4,A3:A4)", &table).unwrap();
+    assert!((got - 1.0).abs() < 1e-14, "{got}");
+}
+
+#[test]
+fn forecast_applies_to_a_loaded_workbook_and_reopens_as_a_numeric_cell() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    let dir = tempfile::tempdir().unwrap();
+    let input = dir.path().join("meter-history.xlsx");
+    let output = dir.path().join("meter-forecast.xlsx");
+    let mut original = DataTable {
+        rows: [0, 10, 20, 30]
+            .map(|x| {
+                vec![
+                    CellValue::Int(x),
+                    CellValue::Int(2 * x + 5),
+                    CellValue::Null,
+                ]
+            })
+            .to_vec(),
+        ..formula_table()
+    };
+    original.columns[2].data_type = "Float64".into();
+    ExcelReader.write_file(&input, &original).unwrap();
+    let original_bytes = std::fs::read(&input).unwrap();
+    let mut table = ExcelReader.read_file(&input).unwrap();
+    for (row, formula) in [
+        "=PROGNOSE.LINEAR(32;$B$1:$B$4;$A$1:$A$4)",
+        "=ACHSENABSCHNITT($B$1:$B$4;$A$1:$A$4)",
+        "=BESTIMMTHEITSMASS($B$1:$B$4;$A$1:$A$4)",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert!(commit_cell_text(
+            &mut table,
+            row,
+            2,
+            formula.into(),
+            BinaryDisplayMode::default(),
+        ));
+    }
+    ExcelReader.write_file(&output, &table).unwrap();
+    let report = ExcelReader.read_file(&output).unwrap();
+    for (row, expected) in [69.0, 5.0, 1.0].into_iter().enumerate() {
+        let Some(CellValue::Float(got)) = report.get(row, 2) else {
+            panic!(
+                "forecast report must contain numeric cells: {:?}",
+                report.get(row, 2)
+            );
+        };
+        assert!((got - expected).abs() < 1e-12, "{got}");
+    }
+    assert_eq!(std::fs::read(input).unwrap(), original_bytes);
+}

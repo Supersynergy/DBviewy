@@ -115,26 +115,39 @@ In a range or a single-cell argument, these functions include numbers and numeri
 | --- | --- | --- |
 | `=CORREL(A1:A20,B1:B20)` | Linear correlation from -1 to 1 | KORREL |
 | `=SLOPE(B1:B20,A1:A20)` | Change in B per unit change in A along the fitted line | STEIGUNG |
+| `=INTERCEPT(B1:B20,A1:A20)` | Value of the fitted line at X = 0 | ACHSENABSCHNITT |
+| `=RSQ(B1:B20,A1:A20)` | R², the square of the Pearson correlation | BESTIMMTHEITSMASS |
+| `=FORECAST.LINEAR(30,B1:B20,A1:A20)` | Predicted B at X = 30 | PROGNOSE.LINEAR |
 | `=COVARIANCE.S(A1:A20,B1:B20)` | Sample covariance | KOVARIANZ.S |
 | `=COVARIANCE.P(A1:A20,B1:B20)` | Population covariance | KOVARIANZ.P |
 
 Use equal-sized ranges. DBviewy compares cells at the same relative
 position and skips a pair if either cell is blank, text, a Boolean, or
 non-finite. A true numeric zero counts; a value stored as text does not.
-Correlation is undefined if either series is constant. Slope needs
-variation in its second argument, the X series. Population covariance
+Correlation and R² are undefined if either series is constant. Slope,
+intercept and forecast need variation in the X series. A constant Y
+can still give a constant forecast. Population covariance
 of a single numeric pair is zero; sample covariance requires at least
 two pairs. Undefined results have no numeric value; use `IFERROR` if
 you want a fallback.
 
 In **Formula examples**, select the function, then the visible X and Y
 columns. The draft shows the exact cell addresses and their order.
-Both ranges are fixed to the loaded rows. Review with **Preview**;
-**Use example** alone never changes the table. When you add the column,
-DBviewy reads the two fixed ranges once and repeats the result.
+Both training ranges are fixed to the loaded rows. In the forecast
+example, the first argument is the X value for the current row; it
+can also refer to a separate column of new values. Replace it with a
+number to predict a single point. `FORECAST` and `PROGNOSE` are accepted
+as older names. **Use example** only prepares the formula. Check it with
+**Preview** before adding the column. A fixed query and fixed ranges are
+evaluated once; while filling, repeated query values can reuse their
+results if both training ranges are fixed.
 
 See Microsoft's documentation for [CORREL](https://support.microsoft.com/en-us/excel/functions/correl-function)
 and [SLOPE](https://support.microsoft.com/en-au/excel/functions/slope-function).
+The syntax also follows Microsoft's [INTERCEPT](https://support.microsoft.com/en-us/excel/functions/intercept-function),
+[RSQ](https://support.microsoft.com/en-us/excel/functions/rsq-function)
+and [FORECAST.LINEAR](https://support.microsoft.com/en-us/excel/functions/forecast-and-forecast-linear-functions)
+examples.
 
 ### Measure how much readings vary
 

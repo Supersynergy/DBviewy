@@ -556,21 +556,21 @@ impl<'a> FormulaRows<'a> {
         let open = self.source.find('(')?;
         let body = self.source[open + 1..].trim_ascii_end().strip_suffix(')')?;
         let name = self.source[..open].trim_ascii().to_uppercase();
-        let accepts =
-            |arg: usize| match name.as_str() {
-                "XLOOKUP" | "XVERWEIS" | "XMATCH" | "XVERGLEICH" | "MATCH" | "VERGLEICH"
-                | "VLOOKUP" | "SVERWEIS" | "HLOOKUP" | "WVERWEIS" | "NUMBERVALUE"
-                | "ZAHLENWERT" => arg == 0,
-                "COUNTIF" | "ZÄHLENWENN" | "SUMIF" | "SUMMEWENN" | "AVERAGEIF"
-                | "MITTELWERTWENN" => arg == 1,
-                "COUNTIFS" | "ZÄHLENWENNS" => arg % 2 == 1,
-                "PERCENTILE.INC" | "PERCENTILE.EXC" | "PERCENTILE" | "QUANTIL.INKL"
-                | "QUANTIL.EXKL" | "QUANTIL" | "QUARTILE.INC" | "QUARTILE.EXC"
-                | "QUARTILE.INKL" | "QUARTILE.EXKL" | "QUARTILE" => arg == 1,
-                "SUMIFS" | "SUMMEWENNS" | "AVERAGEIFS" | "MITTELWERTWENNS" | "MINIFS"
-                | "MINWENNS" | "MAXIFS" | "MAXWENNS" => arg >= 2 && arg % 2 == 0,
-                _ => false,
-            };
+        let accepts = |arg: usize| match name.as_str() {
+            "XLOOKUP" | "XVERWEIS" | "XMATCH" | "XVERGLEICH" | "MATCH" | "VERGLEICH"
+            | "VLOOKUP" | "SVERWEIS" | "HLOOKUP" | "WVERWEIS" | "NUMBERVALUE" | "ZAHLENWERT"
+            | "FORECAST.LINEAR" | "PROGNOSE.LINEAR" | "FORECAST" | "PROGNOSE" => arg == 0,
+            "COUNTIF" | "ZÄHLENWENN" | "SUMIF" | "SUMMEWENN" | "AVERAGEIF" | "MITTELWERTWENN" => {
+                arg == 1
+            }
+            "COUNTIFS" | "ZÄHLENWENNS" => arg % 2 == 1,
+            "PERCENTILE.INC" | "PERCENTILE.EXC" | "PERCENTILE" | "QUANTIL.INKL"
+            | "QUANTIL.EXKL" | "QUANTIL" | "QUARTILE.INC" | "QUARTILE.EXC" | "QUARTILE.INKL"
+            | "QUARTILE.EXKL" | "QUARTILE" => arg == 1,
+            "SUMIFS" | "SUMMEWENNS" | "AVERAGEIFS" | "MITTELWERTWENNS" | "MINIFS" | "MINWENNS"
+            | "MAXIFS" | "MAXWENNS" => arg >= 2 && arg % 2 == 0,
+            _ => false,
+        };
         // Scan just the top-level arguments. Doubled quotes toggle twice,
         // so punctuation inside a quoted string remains part of that string.
         let mut inputs = Vec::with_capacity(self.relative.len());

@@ -22,7 +22,8 @@ enum Form {
     Nth,
     Percentile,
     Paired,
-    Slope,
+    ResponseFirst,
+    Forecast,
     Workday,
     MonthShift,
     MonthEnd,
@@ -157,7 +158,22 @@ const RECIPES: &[Recipe] = &[
     Recipe {
         english: "SLOPE",
         german: "STEIGUNG",
-        form: Form::Slope,
+        form: Form::ResponseFirst,
+    },
+    Recipe {
+        english: "INTERCEPT",
+        german: "ACHSENABSCHNITT",
+        form: Form::ResponseFirst,
+    },
+    Recipe {
+        english: "RSQ",
+        german: "BESTIMMTHEITSMASS",
+        form: Form::ResponseFirst,
+    },
+    Recipe {
+        english: "FORECAST.LINEAR",
+        german: "PROGNOSE.LINEAR",
+        form: Form::Forecast,
     },
     Recipe {
         english: "NUMBERVALUE",
@@ -196,7 +212,10 @@ impl Recipe {
     }
 
     fn uses_pair(self) -> bool {
-        matches!(self.form, Form::Paired | Form::Slope | Form::DatedValue)
+        matches!(
+            self.form,
+            Form::Paired | Form::ResponseFirst | Form::Forecast | Form::DatedValue
+        )
     }
 
     fn expression(
@@ -226,14 +245,15 @@ impl Recipe {
             Form::Rank => format!("{c}1{sep}${c}$1:${c}${n}"),
             Form::Nth => format!("${c}$1:${c}${n}{sep}{}", n.min(2)),
             Form::PeriodicValue => format!("10%{sep}${c}$1:${c}${n}"),
-            Form::Paired | Form::Slope | Form::DatedValue => {
+            Form::Paired | Form::ResponseFirst | Form::Forecast | Form::DatedValue => {
                 let other = partner.filter(|&other| other != col)?;
                 let y = letters(other);
                 let x_range = format!("${c}$1:${c}${n}");
                 let y_range = format!("${y}$1:${y}${n}");
                 match self.form {
                     // Excel uses the response first, then the predictor.
-                    Form::Slope => format!("{y_range}{sep}{x_range}"),
+                    Form::ResponseFirst => format!("{y_range}{sep}{x_range}"),
+                    Form::Forecast => format!("{c}1{sep}{y_range}{sep}{x_range}"),
                     Form::DatedValue => format!("10%{sep}{x_range}{sep}{y_range}"),
                     _ => format!("{x_range}{sep}{y_range}"),
                 }

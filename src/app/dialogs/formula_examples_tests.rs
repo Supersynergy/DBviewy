@@ -227,6 +227,19 @@ fn paired_examples_anchor_both_columns_and_keep_slope_argument_order() {
         ("korrel", true, "=KORREL($C$1:$C$5;$A$1:$A$5)", 1.0),
         ("steigung", true, "=STEIGUNG($A$1:$A$5;$C$1:$C$5)", 3.0),
         ("slope", false, "=SLOPE($A$1:$A$5,$C$1:$C$5)", 3.0),
+        ("intercept", false, "=INTERCEPT($A$1:$A$5,$C$1:$C$5)", 1.0),
+        (
+            "bestimmtheitsmaß",
+            true,
+            "=BESTIMMTHEITSMASS($A$1:$A$5;$C$1:$C$5)",
+            1.0,
+        ),
+        (
+            "prognose.linear",
+            true,
+            "=PROGNOSE.LINEAR(C1;$A$1:$A$5;$C$1:$C$5)",
+            1.0,
+        ),
         (
             "covariance.p",
             false,

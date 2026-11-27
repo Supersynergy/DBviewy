@@ -2130,3 +2130,70 @@ fn cashflow_preview_commit_and_xlsx_keep_the_same_value_and_allow_one_undo() {
         Some(&CellValue::Date("2024-12-31".into()))
     );
 }
+
+#[test]
+fn linear_forecast_previews_each_input_and_reuses_fixed_training_ranges_for_repeats() {
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = data::DataTable {
+        columns: ["Known X", "Known Y", "New X"]
+            .map(|name| ColumnInfo {
+                name: name.into(),
+                data_type: "Int64".into(),
+            })
+            .to_vec(),
+        rows: (0..600)
+            .map(|x| {
+                vec![
+                    CellValue::Int(2 * x),
+                    CellValue::Int(4 * x + 5),
+                    CellValue::Int(1 + 3 * (x % 2)),
+                ]
+            })
+            .collect(),
+        ..data::DataTable::empty()
+    };
+    tab.new_col_name = "Forecast".into();
+    tab.new_col_type = "Float64".into();
+    tab.new_col_formula = "=PROGNOSE.LINEAR(C1;$B$1:$B$600;$A$1:$A$600)".into();
+
+    let preview = FormulaPreview::read(&tab.new_col_formula, &tab.table).unwrap();
+    assert_eq!(preview.values.len(), PREVIEW_ROWS);
+    assert!(preview.first_bad.is_none());
+    let check = |row: usize, val: f64| {
+        let want = if row % 2 == 0 { 7.0 } else { 13.0 };
+        assert!((val - want).abs() < 1e-10, "{row}: {val}");
+    };
+    for (row, value) in preview.values.into_iter().enumerate() {
+        check(row, value.unwrap());
+    }
+    let template = FormulaRows::new(&tab.new_col_formula[1..]);
+    let keys = template.memo_inputs().unwrap();
+    assert_eq!(keys, [(1, 2)]);
+    let mut calls = 0;
+    let (cached, bad) = fill_shifted_template(&template, &tab.table, &keys, |expr, table| {
+        calls += 1;
+        data::evaluate_formula_with_diagnostics(expr, table)
+    });
+    assert!(bad.is_none());
+    assert_eq!(calls, 2);
+    assert_eq!(cached.len(), 600);
+    for (row, value) in cached {
+        check(row, value);
+    }
+    assert!(
+        FormulaRows::new("FORECAST.LINEAR(C1,B1:$B$600,$A$1:$A$600)")
+            .memo_inputs()
+            .is_none()
+    );
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    for row in [0, 1, 598, 599] {
+        let Some(CellValue::Float(value)) = tab.table.get(row, 3) else {
+            panic!("forecast not stored as a numeric result at {row}");
+        };
+        check(row, *value);
+    }
+    assert!(tab.table.undo());
+    assert_eq!(tab.table.col_count(), 3);
+}

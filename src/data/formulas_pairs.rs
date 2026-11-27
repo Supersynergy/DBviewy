@@ -2,7 +2,7 @@
 
 use super::control::{arguments, unparen};
 use super::criteria::{Rectangle, rectangle};
-use super::{CellValue, Evaluation, FormulaToken as Token};
+use super::{CellValue, Evaluation, FormulaToken as Token, eval_complete};
 
 #[derive(Clone, Copy, Debug)]
 pub(super) enum Kind {
@@ -10,6 +10,9 @@ pub(super) enum Kind {
     SampleCovariance,
     PopulationCovariance,
     Slope,
+    Intercept,
+    Determination,
+    Forecast,
 }
 
 impl Kind {
@@ -27,6 +30,14 @@ impl Kind {
             ("KOVAR", PopulationCovariance),
             ("SLOPE", Slope),
             ("STEIGUNG", Slope),
+            ("INTERCEPT", Intercept),
+            ("ACHSENABSCHNITT", Intercept),
+            ("RSQ", Determination),
+            ("BESTIMMTHEITSMASS", Determination),
+            ("FORECAST.LINEAR", Forecast),
+            ("PROGNOSE.LINEAR", Forecast),
+            ("FORECAST", Forecast),
+            ("PROGNOSE", Forecast),
         ]
         .into_iter()
         .find(|(alias, _)| alias.eq_ignore_ascii_case(name))
@@ -54,7 +65,14 @@ pub(super) fn evaluate(
     pos: usize,
     context: &mut Evaluation<'_>,
 ) -> Option<(f64, usize)> {
-    let ([left, right], end) = arguments(tokens, pos)?;
+    let (prediction_at, left, right, end) = if matches!(kind, Kind::Forecast) {
+        let ([x, y_range, x_range], end) = arguments(tokens, pos)?;
+        let x = eval_complete(x?, context)?;
+        (Some(x), y_range, x_range, end)
+    } else {
+        let ([left, right], end) = arguments(tokens, pos)?;
+        (None, left, right, end)
+    };
     let left = exact_range(left?)?;
     let right = exact_range(right?)?;
     let Some(table) = context.table else {
@@ -82,7 +100,12 @@ pub(super) fn evaluate(
             }
         }
     }
-    Some((moments?.result(kind)?, end))
+    let moments = moments?;
+    let value = match prediction_at {
+        Some(x) => moments.estimate(x)?,
+        None => moments.result(kind)?,
+    };
+    Some((value, end))
 }
 
 struct Axis {
@@ -130,6 +153,27 @@ impl Axis {
         (scaled, shrink)
     }
 
+    fn scaled_position(&self, value: f64) -> f64 {
+        if self.halved {
+            (value * 0.5 - self.origin * 0.5) / self.scale
+        } else {
+            let delta = value - self.origin;
+            if delta.is_finite() {
+                delta / self.scale
+            } else {
+                ((value * 0.5 - self.origin * 0.5) / self.scale) * 2.0
+            }
+        }
+    }
+
+    fn absolute(&self, scaled: f64) -> f64 {
+        if self.halved {
+            scaled.mul_add(self.scale, self.origin * 0.5) * 2.0
+        } else {
+            scaled.mul_add(self.scale, self.origin)
+        }
+    }
+
     fn push(&mut self, value: f64, count: f64) -> f64 {
         let delta = value - self.mean;
         self.mean += delta / count;
@@ -166,12 +210,49 @@ impl PairedMoments {
         self.cross += dx * (y - self.y.mean);
     }
 
+    fn estimate(&self, x: f64) -> Option<f64> {
+        if !x.is_finite() || self.x.squared <= 0.0 {
+            return None;
+        }
+        if self.cross == 0.0 {
+            let value = self.y.absolute(self.y.mean);
+            return value.is_finite().then_some(value);
+        }
+        // Evaluate in centred coordinates so the prediction near the
+        // sample does not subtract two large, rounded absolute values.
+        let dx = self.x.scaled_position(x) - self.x.mean;
+        let y = (self.cross / self.x.squared).mul_add(dx, self.y.mean);
+        let value = self.y.absolute(y);
+        if value.is_finite() {
+            return Some(value);
+        }
+        // A distant x on a very small scale can overflow in normalised
+        // coordinates even when the unscaled slope and prediction fit.
+        let slope = self.result(Kind::Slope)?;
+        let mean_x = self.x.absolute(self.x.mean);
+        let mean_y = self.y.absolute(self.y.mean);
+        let delta = x - mean_x;
+        let value = if delta.is_finite() {
+            slope.mul_add(delta, mean_y)
+        } else {
+            (slope * 2.0).mul_add(x * 0.5 - mean_x * 0.5, mean_y)
+        };
+        value.is_finite().then_some(value)
+    }
+
     fn result(&self, kind: Kind) -> Option<f64> {
         use Kind::*;
         let value = match kind {
-            Correlation if self.x.squared > 0.0 && self.y.squared > 0.0 => {
-                (self.cross / self.x.squared.sqrt() / self.y.squared.sqrt()).clamp(-1.0, 1.0)
+            Correlation | Determination if self.x.squared > 0.0 && self.y.squared > 0.0 => {
+                let r =
+                    (self.cross / self.x.squared.sqrt() / self.y.squared.sqrt()).clamp(-1.0, 1.0);
+                if matches!(kind, Determination) {
+                    r * r
+                } else {
+                    r
+                }
             }
+            Intercept => return self.estimate(0.0),
             Slope if self.x.squared > 0.0 => {
                 let relative = self.cross / self.x.squared;
                 let relative = match (self.y.halved, self.x.halved) {

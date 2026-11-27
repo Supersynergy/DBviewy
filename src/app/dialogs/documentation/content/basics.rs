@@ -742,6 +742,12 @@ correlation. `SLOPE(B1:B20,A1:A20)` gives the change in B per unit of A
 along the fitted line. Enter the Y range first for SLOPE. COVARIANCE.S
 uses a sample; COVARIANCE.P uses a whole population. Search **Examples**
 for KORREL, STEIGUNG, KOVARIANZ.S or KOVARIANZ.P to select X and Y.
+`INTERCEPT(B1:B20,A1:A20)` gives the value at X = 0, and `RSQ` gives
+the square of the correlation. `FORECAST.LINEAR(30,B1:B20,A1:A20)`
+predicts Y at X = 30. Search the examples for ACHSENABSCHNITT,
+BESTIMMTHEITSMASS or PROGNOSE.LINEAR. The forecast example uses the
+current row's X value and fixed training ranges. Preview it before
+adding the column.
 The draft points to the loaded rows. Use ranges of the same size.
 A pair with text, a Boolean or a blank is skipped; numeric zero counts.
 Choosing an example changes the draft, not the table.
