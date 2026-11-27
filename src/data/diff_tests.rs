@@ -50,3 +50,13 @@ fn empty_b_makes_every_a_row_unique() {
     assert!(d.only_in_b.is_empty());
     assert_eq!(d.shared_keys, 0);
 }
+
+#[test]
+fn whole_row_diff_keeps_control_text_on_its_original_side_of_a_field_boundary() {
+    let a = table(&[&["Nord\u{1f}Lager", "Tor\nA"], &["exact", "same"]]);
+    let b = table(&[&["Nord", "Lager\u{1f}Tor\nA"], &["exact", "same"]]);
+    let d = diff_rows(&a, &b);
+    assert_eq!(d.only_in_a, [0]);
+    assert_eq!(d.only_in_b, [0]);
+    assert_eq!(d.shared_keys, 1);
+}

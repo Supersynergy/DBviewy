@@ -112,6 +112,7 @@ pub use table_edits::{EditColRef, EditOp, apply_edit_ops, compute_column_values}
 use std::collections::HashMap;
 
 mod cell_value;
+mod row_key_encoding;
 mod marks;
 mod undo;
 mod view_enums;

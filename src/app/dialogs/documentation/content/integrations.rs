@@ -894,8 +894,9 @@ against a table on a saved database connection, or against a file in
 cloud storage. It answers the question you have after a load: did what I
 sent actually land?
 
-Rows are matched on the key columns you pick, the way a join would, and
-the result opens in a detached tab: a `status` column (only_in_a,
+Rows are matched on the key columns you pick, field by field. Embedded
+control characters are part of the cell value. The result opens in a
+detached tab: a `status` column (only_in_a,
 only_in_b, changed_a, changed_b), a `changed_columns` column, then the
 data. "A" is your open tab, "B" is the other side.
 

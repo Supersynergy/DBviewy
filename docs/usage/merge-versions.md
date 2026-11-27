@@ -42,8 +42,10 @@ several, and the merge is redone at once without reading the files
 again.
 
 With no column ticked, rows are matched by position: row 1 with row 1.
-That only works when nobody inserted, deleted or sorted rows. A key
-value that appears twice is matched in order.
+That only works when nobody inserted, deleted or sorted rows. With
+key columns selected, each field is compared on its own, including
+embedded line breaks or control characters. A key that appears twice
+is matched in input order.
 
 ## Using it
 

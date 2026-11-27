@@ -8,6 +8,8 @@ use std::collections::HashMap;
 
 use crate::data::{CellValue, DataTable};
 
+use super::row_key_encoding::{append_field, displayed};
+
 /// In a number column, 1 and 1.0 are one value. Other columns use the
 /// display value, retaining the existing empty/blank equivalence.
 pub(crate) fn cell_key<'a>(data_type: &str, cell: &'a CellValue) -> Cow<'a, str> {
@@ -16,14 +18,7 @@ pub(crate) fn cell_key<'a>(data_type: &str, cell: &'a CellValue) -> Cow<'a, str>
     {
         return value.into();
     }
-    match cell {
-        CellValue::Null => "".into(),
-        CellValue::String(s)
-        | CellValue::Date(s)
-        | CellValue::DateTime(s)
-        | CellValue::Nested(s) => s.as_str().into(),
-        other => other.to_string().into(),
-    }
+    displayed(Some(cell))
 }
 
 pub(crate) fn encode_row_key(key: &mut Vec<u8>, table: &DataTable, row: usize, cols: &[usize]) {
@@ -33,15 +28,7 @@ pub(crate) fn encode_row_key(key: &mut Vec<u8>, table: &DataTable, row: usize, c
             .get(row, col)
             .map(|v| cell_key(&table.columns[col].data_type, v))
             .unwrap_or_default();
-        // Use one prefix byte for short values. Size is in bytes, not
-        // characters, so multibyte text and embedded controls are literal.
-        let mut len = field.len();
-        while len >= 128 {
-            key.push((len as u8 & 0x7f) | 0x80);
-            len >>= 7;
-        }
-        key.push(len as u8);
-        key.extend_from_slice(field.as_bytes());
+        append_field(&field, |bytes| key.extend_from_slice(bytes));
     }
 }
 

@@ -172,3 +172,44 @@ fn the_conflict_table_has_one_column_per_version() {
     );
     assert_eq!(rows(&t)[0], ["1", "v", "", "a", "b", "c"]);
 }
+
+#[test]
+fn three_way_version_merge_preserves_identity_across_reordered_control_text_keys() {
+    let header = &["hall", "slot", "amount", "note"];
+    let base = table(
+        header,
+        &[
+            &["Nord\u{1f}Lager", "Tor", "10", "A"],
+            &["Nord", "Lager\u{1f}Tor", "20", "B"],
+        ],
+    );
+    let first = table(
+        header,
+        &[
+            &["Nord", "Lager\u{1f}Tor", "20", "B1"],
+            &["Nord\u{1f}Lager", "Tor", "11", "A"],
+        ],
+    );
+    let second = table(
+        header,
+        &[
+            &["Nord\u{1f}Lager", "Tor", "10", "A2"],
+            &["Nord", "Lager\u{1f}Tor", "22", "B"],
+        ],
+    );
+    let merged = merge_versions(
+        Some(&base),
+        &[&first, &second],
+        &["hall".into(), "slot".into()],
+    )
+    .unwrap();
+    assert!(merged.conflicts.is_empty());
+    assert_eq!(merged.status, [RowStatus::Changed, RowStatus::Changed]);
+    assert_eq!(
+        rows(&merged.finish().unwrap()),
+        [
+            ["Nord\u{1f}Lager", "Tor", "11", "A2"],
+            ["Nord", "Lager\u{1f}Tor", "22", "B1"]
+        ]
+    );
+}

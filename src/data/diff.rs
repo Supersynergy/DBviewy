@@ -1,19 +1,19 @@
 //! Row-level data diff between two `DataTable`s.
 //!
 //! Pure function so the CLI (`--diff`) and the MCP `diff_tables` tool can both
-//! call it without a GUI. Keying is text-based and matches the convention used
-//! by [`crate::data::duplicates`] and the Compare view's RowHashDiff: each
-//! row's cells are formatted via `CellValue::to_string()` and joined with an
-//! ASCII unit separator (`\x1F`). A Parquet row and a CSV row with the same
-//! displayed values therefore compare equal.
+//! call it without a GUI. As in the Compare view, row fields use their
+//! display text with explicit boundaries. A Parquet row and a CSV row
+//! with the same displayed values therefore compare equal.
 //!
 //! Columns are compared **positionally** (all columns, in order). The two
 //! tables should share the same column order/names for the result to be
 //! meaningful - the same caveat the GUI row-diff states.
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 use crate::data::DataTable;
+
+use super::row_key_encoding::{append_field, displayed};
 
 /// Outcome of [`diff_rows`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -26,41 +26,39 @@ pub struct RowDiff {
     pub shared_keys: usize,
 }
 
-/// Build the whole-row key for `row` (every column, `\x1F`-joined).
-fn row_key(table: &DataTable, row: usize) -> String {
-    let mut key = String::new();
+fn row_key(table: &DataTable, row: usize) -> Vec<u8> {
+    let mut key = Vec::new();
     for col in 0..table.col_count() {
-        if let Some(v) = table.get(row, col) {
-            key.push_str(&v.to_string());
-        }
-        key.push('\x1F');
+        append_field(&displayed(table.get(row, col)), |bytes| {
+            key.extend_from_slice(bytes);
+        });
     }
     key
 }
 
 /// Diff two tables by whole-row content. See module docs for the keying rules.
 pub fn diff_rows(a: &DataTable, b: &DataTable) -> RowDiff {
-    let a_keys: Vec<String> = (0..a.row_count()).map(|r| row_key(a, r)).collect();
-    let b_keys: Vec<String> = (0..b.row_count()).map(|r| row_key(b, r)).collect();
+    let a_keys: Vec<_> = (0..a.row_count()).map(|r| row_key(a, r)).collect();
+    let b_keys: Vec<_> = (0..b.row_count()).map(|r| row_key(b, r)).collect();
 
     // Distinct-key membership for the "present on the other side?" test.
-    let a_set: HashMap<&str, ()> = a_keys.iter().map(|k| (k.as_str(), ())).collect();
-    let b_set: HashMap<&str, ()> = b_keys.iter().map(|k| (k.as_str(), ())).collect();
+    let a_set: HashSet<&[u8]> = a_keys.iter().map(Vec::as_slice).collect();
+    let b_set: HashSet<&[u8]> = b_keys.iter().map(Vec::as_slice).collect();
 
     let only_in_a: Vec<usize> = a_keys
         .iter()
         .enumerate()
-        .filter(|(_, k)| !b_set.contains_key(k.as_str()))
+        .filter(|(_, k)| !b_set.contains(k.as_slice()))
         .map(|(i, _)| i)
         .collect();
     let only_in_b: Vec<usize> = b_keys
         .iter()
         .enumerate()
-        .filter(|(_, k)| !a_set.contains_key(k.as_str()))
+        .filter(|(_, k)| !a_set.contains(k.as_slice()))
         .map(|(i, _)| i)
         .collect();
 
-    let shared_keys = a_set.keys().filter(|k| b_set.contains_key(**k)).count();
+    let shared_keys = a_set.intersection(&b_set).count();
 
     RowDiff {
         only_in_a,

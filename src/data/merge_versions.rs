@@ -24,6 +24,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::data::{CellValue, ColumnInfo, DataTable};
 
+use super::row_key_encoding::{append_field, displayed};
+
 /// Where a merged row stands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RowStatus {
@@ -178,12 +180,12 @@ pub fn merge_versions(
         .collect::<anyhow::Result<_>>()?;
 
     // Output order: the original's rows, then new keys in version order.
-    let mut order: Vec<&str> = Vec::new();
+    let mut order: Vec<&[u8]> = Vec::new();
     let mut seen = HashSet::new();
     for kr in base_rows.iter().chain(ver_rows.iter()) {
         for k in &kr.order {
-            if seen.insert(k.as_str()) {
-                order.push(k.as_str());
+            if seen.insert(k.as_slice()) {
+                order.push(k.as_slice());
             }
         }
     }
@@ -425,12 +427,12 @@ pub fn conflict_table(result: &MergeResult) -> DataTable {
 
 /// A table's rows by key, remembering first-seen order.
 struct KeyedRows {
-    order: Vec<String>,
-    index: HashMap<String, usize>,
+    order: Vec<Vec<u8>>,
+    index: HashMap<Vec<u8>, usize>,
 }
 
 impl KeyedRows {
-    fn get(&self, key: &str) -> Option<usize> {
+    fn get(&self, key: &[u8]) -> Option<usize> {
         self.index.get(key).copied()
     }
 }
@@ -446,23 +448,25 @@ fn keyed_rows(table: &DataTable, keys: &[String], label: &str) -> anyhow::Result
                 .ok_or_else(|| anyhow::anyhow!("key column `{name}` not found in {label}"))
         })
         .collect::<anyhow::Result<_>>()?;
-    let mut seen: HashMap<String, usize> = HashMap::new();
+    let mut seen: HashMap<Vec<u8>, usize> = HashMap::new();
     let mut order = Vec::with_capacity(table.row_count());
     let mut index = HashMap::with_capacity(table.row_count());
     for r in 0..table.row_count() {
-        let mut key = if key_cols.is_empty() {
-            r.to_string()
+        let mut key = Vec::new();
+        if key_cols.is_empty() {
+            key.extend_from_slice(&r.to_le_bytes());
         } else {
-            let mut k = String::new();
-            for &c in &key_cols {
-                k.push_str(&table.get(r, c).map(|v| v.to_string()).unwrap_or_default());
-                k.push('\x1F');
+            for &col in &key_cols {
+                append_field(&displayed(table.get(r, col)), |bytes| {
+                    key.extend_from_slice(bytes);
+                });
             }
-            k
-        };
-        let nth = seen.entry(key.clone()).or_insert(0);
-        key.push_str(&format!("\x1E{nth}"));
-        *nth += 1;
+            // Same-width occurrence suffix: equal keys still pair in their
+            // original order, without inserting a delimiter into cell text.
+            let nth = seen.entry(key.clone()).or_insert(0);
+            key.extend_from_slice(&nth.to_le_bytes());
+            *nth += 1;
+        }
         index.insert(key.clone(), r);
         order.push(key);
     }

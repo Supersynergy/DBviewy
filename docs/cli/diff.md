@@ -24,8 +24,9 @@ octa --diff FILE_A FILE_B [--diff-mode MODE] [--diff-on COLS] [-f FORMAT]
 ### `set` (default) - whole-row membership
 
 Each row is keyed by its **whole-row content**: every column, in order,
-rendered to text and joined. A row in A matches a row in B when their
-keys are equal. Two consequences follow:
+rendered to text. Each field keeps its boundary, even if the text
+contains a control character. A row in A matches a row in B when the
+whole row's fields agree. Two consequences follow:
 
 - **Columns are positional.** The two files should share the same
   column order (and, ideally, names) for the diff to be meaningful.

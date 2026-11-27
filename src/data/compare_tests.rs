@@ -339,3 +339,62 @@ fn times_and_durations_within_the_seconds_tolerance() {
         Equality::WithinTolerance
     );
 }
+
+#[test]
+fn composite_join_matches_reordered_control_text_keys_without_false_changes() {
+    let h = &["hall", "slot", "notice"];
+    let a = table(
+        h,
+        &[
+            &["Nord\u{1f}Lager", "Tor", "A"],
+            &["Nord", "Lager\u{1f}Tor", "B"],
+        ],
+    );
+    let b = table(
+        h,
+        &[
+            &["Nord", "Lager\u{1f}Tor", "B2"],
+            &["Nord\u{1f}Lager", "Tor", "A"],
+        ],
+    );
+    let result = compare_join(
+        &a,
+        &b,
+        &["hall".into(), "slot".into()],
+        &CompareOptions::default(),
+    )
+    .unwrap();
+    assert!(result.only_in_a.is_empty() && result.only_in_b.is_empty());
+    assert_eq!(result.unchanged, 1);
+    assert_eq!(
+        result.changed,
+        [RowChange {
+            row_a: 1,
+            row_b: 0,
+            changed_columns: vec!["notice".into()],
+        }]
+    );
+}
+
+#[test]
+fn repeated_join_keys_pair_in_input_order_without_losing_rows() {
+    let mut a = table(&["id", "notice"], &[]);
+    let mut b = a.clone();
+    for i in 0..25_000 {
+        let row = vec![CellValue::String("repeat".into()), CellValue::Int(i)];
+        a.rows.push(row.clone());
+        b.rows.push(row);
+    }
+    b.rows[0][1] = CellValue::Int(-1);
+    b.rows[24_999][1] = CellValue::Int(-2);
+    let r = compare_join(&a, &b, &["id".into()], &CompareOptions::default()).unwrap();
+    assert_eq!(r.unchanged, 24_998);
+    assert!(r.only_in_a.is_empty() && r.only_in_b.is_empty());
+    assert_eq!(
+        r.changed
+            .iter()
+            .map(|change| (change.row_a, change.row_b))
+            .collect::<Vec<_>>(),
+        [(0, 0), (24_999, 24_999)]
+    );
+}

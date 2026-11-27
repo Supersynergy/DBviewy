@@ -20,10 +20,12 @@
 //! All functions are pure so the CLI (`--diff --diff-mode`) and the MCP
 //! `diff_tables` tool share them.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use crate::data::fuzzy_duplicates::{NormalizeOpts, normalize};
 use crate::data::{CellValue, ColumnInfo, DataTable};
+
+use super::row_key_encoding::{append_field, displayed};
 
 /// Which comparison strategy to run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -256,15 +258,6 @@ fn as_number(v: &CellValue) -> Option<f64> {
     }
 }
 
-/// Format a cell as a comparable string (Null included, so a Null vs empty
-/// string still compares distinctly when displayed forms differ).
-fn cell_str(table: &DataTable, row: usize, col: usize) -> String {
-    table
-        .get(row, col)
-        .map(|v| v.to_string())
-        .unwrap_or_default()
-}
-
 /// Case-sensitive lookup of a column index by name.
 fn col_index(table: &DataTable, name: &str) -> Option<usize> {
     table.columns.iter().position(|c| c.name == name)
@@ -319,18 +312,22 @@ pub fn compare_ordered(a: &DataTable, b: &DataTable, opts: &CompareOptions) -> C
 /// Build the join key for `row` from the given key column indices. Case and
 /// spaces are normalised when the options say so; tolerances never apply to
 /// keys, so rows pair on exact (normalised) values.
-fn join_key(table: &DataTable, row: usize, key_cols: &[usize], opts: &CompareOptions) -> String {
-    let mut key = String::new();
-    for &c in key_cols {
-        let s = cell_str(table, row, c);
+fn join_key(
+    key: &mut Vec<u8>,
+    table: &DataTable,
+    row: usize,
+    key_cols: &[usize],
+    opts: &CompareOptions,
+) {
+    key.clear();
+    for &col in key_cols {
+        let field = displayed(table.get(row, col));
         if opts.normalises_text() {
-            key.push_str(&opts.norm(&s));
+            append_field(&opts.norm(&field), |bytes| key.extend_from_slice(bytes));
         } else {
-            key.push_str(&s);
+            append_field(&field, |bytes| key.extend_from_slice(bytes));
         }
-        key.push('\x1F');
     }
-    key
 }
 
 /// Keyed comparison. Rows are matched by the named key column(s); within a key
@@ -377,26 +374,25 @@ pub fn compare_join(
         .collect();
 
     // key -> queue of row indices, preserving input order.
-    let mut b_groups: HashMap<String, Vec<usize>> = HashMap::new();
-    for r in 0..b.row_count() {
-        b_groups
-            .entry(join_key(b, r, &b_keys, opts))
-            .or_default()
-            .push(r);
+    let mut key = Vec::new();
+    let mut b_groups: HashMap<Vec<u8>, VecDeque<usize>> = HashMap::new();
+    for row in 0..b.row_count() {
+        join_key(&mut key, b, row, &b_keys, opts);
+        if let Some(queue) = b_groups.get_mut(key.as_slice()) {
+            queue.push_back(row);
+        } else {
+            b_groups.insert(key.clone(), VecDeque::from([row]));
+        }
     }
     // Track which b rows got matched so leftovers become only_in_b.
     let mut b_matched = vec![false; b.row_count()];
 
     let mut result = CompareResult::default();
     for ra in 0..a.row_count() {
-        let key = join_key(a, ra, &a_keys, opts);
-        let matched_rb = b_groups.get_mut(&key).and_then(|q| {
-            if q.is_empty() {
-                None
-            } else {
-                Some(q.remove(0))
-            }
-        });
+        join_key(&mut key, a, ra, &a_keys, opts);
+        let matched_rb = b_groups
+            .get_mut(key.as_slice())
+            .and_then(VecDeque::pop_front);
         match matched_rb {
             Some(rb) => {
                 b_matched[rb] = true;
