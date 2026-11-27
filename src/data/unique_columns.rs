@@ -3,8 +3,8 @@
 //! on undocumented databases or freshly-imported CSVs.
 //!
 //! Pure function so the MCP tool, CLI handler, and tests share one
-//! implementation. Keyed by `duplicates::cell_key` joined with the ASCII
-//! unit separator, the scheme `duplicates::find_duplicate_rows` uses, so a
+//! implementation. Uses the same length-prefixed compound key as
+//! `duplicates::find_duplicate_rows`, so a
 //! "unique columns" answer here is consistent with a "no duplicates" answer
 //! from the dedup tool.
 
@@ -104,7 +104,7 @@ pub fn find_unique_columns(table: &DataTable, max_combo_size: usize) -> UniqueAn
 
 fn analyse_single(table: &DataTable, col: usize, total_rows: usize) -> UniqueResult {
     use crate::data::CellValue;
-    let mut seen: HashSet<String> = HashSet::with_capacity(total_rows.min(1024));
+    let mut seen = HashSet::with_capacity(total_rows.min(1024));
     let mut nulls = 0usize;
     for row in 0..total_rows {
         match table.get(row, col) {
@@ -128,20 +128,13 @@ fn analyse_single(table: &DataTable, col: usize, total_rows: usize) -> UniqueRes
 }
 
 fn combo_distinct(table: &DataTable, combo: &[usize], total_rows: usize) -> (usize, bool) {
-    let mut seen: HashSet<String> = HashSet::with_capacity(total_rows.min(1024));
-    let mut key = String::new();
+    let mut seen = HashSet::<Vec<u8>>::with_capacity(total_rows.min(1024));
+    let mut key = Vec::new();
     for row in 0..total_rows {
-        key.clear();
-        for &col in combo {
-            if let Some(v) = table.get(row, col) {
-                key.push_str(&super::duplicates::cell_key(
-                    &table.columns[col].data_type,
-                    v,
-                ));
-            }
-            key.push('\x1F');
+        super::duplicates::encode_row_key(&mut key, table, row, combo);
+        if !seen.contains(key.as_slice()) {
+            seen.insert(key.clone());
         }
-        seen.insert(key.clone());
     }
     let distinct = seen.len();
     (distinct, distinct == total_rows && total_rows > 0)

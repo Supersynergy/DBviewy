@@ -13,7 +13,7 @@ use egui::RichText;
 
 use octa::data::dedupe::{KeepWhich, dedupe_dropped_indices};
 use octa::data::duplicates::find_duplicate_rows;
-use octa::data::{DataTable, MarkColor, MarkKey};
+use octa::data::{CellValue, DataTable, MarkColor, MarkKey};
 use octa::ui::settings::{
     DialogSize, center_on_first_show, dialog_header, remember_dialog_rect, size_dialog_window,
 };
@@ -258,6 +258,11 @@ pub(crate) fn render_find_duplicates_dialog(app: &mut OctaApp, ctx: &egui::Conte
         v.sort_unstable();
         v
     };
+    if let FindDuplicatesMode::Drop(keep) = mode {
+        drop_duplicates(app, &key_cols_vec, keep);
+        app.tabs[app.active_tab].show_find_duplicates = false;
+        return;
+    }
     let dup_rows: Vec<usize> = {
         let tab = &app.tabs[app.active_tab];
         find_duplicate_rows(&tab.table, &key_cols_vec)
@@ -361,7 +366,7 @@ pub(crate) fn render_find_duplicates_dialog(app: &mut OctaApp, ctx: &egui::Conte
                 std::time::Instant::now(),
             ));
         }
-        FindDuplicatesMode::Drop(keep) => drop_duplicates(app, &key_cols_vec, keep),
+        FindDuplicatesMode::Drop(_) => unreachable!("removal is handled before lookup"),
     }
 
     app.tabs[app.active_tab].show_find_duplicates = false;
@@ -377,17 +382,26 @@ pub(crate) fn drop_duplicates(app: &mut OctaApp, key_cols: &[usize], keep: KeepW
     let active = app.active_tab;
     let key_names = app.column_names(key_cols);
 
-    // Merge pending cell edits so dedupe sees the visible values.
-    app.tabs[active].table.apply_edits();
-
+    // The plan reads through the edit overlay. Nothing is merged until
+    // at least one matching row is ready to be removed.
     // The engine tells us exactly which original rows to drop, in descending
     // order. Delete each (highest first, so indices don't shift) and coalesce
     // the per-row DeleteRow undo actions into one Batch, so a single Ctrl+Z
     // restores the full table.
     let dropped = dedupe_dropped_indices(&app.tabs[active].table, key_cols, keep);
     let removed = dropped.len();
+    if removed == 0 {
+        app.status_message = Some((
+            octa::i18n::t("dialog.fd_no_dups"),
+            std::time::Instant::now(),
+        ));
+        return;
+    }
 
-    if removed > 0 {
+    {
+        // Merge only when committing. Otherwise each individual deletion
+        // would need to remap all the remaining cell edits.
+        app.tabs[active].table.apply_edits();
         let undo_start = app.tabs[active].table.undo_stack.len();
         for row_idx in dropped {
             app.tabs[active].table.delete_row(row_idx);
@@ -424,9 +438,104 @@ fn build_duplicates_table(src: &DataTable, rows: &[usize], key_summary: &str) ->
         ..DataTable::empty()
     };
     for &row_idx in rows {
-        if let Some(row) = src.rows.get(row_idx) {
-            copy.rows.push(row.clone());
+        if row_idx < src.row_count() {
+            copy.rows.push(
+                (0..src.col_count())
+                    .map(|col| src.get(row_idx, col).cloned().unwrap_or(CellValue::Null))
+                    .collect(),
+            );
         }
     }
     copy
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use octa::data::ColumnInfo;
+
+    fn fixture() -> OctaApp {
+        let mut app = OctaApp::new(
+            vec![],
+            Default::default(),
+            octa::ui::settings::IconVariant::Rose,
+        );
+        let text = |s: &str| CellValue::String(s.into());
+        app.tabs[0].table = DataTable {
+            columns: ["Zone", "Schicht", "Notiz"]
+                .map(|name| ColumnInfo {
+                    name: name.into(),
+                    data_type: "Utf8".into(),
+                })
+                .to_vec(),
+            rows: vec![
+                vec![text("Nord\u{1f}West"), text("Früh"), text("Eins")],
+                vec![text("Nord"), text("West\u{1f}Früh"), text("Andere Zeile")],
+                vec![text("Nord\u{1f}West"), text("Spät"), text("Drei")],
+            ],
+            ..DataTable::empty()
+        };
+        app
+    }
+
+    #[test]
+    fn duplicate_result_tab_takes_current_edited_values_without_merging_source_edits() {
+        let mut app = fixture();
+        let table = &mut app.tabs[0].table;
+        table.set(2, 1, CellValue::String("Früh".into()));
+        table.set(2, 2, CellValue::String("Aktuell\nWest\tOK".into()));
+        let originals = table.rows.clone();
+        let edits = table.edits.clone();
+        let rows = find_duplicate_rows(table, &[0, 1]);
+        assert_eq!(rows, [0, 2]);
+        let preview = build_duplicates_table(table, &rows, "Zone, Schicht");
+        assert_eq!(preview.row_count(), 2);
+        assert_eq!(preview.get(1, 1), Some(&CellValue::String("Früh".into())));
+        assert_eq!(
+            preview.get(1, 2),
+            Some(&CellValue::String("Aktuell\nWest\tOK".into()))
+        );
+        assert!(preview.source_path.is_none());
+        assert_eq!(table.rows, originals);
+        assert_eq!(table.edits, edits);
+    }
+
+    #[test]
+    fn no_match_preserves_overlay_and_later_drop_restores_exact_rows_in_one_undo() {
+        let mut app = fixture();
+        app.tabs[0]
+            .table
+            .set(0, 2, CellValue::String("Bearbeitet".into()));
+        let base = app.tabs[0].table.rows.clone();
+        let edits = app.tabs[0].table.edits.clone();
+        let undo = app.tabs[0].table.undo_stack.len();
+        drop_duplicates(&mut app, &[0, 1], KeepWhich::First);
+        assert_eq!(app.tabs[0].table.rows, base);
+        assert_eq!(app.tabs[0].table.edits, edits);
+        assert_eq!(app.tabs[0].table.undo_stack.len(), undo);
+
+        app.tabs[0]
+            .table
+            .set(2, 1, CellValue::String("Früh".into()));
+        let steps = app.tabs[0].table.undo_stack.len();
+        drop_duplicates(&mut app, &[0, 1], KeepWhich::First);
+        let table = &mut app.tabs[0].table;
+        assert_eq!(table.row_count(), 2);
+        assert_eq!(
+            table.get(1, 2),
+            Some(&CellValue::String("Andere Zeile".into()))
+        );
+        assert_eq!(table.undo_stack.len(), steps + 1);
+        assert!(table.undo());
+        assert_eq!(table.row_count(), 3);
+        assert_eq!(
+            table.get(0, 2),
+            Some(&CellValue::String("Bearbeitet".into()))
+        );
+        assert_eq!(
+            table.get(1, 2),
+            Some(&CellValue::String("Andere Zeile".into()))
+        );
+        assert_eq!(table.get(2, 1), Some(&CellValue::String("Früh".into())));
+    }
 }

@@ -100,8 +100,9 @@ Output modes (radio buttons):
   the active table gets an orange row mark. Use **Edit > Mark > Clear
   all marks** to remove them. Your other marks share the same path.
 - **Open duplicates in a new tab**: clones the columns + just the
-  duplicate rows into a fresh scratch tab. The source tab is left
-  alone; the new tab has no source path so Save prompts.
+  duplicate rows and their pending cell edits into a fresh scratch tab.
+  The source tab stays unchanged; the new tab has no source path so
+  Save prompts.
 - **Show only the duplicate rows**: filters the active table down to
   the repeats, without touching the data. A removable chip appears
   above the table; one click on it shows every row again.

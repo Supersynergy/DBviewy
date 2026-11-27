@@ -198,3 +198,24 @@ fn combo_size_one_means_no_combos() {
     let a = find_unique_columns(&t, 1);
     assert!(a.combos.is_empty());
 }
+
+#[test]
+fn compound_unique_keys_match_find_duplicates_even_with_control_characters() {
+    let t = build(
+        &[("Gebiet", "Utf8"), ("Gerät", "Utf8")],
+        [
+            ("a\u{1f}b", "c"),
+            ("a", "b\u{1f}c"),
+            ("a\u{1f}b", "b\u{1f}c"),
+            ("a", "c"),
+        ]
+        .into_iter()
+        .map(|(a, b)| vec![CellValue::String(a.into()), CellValue::String(b.into())])
+        .collect(),
+    );
+    let result = find_unique_columns(&t, 2);
+    assert_eq!(result.combos.len(), 1);
+    assert_eq!(result.combos[0].distinct_count, 4);
+    assert!(result.combos[0].is_unique);
+    assert!(octa::data::duplicates::find_duplicate_rows(&t, &[0, 1]).is_empty());
+}

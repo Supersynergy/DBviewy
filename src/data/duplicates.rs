@@ -1,68 +1,77 @@
-//! Find duplicate rows in a `DataTable` by an N-column key.
+//! Find duplicate rows in a DataTable by an N-column key.
 //!
-//! Pure function so integration tests can hit it without a GUI; the
-//! `Find Duplicates...` dialog under `app/dialogs/find_duplicates.rs`
-//! is the only caller in the binary.
-//!
-//! Each row's selected columns are keyed by [`cell_key`] and joined with an
-//! ASCII unit separator: a number in a number column by its value (`1` and
-//! `1.0` are one value), anything else by its text.
+//! Key fields are length-prefixed so text can contain any separator. The
+//! same comparison is used by removal and composite uniqueness analysis.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use crate::data::{CellValue, DataTable};
 
-/// One cell as a duplicate key. In a number column a number counts by its
-/// value, so a whole number read as `1` in one row and `1.0` in the next is
-/// one value; anything else counts by its text. Shared by Find duplicates,
-/// Drop duplicates and Unique columns, so the three agree.
-pub(crate) fn cell_key(data_type: &str, cell: &CellValue) -> String {
-    crate::data::is_numeric_data_type(data_type)
-        .then(|| crate::data::decimal::value_key(cell))
-        .flatten()
-        .unwrap_or_else(|| cell.to_string())
+/// In a number column, 1 and 1.0 are one value. Other columns use the
+/// display value, retaining the existing empty/blank equivalence.
+pub(crate) fn cell_key<'a>(data_type: &str, cell: &'a CellValue) -> Cow<'a, str> {
+    if crate::data::is_numeric_data_type(data_type)
+        && let Some(value) = crate::data::decimal::value_key(cell)
+    {
+        return value.into();
+    }
+    match cell {
+        CellValue::Null => "".into(),
+        CellValue::String(s)
+        | CellValue::Date(s)
+        | CellValue::DateTime(s)
+        | CellValue::Nested(s) => s.as_str().into(),
+        other => other.to_string().into(),
+    }
 }
 
-/// Return the row indices (sorted, ascending) of every row that shares
-/// its key-column values with at least one other row in the table.
-///
-/// `key_cols` empty or table empty -> empty result. Out-of-range
-/// indices in `key_cols` are skipped silently rather than erroring;
-/// the caller (a UI dialog) has already validated against the live
-/// column count.
-pub fn find_duplicate_rows(table: &DataTable, key_cols: &[usize]) -> Vec<usize> {
-    let row_count = table.row_count();
-    if row_count == 0 || key_cols.is_empty() {
-        return Vec::new();
+pub(crate) fn encode_row_key(key: &mut Vec<u8>, table: &DataTable, row: usize, cols: &[usize]) {
+    key.clear();
+    for &col in cols {
+        let field = table
+            .get(row, col)
+            .map(|v| cell_key(&table.columns[col].data_type, v))
+            .unwrap_or_default();
+        // Use one prefix byte for short values. Size is in bytes, not
+        // characters, so multibyte text and embedded controls are literal.
+        let mut len = field.len();
+        while len >= 128 {
+            key.push((len as u8 & 0x7f) | 0x80);
+            len >>= 7;
+        }
+        key.push(len as u8);
+        key.extend_from_slice(field.as_bytes());
     }
-    let col_count = table.col_count();
-    let valid_cols: Vec<usize> = key_cols
+}
+
+/// Return the row indices (ascending) for every row with a duplicate key.
+/// If no valid key column is selected, return an empty result.
+pub fn find_duplicate_rows(table: &DataTable, key_cols: &[usize]) -> Vec<usize> {
+    let rows = table.row_count();
+    let cols: Vec<_> = key_cols
         .iter()
         .copied()
-        .filter(|&c| c < col_count)
+        .filter(|&c| c < table.col_count())
         .collect();
-    if valid_cols.is_empty() {
+    if rows == 0 || cols.is_empty() {
         return Vec::new();
     }
 
-    let mut groups: HashMap<String, Vec<usize>> = HashMap::with_capacity(row_count.min(1024));
-    let mut key = String::new();
-    for row in 0..row_count {
-        key.clear();
-        for &col in &valid_cols {
-            if let Some(v) = table.get(row, col) {
-                key.push_str(&cell_key(&table.columns[col].data_type, v));
+    let mut firsts: HashMap<Vec<u8>, Option<usize>> = HashMap::with_capacity(rows.min(1024));
+    let mut key = Vec::new();
+    let mut duplicates = Vec::new();
+    for row in 0..rows {
+        encode_row_key(&mut key, table, row, &cols);
+        if let Some(first) = firsts.get_mut(key.as_slice()) {
+            if let Some(index) = first.take() {
+                duplicates.push(index);
             }
-            key.push('\x1F');
+            duplicates.push(row);
+        } else {
+            firsts.insert(key.clone(), Some(row));
         }
-        groups.entry(key.clone()).or_default().push(row);
     }
-
-    let mut out: Vec<usize> = groups
-        .into_values()
-        .filter(|rows| rows.len() >= 2)
-        .flatten()
-        .collect();
-    out.sort_unstable();
-    out
+    duplicates.sort_unstable();
+    duplicates
 }

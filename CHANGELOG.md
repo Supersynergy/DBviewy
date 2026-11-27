@@ -29,6 +29,8 @@
 - Fill selected visible cells with one validated value after reviewing the changes.
   Pasted text keeps line breaks and tabs; overly long input is rejected without truncation.
 - Select blank cells in the visible table without changing values or filters.
+- Compare duplicate keys field by field, including text with embedded controls.
+  A duplicate review tab includes pending edits without changing its source.
 - Calculate percentiles and quartiles, including p95 response times, with inclusive and exclusive Excel formulas.
 - Measure sample and population spread with standard deviation and variance, including running columns.
 - Reveal the correct row when navigating filtered tables with zoomed or resized rows.

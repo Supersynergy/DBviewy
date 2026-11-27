@@ -1,57 +1,35 @@
 use crate::data::{CellValue, DataTable};
 use std::collections::HashSet;
 
+use super::duplicates::encode_row_key;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeepWhich {
     First,
     Last,
 }
 
-fn row_key(table: &DataTable, row: usize, key_cols: &[usize]) -> String {
-    let cols: Vec<usize> = if key_cols.is_empty() {
-        (0..table.col_count()).collect()
-    } else {
-        key_cols.to_vec()
-    };
-    let mut key = String::new();
-    for c in cols {
-        if let Some(v) = table.get(row, c) {
-            key.push_str(&super::duplicates::cell_key(&table.columns[c].data_type, v));
-        }
-        key.push('\u{1F}');
-    }
-    key
-}
-
-/// Set of original row indices to keep: the first or last occurrence of each
-/// key. Shared by [`dedupe_rows`] and [`dedupe_dropped_indices`].
-fn keep_set(table: &DataTable, key_cols: &[usize], keep: KeepWhich) -> HashSet<usize> {
-    let n = table.row_count();
-    let order: Vec<usize> = match keep {
-        KeepWhich::First => (0..n).collect(),
-        KeepWhich::Last => (0..n).rev().collect(),
-    };
-    let mut seen: HashSet<String> = HashSet::with_capacity(n);
-    let mut keep: HashSet<usize> = HashSet::with_capacity(n);
-    for row in order {
-        if seen.insert(row_key(table, row, key_cols)) {
-            keep.insert(row);
-        }
-    }
-    keep
-}
-
-/// Remove duplicate rows by `key_cols` (empty = whole row). Keeps the first or
+/// Remove duplicate rows by key_cols (empty = whole row). Keeps the first or
 /// last occurrence of each key; surviving rows stay in original order.
 pub fn dedupe_rows(table: &DataTable, key_cols: &[usize], keep: KeepWhich) -> DataTable {
-    let kept = keep_set(table, key_cols, keep);
+    let mut dropped = dedupe_dropped_indices(table, key_cols, keep)
+        .into_iter()
+        .rev()
+        .peekable();
     let mut out = DataTable::empty();
     out.columns = table.columns.clone();
     out.rows = (0..table.row_count())
-        .filter(|r| kept.contains(r))
-        .map(|r| {
+        .filter(|row| {
+            if dropped.peek() == Some(row) {
+                dropped.next();
+                false
+            } else {
+                true
+            }
+        })
+        .map(|row| {
             (0..table.col_count())
-                .map(|c| table.get(r, c).cloned().unwrap_or(CellValue::Null))
+                .map(|col| table.get(row, col).cloned().unwrap_or(CellValue::Null))
                 .collect()
         })
         .collect();
@@ -59,19 +37,42 @@ pub fn dedupe_rows(table: &DataTable, key_cols: &[usize], keep: KeepWhich) -> Da
     out
 }
 
-/// Original row indices that [`dedupe_rows`] would drop, in **descending**
-/// order so a caller can `delete_row` them in sequence without shifting later
-/// targets. Lets the GUI build its undo batch without reconstructing the result.
+/// Original row indices that dedupe_rows would drop, in descending order
+/// so deletion does not shift remaining targets. An invalid explicit key
+/// never results in deletion.
 pub fn dedupe_dropped_indices(
     table: &DataTable,
     key_cols: &[usize],
     keep: KeepWhich,
 ) -> Vec<usize> {
-    let kept = keep_set(table, key_cols, keep);
-    (0..table.row_count())
-        .rev()
-        .filter(|r| !kept.contains(r))
-        .collect()
+    let cols = if key_cols.is_empty() {
+        (0..table.col_count()).collect::<Vec<_>>()
+    } else if key_cols.iter().all(|&c| c < table.col_count()) {
+        key_cols.to_vec()
+    } else {
+        return Vec::new();
+    };
+
+    let rows = table.row_count();
+    let mut seen: HashSet<Vec<u8>> = HashSet::with_capacity(rows.min(1024));
+    let mut key = Vec::new();
+    let mut dropped = Vec::new();
+    let mut visit = |row| {
+        encode_row_key(&mut key, table, row, &cols);
+        if seen.contains(key.as_slice()) {
+            dropped.push(row);
+        } else {
+            seen.insert(key.clone());
+        }
+    };
+    match keep {
+        KeepWhich::First => {
+            (0..rows).for_each(&mut visit);
+            dropped.reverse();
+        }
+        KeepWhich::Last => (0..rows).rev().for_each(&mut visit),
+    }
+    dropped
 }
 
 #[cfg(test)]

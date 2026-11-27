@@ -95,3 +95,51 @@ fn dedupe_unknown_column_errors() {
     assert!(!out.status.success());
     assert!(String::from_utf8_lossy(&out.stderr).contains("nope"));
 }
+
+#[test]
+fn two_column_keys_keep_control_characters_in_their_original_field() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("control-text.csv");
+    let first = ["Kühlung\u{001f}West", "Prüfung\nTab\trechts", "id-01"];
+    let distinct = ["Kühlung", "West\u{001f}Prüfung\nTab\trechts", "id-02"];
+    let same_key = [first[0], first[1], "id-03"];
+    let mut writer = csv::Writer::from_path(&path).unwrap();
+    writer.write_record(["zone", "status", "id"]).unwrap();
+    for row in [first, distinct, same_key] {
+        writer.write_record(row).unwrap();
+    }
+    writer.flush().unwrap();
+    drop(writer);
+    let snapshot = std::fs::read(&path).unwrap();
+    for (keep, expected) in [("first", [first, distinct]), ("last", [distinct, same_key])] {
+        let output = Command::new(octa_bin())
+            .args(["--dedupe"])
+            .arg(&path)
+            .args([
+                "--dedupe-on",
+                "zone,status",
+                "--dedupe-keep",
+                keep,
+                "-f",
+                "csv",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let mut reader = csv::Reader::from_reader(output.stdout.as_slice());
+        assert_eq!(
+            reader.headers().unwrap().iter().collect::<Vec<_>>(),
+            ["zone", "status", "id"]
+        );
+        let rows = reader.records().collect::<Result<Vec<_>, _>>().unwrap();
+        assert_eq!(rows.len(), 2);
+        for (record, want) in rows.iter().zip(expected) {
+            assert_eq!(record.iter().collect::<Vec<_>>(), want);
+        }
+    }
+    assert_eq!(std::fs::read(path).unwrap(), snapshot);
+}

@@ -223,8 +223,9 @@ opens a modal that:
      matches another row with an orange row mark in the active table.
      Use **Edit → Mark → Clear all marks** to remove them.
    - **Open duplicates in a new tab** clones the columns and just
-     the duplicate rows into a fresh scratch tab. The source tab is
-     untouched. The new tab has no source path so a Save prompts
+     the duplicate rows into a fresh scratch tab, including pending
+     cell edits. The source tab stays unchanged. The new tab has no source
+     path so a Save prompts
      for one.
    - **Show only the duplicate rows** filters the active table down to
      the repeats, leaving the data alone. A removable chip appears above
@@ -256,6 +257,8 @@ first run's answer behind.
 Two rows are duplicates when **every** checked column has the same
 value. In a number column a number counts by its value, so `1`, `1.0`
 and `1.00` are the same; in a text column the text has to match.
+Newlines and other control characters are part of the field, not a
+boundary between two columns.
 
 A row whose key only matches itself is **not** a duplicate. The
 result always comes in pairs (or larger groups).

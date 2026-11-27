@@ -135,8 +135,8 @@ fn null_and_empty_string_treated_consistently_per_to_string() {
 
 #[test]
 fn key_ordering_matters() {
-    // Hashing "ab"+SEP+"cd" must not collide with "abc"+SEP+"d". The unit
-    // separator between cells prevents adjacent-cell-merge collisions.
+    // Distinct field boundaries stay distinct even if the concatenated
+    // visible characters would match.
     let t = build(
         &[("a", "Utf8"), ("b", "Utf8")],
         vec![
@@ -185,4 +185,28 @@ fn numbers_compare_by_value_in_a_number_column() {
         ],
     );
     assert_eq!(find_duplicate_rows(&t, &[0]), vec![0, 1, 2]);
+}
+
+#[test]
+fn text_controls_and_multibyte_fields_never_cross_a_key_boundary() {
+    let head = "é".repeat(64);
+    let a = format!("{head}\u{1f}Ventil");
+    let b = "West\n\t2026".to_owned();
+    let moved = format!("Ventil\u{1f}{b}");
+    let text = |s: &str| CellValue::String(s.into());
+    let t = build(
+        &[("Zone", "Utf8"), ("Teil", "Utf8")],
+        vec![
+            vec![text(&a), text(&b)],
+            vec![text(&head), text(&moved)],
+            vec![text(&a), text(&b)],
+            vec![text(&a), text(&b)],
+            vec![text(&head), text(&moved)],
+            vec![text(&head), text(&b)],
+        ],
+    );
+    assert_eq!(find_duplicate_rows(&t, &[0, 1]), [0, 1, 2, 3, 4]);
+    assert_eq!(find_duplicate_rows(&t, &[1, 0]), [0, 1, 2, 3, 4]);
+    let distinct = build(&[("Zone", "Utf8"), ("Teil", "Utf8")], t.rows[..2].to_vec());
+    assert!(find_duplicate_rows(&distinct, &[0, 1]).is_empty());
 }
