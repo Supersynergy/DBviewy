@@ -75,6 +75,32 @@ column, use **Columns > Calculated column > Running total** instead.
 
 In a range or a single-cell argument, these functions include numbers and numeric text, and skip blanks and other values. `COUNT` returns the number of included cells and scalar arguments. `MEDIAN` skips non-finite values and averages the two middle numbers when there is an even count. When there are no numbers, `AVERAGE` and `MEDIAN` return no numeric result; the other four functions return zero.
 
+### Measure how much readings vary
+
+For measurements of 96, 100 and 104, `=STDEV.S(A1:A3)` returns 4 in
+the original units. Use the sample functions when the rows are a sample
+of a larger population. Use the population functions when the range
+contains every reading to describe.
+
+| Measure | Sample (at least two numbers) | Population (at least one number) |
+|---------|-------------------------------|-----------------------------------|
+| Standard deviation | `STDEV.S` / `STABW.S` | `STDEV.P` / `STABW.N` |
+| Variance | `VAR.S` | `VAR.P` |
+
+Variance is in squared units. In older formulas, `STDEV`, `STABW`, `VAR`
+and `VARIANZ` use the sample method. `STDEVP`, `STABWN`, `VARP` and
+`VARIANZEN` use the population method.
+
+Ranges count loaded numbers and numeric text. Blanks, other text, boolean
+cells and non-finite values in ranges are skipped. A directly supplied
+`TRUE` or `FALSE` counts as 1 or 0; a quoted numeric argument also counts.
+If too few values are available or the result is outside the numeric
+range, the formula has no result.
+
+In Insert Column, `=STABW.S(A$1:A1)` reports the sample deviation so far.
+Keep the first row fixed and let the last row move. This form reads each
+newly included cell once. The first row with only one reading is blank.
+
 ### Find percentiles and quartiles
 
 To find the 95th-percentile response time, enter

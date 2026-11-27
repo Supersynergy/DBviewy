@@ -1578,3 +1578,72 @@ fn a_dotted_function_name_preserves_the_formula_column_relative_rows() {
         assert_eq!(FormulaRows::new(base).at(3, &mut buffer), Some(shifted));
     }
 }
+
+#[test]
+fn running_dispersion_matches_the_shifted_evaluator_with_blanks_text_and_edits() {
+    use CellValue::{Bool, Float, Int, Null, String as Text};
+    let mut table = numeric_grid([
+        Null,
+        Int(6),
+        Text(" 10 ".into()),
+        Bool(true),
+        Float(f64::NAN),
+        Int(20),
+        Int(32),
+        Null,
+    ]);
+    table.set(6, 0, Int(26));
+    table.row_offset = 1000;
+    for formula in ["STABW.S(A$1:A1)", "VAR.P($A2:$A$1)", "VARIANZEN(A$4:A4)"] {
+        let candidate = fill_running_aggregate(formula, &table).unwrap();
+        let direct = fill_formula_template(formula, &table);
+        assert!(direct.1.is_none(), "{formula}");
+        assert_eq!(candidate, direct.0, "{formula}");
+    }
+    for invalid in ["VAR.P(A1:A4)", "VAR.P(A$3:B3)", "VAR.P(A$1:A1,2)"] {
+        assert!(
+            fill_running_aggregate(invalid, &table).is_none(),
+            "{invalid}"
+        );
+    }
+    assert!(
+        fill_running_aggregate("STDEV.P(B$1:B1)", &table)
+            .unwrap()
+            .is_empty()
+    );
+
+    let mut app = workbook_app();
+    app.tabs[0].table = numeric_grid([Int(96), Int(100), Int(104)]);
+    app.tabs[0].new_col_name = "Running deviation".into();
+    app.tabs[0].new_col_formula = "=STABW.S(A$1:A1)".into();
+    app.tabs[0].insert_col_at = Some(0);
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    assert_eq!(tab.table.col_count(), 2);
+    assert_eq!(tab.table.get(0, 0), Some(&Null));
+    assert_eq!(tab.table.get(2, 0), Some(&Int(4)));
+    assert_eq!(tab.table.get(2, 1), Some(&Int(104)));
+    assert_eq!(tab.table.undo_stack.len(), 1);
+    tab.table.undo();
+    assert_eq!(tab.table.col_count(), 1);
+}
+
+#[test]
+fn running_dispersion_handles_a_large_prefix_without_rescanning_it() {
+    let rows = 25_000usize;
+    let table =
+        numeric_grid((0..rows).map(|r| CellValue::Int(if r % 2 == 0 { 1000 } else { 1002 })));
+    let actual = fill_running_aggregate("STDEV.P(A$1:A1)", &table).unwrap();
+    assert_eq!(actual.len(), rows);
+    for index in [0, 1, 10, 1201, 19_500, rows - 1] {
+        let n = index + 1;
+        let hi = (n / 2) as f64 / n as f64;
+        let expected = 2.0 * (hi * (1.0 - hi)).sqrt();
+        let (r, got) = actual[index];
+        assert_eq!(r, index);
+        assert!(
+            (got - expected).abs() < 1e-12,
+            "{index}: {got} != {expected}"
+        );
+    }
+}

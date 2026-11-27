@@ -1,5 +1,18 @@
 //! Token boundaries shared by the evaluator and column formula fill.
 
+pub(crate) fn column_index(letters: &[u8]) -> Option<usize> {
+    letters
+        .iter()
+        .try_fold(0usize, |col, &letter| {
+            if !letter.is_ascii_alphabetic() {
+                return None;
+            }
+            col.checked_mul(26)?
+                .checked_add(usize::from(letter.to_ascii_uppercase() - b'A' + 1))
+        })?
+        .checked_sub(1)
+}
+
 /// A dotted function suffix, such as .INTL or .EXC. The evaluator still
 /// requires the complete name to be registered.
 pub(crate) fn dotted_suffix_end(bytes: &[u8], start: usize) -> Option<usize> {

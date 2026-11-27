@@ -23,6 +23,7 @@
 - Find minimum and maximum amounts with `MINIFS` and `MAXIFS`, including clock and duration criteria.
 - Preview formula results in Insert Column without changing the table.
 - Calculate percentiles and quartiles, including p95 response times, with inclusive and exclusive Excel formulas.
+- Measure sample and population spread with standard deviation and variance, including running columns.
 - Reveal the correct row when navigating filtered tables with zoomed or resized rows.
 - Fill down typed values within the visible selection, with one Undo.
 - Fill typed values to the right without changing hidden or unselected cells.

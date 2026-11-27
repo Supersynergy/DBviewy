@@ -16,6 +16,8 @@ mod control;
 mod criteria;
 #[path = "formulas_date.rs"]
 mod date;
+#[path = "formulas_dispersion.rs"]
+mod dispersion;
 #[path = "formula_lex.rs"]
 mod lex;
 #[path = "formulas_lookup.rs"]
@@ -107,17 +109,8 @@ fn eval_complete(tokens: &[FormulaToken], context: &mut Evaluation<'_>) -> Optio
 
 /// Resolve the two parts of a reference after removing any anchors.
 fn parse_cell_ref(letters: &[u8], digits: &str) -> Option<(usize, usize)> {
-    let mut col: usize = 0;
-    for &letter in letters {
-        if !letter.is_ascii_alphabetic() {
-            return None;
-        }
-        col = col
-            .checked_mul(26)?
-            .checked_add(usize::from(letter.to_ascii_uppercase() - b'A' + 1))?;
-    }
     let row: usize = digits.parse().ok()?;
-    Some((row.checked_sub(1)?, col.checked_sub(1)?))
+    Some((row.checked_sub(1)?, lex::column_index(letters)?))
 }
 
 /// Try to read a cell as f64. Returns:
@@ -431,6 +424,10 @@ fn function_named(name: &str) -> Option<Function> {
         .iter()
         .find(|(word, _)| word.eq_ignore_ascii_case(name))
         .map(|&(_, function)| function)
+        .or_else(|| {
+            dispersion::Kind::named(name)
+                .map(|kind| Function::Aggregate(Aggregate::Dispersion(kind)))
+        })
 }
 
 fn tokenize_formula(expr: &str) -> Option<Vec<FormulaToken>> {
@@ -832,17 +829,13 @@ enum Aggregate {
     Max,
     Count,
     Median,
+    Dispersion(dispersion::Kind),
 }
 
 /// Aggregate references skip empty and non-numeric cells. Numeric text is useful
 /// in imported tables and follows the same conversion as arithmetic references.
 fn aggregate_cell(table: &DataTable, row: usize, col: usize) -> Option<f64> {
-    match table.get(row, col)? {
-        CellValue::Int(n) => Some(*n as f64),
-        CellValue::Float(n) => Some(*n),
-        CellValue::String(s) => s.trim().parse().ok(),
-        _ => None,
-    }
+    table.get(row, col).and_then(dispersion::cell_number)
 }
 
 fn eval_aggregate(
@@ -858,6 +851,8 @@ fn eval_aggregate(
     let mut value: f64 = 0.0;
     let mut count = 0usize;
     let mut median_values = Vec::new();
+    let mut moments = dispersion::Moments::default();
+    let spread = matches!(function, Aggregate::Dispersion(_));
     let mut add = |n: f64| {
         value = match function {
             Aggregate::Min if count > 0 => value.min(n),
@@ -869,6 +864,10 @@ fn eval_aggregate(
                 if n.is_finite() {
                     median_values.push(n);
                 }
+                value
+            }
+            Aggregate::Dispersion(_) => {
+                moments.add(n);
                 value
             }
         };
@@ -909,9 +908,23 @@ fn eval_aggregate(
                 }
                 pos += 1;
             }
+            [
+                FormulaToken::Text(s),
+                FormulaToken::Separator | FormulaToken::RParen,
+                ..,
+            ] if spread => {
+                if context.table.is_some() {
+                    let n = s.trim().parse::<f64>().ok().filter(|n| n.is_finite())?;
+                    add(n);
+                }
+                pos += 1;
+            }
             _ => {
                 let (n, end) = eval_expression(tokens, pos, context)?;
                 if context.table.is_some() {
+                    if spread && !n.is_finite() {
+                        return None;
+                    }
                     add(n);
                 }
                 pos = end;
@@ -931,6 +944,7 @@ fn eval_aggregate(
         Aggregate::Average if count == 0 => return None,
         Aggregate::Average => value / count as f64,
         Aggregate::Median => median(&mut median_values)?,
+        Aggregate::Dispersion(kind) => moments.result(kind)?,
         _ => value,
     };
     Some((result, pos + 1))

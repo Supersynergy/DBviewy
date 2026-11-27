@@ -8,7 +8,7 @@ use std::ops::Range;
 use eframe::egui;
 use egui::{RichText, Ui};
 
-use octa::data;
+use octa::data::{self, CellValue};
 use octa::ui::settings::{
     DialogSize, center_on_first_show, dialog_header, remember_dialog_rect, size_dialog_window,
 };
@@ -18,6 +18,8 @@ use super::super::state::{OctaApp, TabState};
 
 // Used by the library evaluator as well. Keep the library's formula API
 // unchanged while ensuring E3 in 1E3 isn't mistaken for a cell to shift.
+#[path = "../../data/formulas_dispersion.rs"]
+mod dispersion;
 #[path = "../../data/formula_lex.rs"]
 mod formula_lex;
 
@@ -489,14 +491,7 @@ impl<'a> FormulaRows<'a> {
                         if letters == 0 || *span != (digit_start..digit_start + digits.len()) {
                             return None;
                         }
-                        let col = column
-                            .bytes()
-                            .try_fold(0usize, |n, letter| {
-                                n.checked_mul(26)?.checked_add(usize::from(
-                                    letter.to_ascii_uppercase() - b'A' + 1,
-                                ))
-                            })?
-                            .checked_sub(1)?;
+                        let col = formula_lex::column_index(column.as_bytes())?;
                         inputs.push((*row, col));
                         moving.next();
                     }
@@ -529,6 +524,7 @@ impl<'a> FormulaRows<'a> {
 enum RunningAggregate {
     Add(&'static str),
     Average,
+    Dispersion(dispersion::Kind),
 }
 
 impl RunningAggregate {
@@ -544,7 +540,7 @@ impl RunningAggregate {
                 return Some(kind);
             }
         }
-        None
+        dispersion::Kind::named(name).map(Self::Dispersion)
     }
 }
 
@@ -594,10 +590,15 @@ fn fill_running_aggregate(formula: &str, table: &data::DataTable) -> Option<Form
         return Some(Vec::new());
     }
 
+    if let RunningAggregate::Dispersion(spread) = kind {
+        return running_dispersion(table, spread, column, first_start, first_end);
+    }
+
     // Validate the first range with the ordinary evaluator. Keep the
     // unrounded sum and the count for AVERAGE, not the previous mean.
     let (term_name, mut total, mut count) = match kind {
         RunningAggregate::Add(name) => (name, data::evaluate_formula(formula, table)?, 0.0),
+        RunningAggregate::Dispersion(_) => unreachable!("handled before the scalar path"),
         RunningAggregate::Average => {
             let range = format!("{column}{first_start}:{column}{first_end}");
             (
@@ -636,6 +637,37 @@ fn fill_running_aggregate(formula: &str, table: &data::DataTable) -> Option<Form
             results.push((offset, total));
         } else if count > 0.0 {
             results.push((offset, total / count));
+        }
+    }
+    Some(results)
+}
+
+fn running_dispersion(
+    table: &data::DataTable,
+    kind: dispersion::Kind,
+    column: &str,
+    first_start: usize,
+    first_end: usize,
+) -> Option<FormulaResults> {
+    let col = formula_lex::column_index(column.as_bytes())?;
+    if col >= table.col_count() {
+        return Some(Vec::new());
+    }
+    let rows = table.row_count();
+    let fill_rows = rows.min(usize::MAX - first_end + 1);
+    let mut next = (first_start - 1).min(rows);
+    let mut moments = dispersion::Moments::default();
+    let mut results = Vec::with_capacity(fill_rows);
+    for offset in 0..fill_rows {
+        let end = (first_end + offset).min(rows);
+        for source in next..end {
+            if let Some(n) = table.get(source, col).and_then(dispersion::cell_number) {
+                moments.add(n);
+            }
+        }
+        next = end;
+        if let Some(value) = moments.result(kind) {
+            results.push((offset, value));
         }
     }
     Some(results)

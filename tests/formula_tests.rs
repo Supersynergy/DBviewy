@@ -3113,3 +3113,180 @@ fn latency_percentile_report_round_trips_numeric_results_through_xlsx() {
         assert!((actual - expected).abs() < 1e-10, "{actual} != {expected}");
     }
 }
+
+#[test]
+fn dispersion_matches_excel_strength_examples_and_german_aliases() {
+    let table = quantile_sample(
+        [1345, 1301, 1368, 1322, 1310, 1370, 1318, 1350, 1303, 1299].map(CellValue::Int),
+    );
+    for (expected, aliases) in [
+        (27.46391572, ["STDEV.S", "STABW.S", "STDEV", "STABW"]),
+        (
+            26.054558142482477,
+            ["STDEV.P", "STABW.N", "STDEVP", "STABWN"],
+        ),
+        (754.2666666666667, ["VAR.S", "VAR.S", "VAR", "VARIANZ"]),
+        (678.84, ["VAR.P", "VAR.P", "VARP", "VARIANZEN"]),
+    ] {
+        for name in aliases {
+            let formula = format!("{}(A1:A10)", name.to_ascii_lowercase());
+            let actual = evaluate_formula(&formula, &table).unwrap();
+            assert!(
+                (actual - expected).abs() < 1e-8,
+                "{formula}: {actual} != {expected}"
+            );
+        }
+    }
+}
+
+#[test]
+fn dispersion_combines_loaded_ranges_and_scalar_numbers_without_counting_blanks() {
+    use CellValue::{Bool, Float, Int, Null, String as Text};
+    let mut table = DataTable {
+        rows: vec![
+            vec![Int(2), Text(" 4 ".into()), Bool(true)],
+            vec![Float(f64::NAN), Null, Text("n/a".into())],
+            vec![Int(6), Null, Float(f64::INFINITY)],
+        ],
+        row_offset: 1500,
+        total_rows: Some(1_000_000),
+        ..formula_table()
+    };
+    table.set(2, 0, Int(8));
+    for (formula, expected) in [
+        ("VAR.S($A$3:A1;B1:B2;2*5)", 40.0 / 3.0),
+        ("VAR.P(ZZ999999999:A1,10)", 10.0),
+        ("VAR.P(A1:A999999999)", 9.0),
+        (r#"STDEV.P(A1,"4",TRUE,B2,C1)"#, (14.0f64 / 9.0).sqrt()),
+        ("STABW.N(B1)", 0.0),
+        ("VAR.P(1/2,1.5)", 0.25),
+    ] {
+        let actual = evaluate_formula(formula, &table).unwrap();
+        assert!(
+            (actual - expected).abs() < 1e-12,
+            "{formula}: {actual} != {expected}"
+        );
+    }
+    assert_eq!(evaluate_formula("STDEV.S(B1)", &table), None);
+    assert_eq!(evaluate_formula("VAR.P(A1501:A1503)", &table), None);
+    assert_eq!(evaluate_formula("VAR.P(C1:C3)", &table), None);
+}
+
+#[test]
+fn dispersion_errors_do_not_execute_in_an_inactive_branch() {
+    let table = quantile_sample([1, 4].map(CellValue::Int));
+    for formula in [
+        "VAR.S()",
+        "VAR.S(A1,)",
+        "VAR.S(A1:A2: A2)",
+        r#"VAR.S("bad",2)"#,
+        r#"VAR.P("NaN",1)"#,
+        "VAR.P(1E300*1E300,1)",
+        "IF(FALSE,STDEV.S(A1,),7)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+    for formula in [
+        "IF(FALSE,STDEV.S(A1),7)",
+        r#"IF(FALSE,VAR.S("bad",2),7)"#,
+        "IFERROR(VAR.S(A9:A10),7)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(7.0), "{formula}");
+    }
+}
+
+#[test]
+fn dispersion_keeps_nearby_large_readings_and_finite_extreme_deviations() {
+    let base = 2.0_f64.powi(48);
+    let table =
+        quantile_sample([base + 1.0, base + 3.0, base + 5.0, base + 7.0].map(CellValue::Float));
+    let sample_variance = evaluate_formula("VAR.S(A1:A4)", &table).unwrap();
+    assert!((sample_variance - 20.0 / 3.0).abs() < 1e-12);
+    assert_eq!(evaluate_formula("VAR.P(A1,A1)", &table), Some(0.0));
+
+    let tiny = f64::from_bits(1);
+    let table = quantile_sample([0.0, tiny * 4.0].map(CellValue::Float));
+    assert_eq!(evaluate_formula("STDEV.P(A1:A2)", &table), Some(tiny * 2.0));
+
+    for numbers in [[0.0, f64::MAX, -f64::MAX], [-f64::MAX, 0.0, f64::MAX]] {
+        let table = quantile_sample(numbers.map(CellValue::Float));
+        let got = evaluate_formula("STDEV.P(A1:A3)", &table).unwrap();
+        assert!((got / f64::MAX - (2.0f64 / 3.0).sqrt()).abs() < 1e-15);
+        assert_eq!(evaluate_formula("VAR.P(A1:A3)", &table), None);
+    }
+
+    let table = quantile_sample([-f64::MAX, f64::MAX].map(CellValue::Float));
+    assert_eq!(evaluate_formula("STDEV.P(A1:A2)", &table), Some(f64::MAX));
+    assert_eq!(evaluate_formula("STDEV.S(A1:A2)", &table), None);
+}
+
+#[test]
+fn dispersion_matches_a_two_pass_reference_across_orders_and_offsets() {
+    for len in [2, 3, 11, 93, 1023] {
+        let mut residuals: Vec<f64> = (0..len)
+            .map(|i| ((i * 1111 + 89) % 1297 - 601) as f64 / 8.0)
+            .collect();
+        let mean = residuals.iter().sum::<f64>() / f64::from(len);
+        let sum_of_squares = residuals.iter().map(|x| (x - mean).powi(2)).sum::<f64>();
+        let expected = [
+            ("VAR.P", sum_of_squares / f64::from(len)),
+            ("STDEV.S", (sum_of_squares / f64::from(len - 1)).sqrt()),
+        ];
+        for origin in [0.0, 2.0_f64.powi(43), -(2.0_f64.powi(43))] {
+            let values = residuals.iter().map(|x| CellValue::Float(origin + x));
+            let table = quantile_sample(values);
+            for (kind, want) in expected {
+                let formula = format!("{kind}(A1:A{len})");
+                let got = evaluate_formula(&formula, &table).unwrap();
+                assert!(
+                    (got - want).abs() < want.abs() * 1e-12,
+                    "{formula} origin={origin}, {got} != {want}"
+                );
+            }
+            residuals.reverse();
+        }
+    }
+}
+
+#[test]
+fn production_spread_report_reopens_as_numeric_xlsx_cells() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::Workbook;
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("gauge-readings.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet().set_name("Gauge").unwrap();
+    for (c, title) in ["Reading", "Sample SD", "Population variance"]
+        .into_iter()
+        .enumerate()
+    {
+        sheet.write_string(0, c as u16, title).unwrap();
+    }
+    for (r, n) in [96, 100, 104].into_iter().enumerate() {
+        sheet.write_number(r as u32 + 1, 0, n).unwrap();
+    }
+    book.save(&path).unwrap();
+    let mut table = ExcelReader.read_file(&path).unwrap();
+    for (c, formula) in [(1, "=STABW.S(A1:A3)"), (2, "=VAR.P(A1:A3)")] {
+        assert!(commit_cell_text(
+            &mut table,
+            0,
+            c,
+            formula.into(),
+            BinaryDisplayMode::default()
+        ));
+    }
+    let report = dir.path().join("gauge-spread.xlsx");
+    ExcelReader.write_file(&report, &table).unwrap();
+    let table = ExcelReader.read_file(&report).unwrap();
+    for (c, want) in [(1, 4.0), (2, 32.0 / 3.0)] {
+        let actual = match table.get(0, c).unwrap() {
+            CellValue::Float(v) => *v,
+            CellValue::Int(v) => *v as f64,
+            other => panic!("expected numeric XLSX spread, got {other:?}"),
+        };
+        assert!((actual - want).abs() < 1e-12, "{c}: {actual} != {want}");
+    }
+}

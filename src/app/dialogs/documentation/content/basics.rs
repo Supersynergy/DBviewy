@@ -652,6 +652,12 @@ Cells support simple Excel-like formulas starting with **=**.
   MITTELWERT and ANZAHL work with either semicolons or commas.
 - **`MEDIAN(B1:B9)`** takes the middle value in a range, or the average
   of the two middle values if the number of finite values is even.
+- **`STDEV.S(A1:A10)`** measures how spread out a sample is, in the
+  original units. `VAR.S` reports its variance in squared units. Use
+  `STDEV.P` or `VAR.P` for all readings in a population. German standard
+  deviation names are STABW.S and STABW.N. A sample needs at least two
+  numbers; a population needs at least one. In Insert Column,
+  `=STABW.S(A$1:A1)` measures the spread so far without rereading rows.
 - **`PERCENTILE.INC(A1:A100,95%)`** finds the 95th percentile, for
   example of response times. `PERCENTILE.EXC` returns no result when the
   sample cannot support the chosen percentile. For quartiles, use
