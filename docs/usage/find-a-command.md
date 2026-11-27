@@ -5,6 +5,11 @@ the table, a dialog, even the SQL editor. Type part of a command's name and
 press **Enter** to run it, or click anywhere on its row. It is also
 **Search > Find a command...**.
 
+The command name is on the first line, with its menu or dialog underneath.
+A bound shortcut sits on the right. Use **Up** and **Down** to move through
+the results; the highlighted row stays in view. Typing a new search returns
+to the first result.
+
 ## How matching works
 
 - **Every word you type has to appear, in any order.** `piv` finds **Pivot /

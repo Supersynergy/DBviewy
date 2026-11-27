@@ -33,6 +33,7 @@ fn field_id() -> egui::Id {
 pub(crate) struct CommandSearchState {
     query: String,
     selected: usize,
+    scroll_y: f32,
     prev_focus: Option<egui::Id>,
     focus_set: bool,
 }
@@ -76,6 +77,75 @@ struct Row {
     place: String,
     keys: String,
     why: Option<String>,
+}
+
+struct RowStyle {
+    title: egui::FontId,
+    context: egui::FontId,
+    height: f32,
+}
+
+impl RowStyle {
+    fn new(ui: &egui::Ui) -> Self {
+        Self {
+            title: egui::TextStyle::Button.resolve(ui.style()),
+            context: egui::TextStyle::Small.resolve(ui.style()),
+            // A long name may use both lines. Reserve two lines of the
+            // larger font so wrapping never changes the virtual row pitch.
+            height: (2.0
+                * ui.text_style_height(&egui::TextStyle::Button)
+                    .max(ui.text_style_height(&egui::TextStyle::Small))
+                + 2.0 * ui.spacing().button_padding.y
+                + 4.0)
+                .ceil()
+                .max(ui.spacing().interact_size.y),
+        }
+    }
+
+    fn show(&self, ui: &mut egui::Ui, row: &Row, selected: bool) -> egui::Response {
+        let weak = ui.visuals().weak_text_color();
+        let key = (!row.keys.is_empty()).then(|| {
+            ui.fonts_mut(|f| f.layout_no_wrap(row.keys.clone(), self.context.clone(), weak))
+        });
+        let gap = 12.0;
+        // The shortcut adds both a growing spacer and the shortcut atom.
+        let reserved = key.as_ref().map_or(0.0, |g| g.size().x + 2.0 * gap);
+        let mut job = LayoutJob::default();
+        job.wrap.max_width =
+            (ui.available_width() - 2.0 * ui.spacing().button_padding.x - reserved - 4.0).max(1.0);
+        job.wrap.max_rows = 2;
+        let primary = TextFormat::simple(self.title.clone(), ui.visuals().strong_text_color());
+        let secondary = TextFormat::simple(self.context.clone(), weak);
+        job.append(&row.name, 0.0, primary);
+        if !row.place.is_empty() {
+            job.append("\n", 0.0, secondary.clone());
+            job.append(&row.place, 0.0, secondary);
+        }
+        // Pre-layout so the button does not replace the two-line wrap limit.
+        let text = ui.fonts_mut(|f| f.layout_job(job));
+        let mut button = egui::Button::selectable(selected, egui::WidgetText::Galley(text))
+            .min_size(egui::vec2(0.0, self.height))
+            .gap(gap);
+        if let Some(key) = key {
+            button = button.shortcut_text(egui::WidgetText::Galley(key));
+        }
+        // A command keeps its UI identity if filtering moves it to another
+        // position. A mouse-up cannot activate a new result in the old slot.
+        let response = ui
+            .push_id((row.action, row.hint_of), |ui| {
+                ui.add_enabled(row.why.is_none(), button)
+            })
+            .inner;
+        let hint_key = format!("{}_hint", row.hint_of);
+        let hint = t(&hint_key);
+        if let Some(why) = &row.why {
+            response.on_disabled_hover_text(format!("{}\n{why}", row.name))
+        } else if hint != hint_key {
+            response.on_hover_text(format!("{}\n{hint}", row.name))
+        } else {
+            response.on_hover_text(&row.name)
+        }
+    }
 }
 
 impl OctaApp {
@@ -246,10 +316,6 @@ impl OctaApp {
         let Some(mut st) = self.command_search.take() else {
             return;
         };
-        let rows = self.command_rows(&st.query);
-        let last = rows.len().saturating_sub(1);
-        st.selected = st.selected.min(last);
-
         // Read before the box draws, so its text field never sees them, and only
         // while that field has focus: the box can stay open beside other work,
         // and these are the table's keys too.
@@ -265,18 +331,13 @@ impl OctaApp {
         } else {
             Default::default()
         };
-        if down {
-            st.selected = (st.selected + 1).min(last);
-        }
-        if up {
-            st.selected = st.selected.saturating_sub(1);
-        }
-
         let mut run: Option<SA> = None;
         let mut close = escape;
         let mut size = ctx.data_mut(|d| d.get_temp::<DialogSize>(size_key()).unwrap_or_default());
         let minimized = size == DialogSize::Minimized;
-        let center = center_on_first_show(ctx, egui::vec2(560.0, 440.0));
+        let max_content_width = (ctx.content_rect().width() - 24.0).max(120.0);
+        let default_width = max_content_width.min(560.0);
+        let center = center_on_first_show(ctx, egui::vec2(default_width, 440.0));
         let window = egui::Window::new("octa_command_search")
             .id(window_id())
             .title_bar(false)
@@ -285,9 +346,10 @@ impl OctaApp {
             .order(egui::Order::Foreground);
         let window = size_dialog_window(ctx, window_id(), size, window, |w| {
             w.resizable(true)
-                .default_width(560.0)
+                .default_width(default_width)
                 .default_height(440.0)
-                .min_width(320.0)
+                .min_width(max_content_width.min(320.0))
+                .max_width(max_content_width)
                 .min_height(200.0)
                 .default_pos(center)
         });
@@ -326,54 +388,63 @@ impl OctaApp {
                 }
                 if edit.changed() {
                     st.selected = 0;
+                    st.scroll_y = 0.0;
                 }
-                let font = egui::TextStyle::Button.resolve(ui.style());
-                let strong = ui.visuals().strong_text_color();
-                let weak = ui.visuals().weak_text_color();
-                egui::ScrollArea::vertical()
+
+                // TextEdit may receive text or a paste in the same frame as
+                // Enter. Match the new text before drawing or running a row.
+                let rows = self.command_rows(&st.query);
+                let last = rows.len().saturating_sub(1);
+                st.selected = st.selected.min(last);
+                if down {
+                    st.selected = (st.selected + 1).min(last);
+                }
+                if up {
+                    st.selected = st.selected.saturating_sub(1);
+                }
+                if !close
+                    && enter
+                    && let Some(row) = rows.get(st.selected).filter(|r| r.why.is_none())
+                {
+                    run = Some(row.action);
+                }
+
+                if rows.is_empty() {
+                    ui.weak(t("command_search.none"));
+                    return;
+                }
+                let style = RowStyle::new(ui);
+                let pitch = style.height + ui.spacing().item_spacing.y;
+                let height = ui.available_height();
+                if up || down {
+                    let top = st.selected as f32 * pitch;
+                    let bottom = top + style.height;
+                    if top < st.scroll_y {
+                        st.scroll_y = top;
+                    } else if bottom > st.scroll_y + height {
+                        st.scroll_y = (bottom - height).max(0.0);
+                    }
+                }
+                let list = egui::ScrollArea::vertical()
+                    .id_salt("command_results")
                     .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        // Justified, so a row is clickable across its whole width
-                        // and not only on its words.
+                    .animated(false)
+                    .vertical_scroll_offset(st.scroll_y)
+                    .show_rows(ui, style.height, rows.len(), |ui, visible| {
                         ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
-                            if rows.is_empty() {
-                                ui.weak(t("command_search.none"));
-                            }
-                            for (idx, row) in rows.iter().enumerate() {
-                                let mut job = LayoutJob::default();
-                                let fmt = |color| TextFormat::simple(font.clone(), color);
-                                job.append(&row.name, 0.0, fmt(strong));
-                                job.append(&row.place, 24.0, fmt(weak));
-                                if !row.keys.is_empty() {
-                                    job.append(&row.keys, 24.0, fmt(weak));
-                                }
-                                let resp = ui.add_enabled(
-                                    row.why.is_none(),
-                                    egui::Button::selectable(idx == st.selected, job),
-                                );
-                                if idx == st.selected && (up || down) {
-                                    resp.scroll_to_me(None);
-                                }
-                                let hint_key = format!("{}_hint", row.hint_of);
-                                let hint = t(&hint_key);
-                                let resp = match &row.why {
-                                    Some(w) => resp.on_disabled_hover_text(w),
-                                    None if hint != hint_key => resp.on_hover_text(hint),
-                                    None => resp,
-                                };
-                                if resp.clicked() {
+                            for idx in visible {
+                                let row = &rows[idx];
+                                if style.show(ui, row, idx == st.selected).clicked() && !close {
                                     run = Some(row.action);
                                 }
                             }
                         });
                     });
+                st.scroll_y = list.state.offset.y;
             });
         });
         if let Some(inner) = inner {
             remember_dialog_rect(ctx, window_id(), size, inner.response.rect);
-        }
-        if enter && let Some(row) = rows.get(st.selected).filter(|r| r.why.is_none()) {
-            run = Some(row.action);
         }
         if let Some(a) = run {
             queue_command(a);

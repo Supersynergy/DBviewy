@@ -30,10 +30,14 @@ fn key(key: egui::Key) -> Vec<egui::Event> {
 /// One frame in the app's own order: fire what was queued, read the shortcuts,
 /// draw what lies under the box, then the box.
 fn step(app: &mut OctaApp, ctx: &egui::Context, events: Vec<egui::Event>) {
+    step_at_width(app, ctx, events, 1000.0);
+}
+
+fn step_at_width(app: &mut OctaApp, ctx: &egui::Context, events: Vec<egui::Event>, width: f32) {
     let input = egui::RawInput {
         screen_rect: Some(egui::Rect::from_min_size(
             egui::Pos2::ZERO,
-            egui::vec2(1000.0, 800.0),
+            egui::vec2(width, 800.0),
         )),
         events,
         ..Default::default()
@@ -268,6 +272,156 @@ fn the_keyboard_drives_the_box_while_its_field_has_focus() {
     assert_eq!(app.command_search.as_ref().unwrap().selected, 0);
     step(&mut app, &ctx, key(egui::Key::Escape));
     assert!(app.command_search.is_none());
+}
+
+#[test]
+fn text_and_enter_use_the_new_results_in_the_same_frame() {
+    let (mut app, ctx) = opened("new table");
+    let mut events = vec![egui::Event::Text("no-such-command-38".into())];
+    events.extend(key(egui::Key::Enter));
+    step(&mut app, &ctx, events);
+    settle(&mut app, &ctx);
+    assert!(app.new_table_dialog.is_none(), "Enter ran the old match");
+    assert_eq!(
+        app.command_search.as_ref().unwrap().query,
+        "new tableno-such-command-38"
+    );
+    assert!(
+        painted_texts(&mut app, &ctx)
+            .iter()
+            .any(|(t, _)| t == "No command matches.")
+    );
+
+    let (mut app, ctx) = opened("new tabl");
+    let mut events = vec![egui::Event::Text("e".into())];
+    events.extend(key(egui::Key::Enter));
+    step(&mut app, &ctx, events);
+    settle(&mut app, &ctx);
+    assert!(
+        app.new_table_dialog.is_some(),
+        "Enter ignored the new match"
+    );
+}
+
+#[test]
+fn keyboard_scrolls_to_the_highlighted_result_and_typing_resets_the_list() {
+    let (mut app, ctx) = opened("");
+    for _ in 0..24 {
+        step(&mut app, &ctx, key(egui::Key::ArrowDown));
+    }
+    let st = app.command_search.as_ref().unwrap();
+    assert_eq!(st.selected, 24);
+    assert!(
+        st.scroll_y > 0.0,
+        "the highlighted row is below the first screen"
+    );
+    let label = app.command_rows("")[st.selected].name.clone();
+    assert!(
+        painted_texts(&mut app, &ctx)
+            .iter()
+            .any(|(t, _)| t.starts_with(&label))
+    );
+    step(&mut app, &ctx, vec![egui::Event::Text("new table".into())]);
+    let st = app.command_search.as_ref().unwrap();
+    assert_eq!((st.selected, st.scroll_y), (0, 0.0));
+    assert!(
+        painted_texts(&mut app, &ctx)
+            .iter()
+            .any(|(t, _)| t.starts_with("New table"))
+    );
+}
+
+#[test]
+fn narrow_palette_keeps_the_window_and_shortcut_inside_the_viewport() {
+    let (mut app, _) = opened("open file");
+    // A fresh context exercises the initial default width on a narrow host.
+    let ctx = egui::Context::default();
+    app.command_search.as_mut().unwrap().focus_set = false;
+    for width in [320.0, 375.0, 414.0, 768.0, 1440.0] {
+        for _ in 0..3 {
+            step_at_width(&mut app, &ctx, vec![], width);
+        }
+        let rect = window_rect(&ctx);
+        assert!(
+            rect.left() >= -1.0 && rect.right() <= width + 1.0,
+            "{width}: {rect:?}"
+        );
+        let rows = app.command_rows("open file");
+        let open = rows.iter().find(|row| row.action == SA::OpenFile).unwrap();
+        let texts = painted_texts(&mut app, &ctx);
+        let title = texts
+            .iter()
+            .find(|(t, _)| t.starts_with(&open.name))
+            .expect("Open File row")
+            .1;
+        let shortcut = texts
+            .iter()
+            .find(|(t, _)| t == &open.keys)
+            .expect("Shortcut text")
+            .1;
+        assert!(
+            shortcut.x > title.x + 12.0,
+            "{width}: {title:?} vs {shortcut:?}"
+        );
+        assert!(shortcut.x < rect.right());
+    }
+}
+
+#[test]
+fn a_long_command_keeps_a_full_width_button_and_accessible_name_at_large_text_size() {
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    let row = Row {
+        action: SA::OpenFile,
+        hint_of: "command.open_file",
+        name: "Vollständige Datenbankverbindungseinstellungen zur Arbeitsmappe öffnen".into(),
+        place: "Datenbankverbindungen und Arbeitsmappen".into(),
+        keys: "Ctrl+Shift+O".into(),
+        why: None,
+    };
+    ctx.global_style_mut(|style| {
+        style
+            .text_styles
+            .insert(egui::TextStyle::Button, egui::FontId::proportional(26.0));
+        style
+            .text_styles
+            .insert(egui::TextStyle::Small, egui::FontId::proportional(20.0));
+    });
+    let mut out = ctx.run_ui(
+        egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(320.0, 240.0),
+            )),
+            ..Default::default()
+        },
+        |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
+                let width = ui.available_width();
+                ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                    let style = RowStyle::new(ui);
+                    let response = style.show(ui, &row, false);
+                    assert!(
+                        (response.rect.width() - width).abs() <= 2.0,
+                        "{:?}",
+                        response.rect
+                    );
+                    assert!(
+                        (response.rect.height() - style.height).abs() <= 2.0,
+                        "{:?}",
+                        response.rect
+                    );
+                });
+            });
+        },
+    );
+    out.textures_delta.clear();
+    let tree = out.platform_output.accesskit_update.unwrap();
+    assert!(
+        tree.nodes
+            .iter()
+            .any(|(_, n)| n.label().is_some_and(|label| label.contains(&row.name)))
+    );
 }
 
 /// It can stay open now, so it must not eat the table's arrow keys meanwhile.

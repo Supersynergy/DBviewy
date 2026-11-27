@@ -1440,7 +1440,11 @@ shows a brief "Auto-saved N files" note.
 pub const SHORTCUTS_INTRO: &str = r#"# Shortcuts
 
 Every action below can be rebound under **Help > Settings > Shortcuts**.
-Unbound actions show `(none)`. The bindings shown are the current ones:
+Unbound actions show `(none)`. The bindings shown are the current ones.
+
+Press **Ctrl+K** to **Find a command** by name or menu. The menu or dialog
+appears below the command name, and its shortcut appears on the right.
+Use Up and Down to move, Enter to run, or Escape to return to your work.
 
 Click **Record** on a row and press the combination you want. While Octa is
 waiting for that press, the keys do nothing else: recording Ctrl+S records
