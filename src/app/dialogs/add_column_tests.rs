@@ -383,6 +383,93 @@ fn running_counts_preserve_empty_text_edits_and_incomplete_rows() {
 }
 
 #[test]
+fn indexed_rank_fill_matches_the_scalar_evaluator_and_keeps_diagnostics() {
+    let mut table = numeric_grid([
+        CellValue::Int(90),
+        CellValue::String(" 75 ".into()),
+        CellValue::Float(75.0),
+        CellValue::Null,
+        CellValue::String("pending".into()),
+        CellValue::Float(-0.0),
+        CellValue::Float(f64::INFINITY),
+    ]);
+    table.set(0, 0, CellValue::Int(80));
+    for formula in [
+        "RANK.EQ(A1,$A$1:$A$2000000)",
+        " RANG.MITTELW ( $a1 ; A$7:$A$1 ; +1 ) ",
+        "RANG(a1;A$2:A$2;0)",
+        "RANK.AVG(A4,A$1:A$6)",
+        "RANK.EQ(A1,AA$1:AA$20)",
+    ] {
+        let (normal, normal_bad) = fill_shifted_template(
+            &FormulaRows::new(formula),
+            &table,
+            &[],
+            data::evaluate_formula_with_diagnostics,
+        );
+        let (indexed, indexed_bad) = formula_rank_fill::fill(formula, &table).unwrap();
+        assert_eq!(indexed, normal, "{formula}");
+        let cell = |bad: Option<data::FormulaBadCell>| bad.map(|b| (b.row, b.col, b.content));
+        assert_eq!(cell(indexed_bad), cell(normal_bad), "{formula}");
+    }
+    for unsupported in [
+        "RANK.EQ(A1,A2:A$20)",
+        "RANK.AVG(A1,A$1:B$20)",
+        "RANK.EQ(A1,A$1:A$20,IF(1,1,0))",
+        "RANK.EQ(A1+B1,A$1:A$20)",
+        "RANK.EQ($A$1,A$1:A$20)",
+        "RANK.EQ(A1,A$1:A$20,)",
+    ] {
+        assert!(
+            formula_rank_fill::fill(unsupported, &table).is_none(),
+            "{unsupported}"
+        );
+    }
+}
+
+#[test]
+fn indexed_rank_fill_handles_a_full_column_of_distinct_values() {
+    let count = 20_000;
+    let table = numeric_grid((0..count).rev().map(|n| CellValue::Int(n as i64)));
+    let (values, bad) = formula_rank_fill::fill("RANK.EQ(A1,$A$1:$A$999999)", &table).unwrap();
+    assert!(bad.is_none());
+    assert_eq!(values.len(), count);
+    assert!(
+        values
+            .iter()
+            .enumerate()
+            .all(|(i, row)| *row == (i, (i + 1) as f64))
+    );
+}
+
+#[test]
+fn indexed_rank_column_preview_and_xlsx_export_agree_and_undo_once() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    let dir = tempfile::tempdir().unwrap();
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = numeric_grid([90, 75, 75, 60].map(CellValue::Int));
+    tab.new_col_name = "Average rank".into();
+    tab.new_col_formula = "=RANG.MITTELW(A1;$A$1:$A$4)".into();
+    tab.insert_col_at = Some(0);
+    let preview = FormulaPreview::read(&tab.new_col_formula, &tab.table).unwrap();
+    assert_eq!(preview.values, [Some(1.0), Some(2.5), Some(2.5)]);
+    let undo_count = tab.table.undo_stack.len();
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    assert_eq!(tab.table.undo_stack.len(), undo_count + 1);
+    let path = dir.path().join("average-rank.xlsx");
+    ExcelReader.write_file(&path, &tab.table).unwrap();
+    let exported = ExcelReader.read_file(&path).unwrap();
+    for (r, expected) in [1.0, 2.5, 2.5, 4.0].into_iter().enumerate() {
+        assert_eq!(exported.get(r, 0), Some(&CellValue::Float(expected)));
+    }
+    assert!(tab.table.undo());
+    assert_eq!(tab.table.col_count(), 1);
+    assert_eq!(tab.table.get(0, 0), Some(&CellValue::Int(90)));
+}
+
+#[test]
 fn running_means_start_at_the_first_number_and_preserve_sum_order() {
     let mut table = numeric_grid([
         CellValue::Null,

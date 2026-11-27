@@ -18,6 +18,8 @@ enum Form {
     Scalar,
     Exact,
     Find,
+    Rank,
+    Nth,
     Percentile,
     Workday,
     NumberValue,
@@ -87,6 +89,26 @@ const RECIPES: &[Recipe] = &[
         form: Form::Find,
     },
     Recipe {
+        english: "RANK.EQ",
+        german: "RANG.GLEICH",
+        form: Form::Rank,
+    },
+    Recipe {
+        english: "RANK.AVG",
+        german: "RANG.MITTELW",
+        form: Form::Rank,
+    },
+    Recipe {
+        english: "LARGE",
+        german: "KGRÖSSTE",
+        form: Form::Nth,
+    },
+    Recipe {
+        english: "SMALL",
+        german: "KKLEINSTE",
+        form: Form::Nth,
+    },
+    Recipe {
         english: "PERCENTILE.INC",
         german: "QUANTIL.INKL",
         form: Form::Percentile,
@@ -140,6 +162,8 @@ impl Recipe {
                 let fallback = if german { "WENNFEHLER" } else { "IFERROR" };
                 return format!(r#"={fallback}({name}("-"{sep}{c}1){sep}0)"#);
             }
+            Form::Rank => format!("{c}1{sep}${c}$1:${c}${n}"),
+            Form::Nth => format!("${c}$1:${c}${n}{sep}{}", n.min(2)),
             Form::Percentile => format!("${c}$1:${c}${n}{sep}95%"),
             Form::Workday => format!("{c}1{sep}5"),
             Form::NumberValue if german => format!(r#"{c}1;",";".""#),
@@ -163,6 +187,14 @@ fn letters(mut col: usize) -> String {
 
 fn matching(query: &str) -> Vec<Recipe> {
     let query = query.trim().trim_start_matches('=');
+    // Excel's German formula names spell the sharp s as SS in caps.
+    let folded;
+    let query = if query.contains(['ß', 'ẞ']) {
+        folded = query.replace(['ß', 'ẞ'], "ss");
+        &folded
+    } else {
+        query
+    };
     let mut hits: Vec<_> = RECIPES
         .iter()
         .copied()

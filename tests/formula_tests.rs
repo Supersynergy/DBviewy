@@ -977,6 +977,155 @@ fn round_handles_float_limits_without_intermediate_overflow() {
     }
 }
 
+fn rank_scores() -> DataTable {
+    use CellValue::{Bool, Float, Int, Null, String as Text};
+    DataTable {
+        columns: vec![
+            ColumnInfo {
+                name: "Score".into(),
+                data_type: "Float64".into(),
+            },
+            ColumnInfo {
+                name: "Second".into(),
+                data_type: "Float64".into(),
+            },
+        ],
+        rows: vec![
+            vec![Int(90), Int(30)],
+            vec![Text(" 75 ".into()), Int(40)],
+            vec![Float(75.0), Int(50)],
+            vec![Int(60), Int(50)],
+            vec![Null, Int(60)],
+            vec![Text("not yet measured".into()), Int(70)],
+            vec![Float(f64::INFINITY), Bool(true)],
+            vec![Float(-0.0), Float(0.0)],
+        ],
+        ..DataTable::empty()
+    }
+}
+
+#[test]
+fn rank_functions_distinguish_shared_places_and_average_ties() {
+    let table = rank_scores();
+    for (formula, rank) in [
+        ("RANK.EQ(A2,A1:A4)", 2.0),
+        ("RANK.AVG(A2,A1:A4)", 2.5),
+        ("RANK(60,A4:A1)", 4.0),
+        ("RANG(A1;A1:A7)", 1.0),
+        ("RANG.GLEICH(A2;A1:A4;-1)", 2.0),
+        ("RANG.MITTELW(A3;A1:A4;0.5)", 2.5),
+        ("RANK.AVG(90,A1:A4,1)", 4.0),
+        ("RANK.AVG(-0,A1:B8,1)", 1.5),
+        ("RANK.EQ(0,A8:B8)", 1.0),
+        ("RANK.EQ(50,B1:B100000000)", 3.0),
+        ("RANK.AVG(75,A1:A100000000)", 2.5),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(rank), "{formula}");
+    }
+}
+
+#[test]
+fn order_statistics_choose_a_position_without_eliminating_duplicates() {
+    let table = rank_scores();
+    for (formula, expected) in [
+        ("LARGE(A1:A4,2)", 75.0),
+        ("LARGE(A1:A4,3)", 75.0),
+        ("SMALL(A1:A4,1)", 60.0),
+        ("SMALL(A1:A4,4)", 90.0),
+        ("kgrößte(A7:A1;2+1)", 75.0),
+        ("KKLEINSTE(A1:A7;2)", 75.0),
+        ("LARGE(A1:B8,4)", 70.0),
+        ("SMALL(B6:B1,3)", 50.0),
+        ("LARGE(B1:B999999999,1)", 70.0),
+        ("SMALL(A1,1)", 90.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn rank_and_nth_require_a_valid_position_and_loaded_numeric_values() {
+    let table = rank_scores();
+    for formula in [
+        "LARGE(A1:A4,0)",
+        "LARGE(A1:A4,-1)",
+        "LARGE(A1:A4,4.5)",
+        "LARGE(A1:A7,5)",
+        "LARGE(A1:A4,1e300)",
+        "SMALL(A5:A7,1)",
+        "SMALL(B400:B500,1)",
+        "SMALL(A1:A4,)",
+        "SMALL(A1:A2,1,2)",
+        "SMALL(A1:A4+2,1)",
+        "RANK.EQ(80,A1:A7)",
+        "RANK.EQ(A1,A2:A7)",
+        "RANK.EQ(90,)",
+        "RANK.EQ(90,A1:A7,)",
+        "RANK.EQ(90,A1:A7,0,1)",
+        "RANK.AVG(A7,A1:A7)",
+        "RANK.AVG(90,A1:A7,A7)",
+        "IF(1,7,RANK.EQ(90,A1:A7,0,1))",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+    for (formula, expected) in [
+        ("IFERROR(RANK.EQ(80,A1:A7),0)", 0.0),
+        ("IF(1,7,LARGE(A400:A500,0))", 7.0),
+        ("RANK.EQ(LARGE(A1:A4,2),A1:A4,0)", 2.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+    let bad = evaluate_formula_with_diagnostics("RANK.EQ(A6,A1:A4)", &table)
+        .bad_cell
+        .unwrap();
+    assert_eq!(
+        (bad.row, bad.col, bad.content.as_str()),
+        (5, 0, "not yet measured")
+    );
+}
+
+#[test]
+fn rank_and_nth_results_reopen_as_numeric_workbook_cells() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("ranking-report.xlsx");
+    let mut table = rank_scores();
+    table.rows.truncate(4);
+    for col in 2..6 {
+        table.insert_column(col, format!("Result {col}"), "Float64".into());
+    }
+    let fields = [
+        ("=RANG.GLEICH(A2;$A$1:$A$4)", 2.0),
+        ("=RANG.MITTELW(A2;$A$1:$A$4)", 2.5),
+        ("=KGRÖSSTE($A$1:$A$4;3)", 75.0),
+        ("=KKLEINSTE($A$1:$A$4;1)", 60.0),
+    ];
+    for (i, (formula, _)) in fields.into_iter().enumerate() {
+        assert!(commit_cell_text(
+            &mut table,
+            0,
+            i + 2,
+            formula.into(),
+            BinaryDisplayMode::default()
+        ));
+    }
+    ExcelReader.write_file(&path, &table).unwrap();
+    let reopened = ExcelReader.read_file(&path).unwrap();
+    for (i, (_, expected)) in fields.into_iter().enumerate() {
+        assert_eq!(reopened.get(0, i + 2), Some(&CellValue::Float(expected)));
+    }
+    assert_eq!(reopened.get(1, 0), Some(&CellValue::String(" 75 ".into())));
+}
+
 #[test]
 fn text_length_preserves_spaces_escaped_quotes_and_unicode_characters() {
     let mut table = formula_table();

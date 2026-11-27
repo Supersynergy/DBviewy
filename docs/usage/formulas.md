@@ -308,6 +308,28 @@ an optional starting position, counted from 1. Use a whole number.
 emoji variation selector still counts separately. `FIND` uses the same
 positions. `EXACT` does not change case or normalise accents.
 
+## Rank scores and find the highest or lowest values
+
+With scores `90, 75, 75, 60` in column A:
+
+| Formula | Result | Meaning |
+| --- | ---: | --- |
+| `=RANK.EQ(A2,$A$1:$A$4)` | 2 | Both 75s share second place. The next rank is 4. |
+| `=RANK.AVG(A2,$A$1:$A$4)` | 2.5 | The two 75s share the average of second and third place. |
+| `=LARGE(A1:A4,3)` | 75 | The third-largest value; duplicates count. |
+| `=SMALL(A1:A4,1)` | 60 | The smallest value. |
+
+A nonzero third argument to either RANK function ranks from the smallest
+value. Both return no result if the score is absent. LARGE and SMALL
+need a whole-number position from 1 to the count of numeric values.
+The range uses only loaded finite numbers and numeric text, not blanks.
+
+In **Insert Column**, fix the comparison range with dollar signs and
+leave the first reference relative. In `=RANK.EQ(B1,$B$1:$B$5000)`,
+B1 advances row by row while DBviewy sorts the comparison values once.
+The German names are `RANG.GLEICH`, `RANG.MITTELW`, `KGRÖSSTE` and
+`KKLEINSTE`. The older names `RANK` and `RANG` also work like RANK.EQ.
+
 ## Calculate shift hours across midnight
 
 With a start time in A1 and a finish time in B1, use:

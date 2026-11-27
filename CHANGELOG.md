@@ -58,6 +58,8 @@
   and searchable examples for ID length, case and separator positions.
 - Explain an empty grid with a removable zero-value filter chip. The same
   strip now includes instant search filters and Filter to marked.
+- Rank scores with RANK.EQ or RANK.AVG. A calculated column sorts a fixed
+  comparison range once. LARGE and SMALL find a value at a given position.
 - Keep fixed Excel-style references such as `$B$1` when filling a calculated
   column. Evaluate against the original table regardless of insertion position.
 - Fill single-column running sums such as `SUM(A$1:A1)` in one pass instead

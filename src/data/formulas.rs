@@ -24,12 +24,16 @@ mod lex;
 mod lookup;
 #[path = "formulas_numbervalue.rs"]
 mod numbervalue;
+#[path = "formulas_order.rs"]
+mod order;
 #[path = "formulas_presence.rs"]
 mod presence;
 #[path = "formulas_product.rs"]
 mod product;
 #[path = "formulas_quantiles.rs"]
 mod quantiles;
+#[path = "formula_rank_math.rs"]
+mod rank_math;
 #[path = "formulas_text.rs"]
 mod text;
 #[path = "formulas_time.rs"]
@@ -203,6 +207,8 @@ enum Function {
     SumProduct,
     NumberValue,
     Text(text::Kind),
+    Rank(rank_math::Kind),
+    Nth(order::Extent),
     Power,
 }
 
@@ -270,6 +276,10 @@ fn function_named(name: &str) -> Option<Function> {
         ("IDENTISCH", Function::Text(text::Kind::Exact)),
         ("FIND", Function::Text(text::Kind::Find)),
         ("FINDEN", Function::Text(text::Kind::Find)),
+        ("LARGE", Function::Nth(order::Extent::Highest)),
+        ("KGRÖSSTE", Function::Nth(order::Extent::Highest)),
+        ("SMALL", Function::Nth(order::Extent::Lowest)),
+        ("KKLEINSTE", Function::Nth(order::Extent::Lowest)),
         ("PERCENTILE.INC", Quantile(PercentileInc)),
         ("PERCENTILE.EXC", Quantile(PercentileExc)),
         ("QUANTIL.INKL", Quantile(PercentileInc)),
@@ -454,6 +464,7 @@ fn function_named(name: &str) -> Option<Function> {
         .iter()
         .find(|(word, _)| word.eq_ignore_ascii_case(name))
         .map(|&(_, function)| function)
+        .or_else(|| rank_math::Kind::named(name).map(Function::Rank))
         .or_else(|| {
             dispersion::Kind::named(name)
                 .map(|kind| Function::Aggregate(Aggregate::Dispersion(kind)))
@@ -766,6 +777,8 @@ fn eval_function(
         Function::SumProduct => return product::evaluate(tokens, pos, context),
         Function::NumberValue => return numbervalue::evaluate(tokens, pos, context),
         Function::Text(kind) => return text::evaluate(kind, tokens, pos, context),
+        Function::Rank(kind) => return order::rank(kind, tokens, pos, context),
+        Function::Nth(extent) => return order::nth(extent, tokens, pos, context),
         Function::If => return control::evaluate_if(tokens, pos, context),
         Function::IfError => return control::evaluate_if_error(tokens, pos, context),
         Function::Ifs => return control::evaluate_ifs(tokens, pos, context),

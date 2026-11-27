@@ -24,6 +24,8 @@ mod dispersion;
 mod formula_examples;
 #[path = "../../data/formula_lex.rs"]
 mod formula_lex;
+#[path = "formula_rank_fill.rs"]
+mod formula_rank_fill;
 pub(crate) use formula_examples::FormulaExamples;
 
 impl OctaApp {
@@ -747,6 +749,9 @@ fn fill_formula_template(
     formula: &str,
     table: &data::DataTable,
 ) -> (FormulaResults, Option<data::FormulaBadCell>) {
+    if let Some(rank) = formula_rank_fill::fill(formula, table) {
+        return rank;
+    }
     let template = FormulaRows::new(formula);
     if template.relative.is_empty() && table.row_count() > 0 {
         // An anchored range and constant criterion cannot change from row

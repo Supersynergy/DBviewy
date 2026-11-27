@@ -59,6 +59,53 @@ fn search_accepts_english_german_and_formula_punctuation() {
 }
 
 #[test]
+fn ranking_recipes_pin_the_sample_and_offer_both_language_names() {
+    let table = DataTable {
+        columns: vec![ColumnInfo {
+            name: "Score".into(),
+            data_type: "Float64".into(),
+        }],
+        rows: [75, 90, 75, 60].map(|n| vec![CellValue::Int(n)]).to_vec(),
+        ..DataTable::empty()
+    };
+    for (query, german, function, draft, expected) in [
+        ("rank.eq", false, "RANK.EQ", "=RANK.EQ(A1,$A$1:$A$4)", 2.0),
+        (
+            "rang.gleich",
+            true,
+            "RANK.EQ",
+            "=RANG.GLEICH(A1;$A$1:$A$4)",
+            2.0,
+        ),
+        (
+            "rank.avg",
+            false,
+            "RANK.AVG",
+            "=RANK.AVG(A1,$A$1:$A$4)",
+            2.5,
+        ),
+        (
+            "rang.mittelw",
+            true,
+            "RANK.AVG",
+            "=RANG.MITTELW(A1;$A$1:$A$4)",
+            2.5,
+        ),
+        ("large", false, "LARGE", "=LARGE($A$1:$A$4,2)", 75.0),
+        ("kgrößte", true, "LARGE", "=KGRÖSSTE($A$1:$A$4;2)", 75.0),
+        ("small", false, "SMALL", "=SMALL($A$1:$A$4,2)", 75.0),
+        ("kkleinste", true, "SMALL", "=KKLEINSTE($A$1:$A$4;2)", 75.0),
+    ] {
+        let hit = matching(query)[0];
+        assert_eq!(hit.english, function);
+        assert_eq!(hit.expression(0, 4, german), draft);
+        assert_eq!(evaluate_formula(&draft[1..], &table), Some(expected));
+    }
+    let lone = matching("kkleinste")[0];
+    assert_eq!(lone.expression(26, 1, true), "=KKLEINSTE($AA$1:$AA$1;1)");
+}
+
+#[test]
 fn text_checks_are_searchable_and_examples_evaluate_in_both_languages() {
     let table = DataTable {
         rows: vec![vec![CellValue::String("SKU-01".into())]],
