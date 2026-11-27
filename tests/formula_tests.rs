@@ -4681,3 +4681,175 @@ fn three_mean_formulas_survive_as_numeric_xlsx_results() {
         assert!((got - answer).abs() < 1e-12, "row {r}: {got}");
     }
 }
+
+#[test]
+fn square_formulas_match_the_reference_examples_and_german_names() {
+    use CellValue::Int;
+    let table = DataTable {
+        rows: [(2, 6), (3, 5), (9, 11), (1, 7), (8, 5), (7, 4), (5, 4)]
+            .map(|(x, y)| vec![Int(x), Int(y)])
+            .to_vec(),
+        ..formula_table()
+    };
+    for (formula, wanted) in [
+        ("SUMSQ(3,4)", 25.0),
+        ("QUADRATESUMME(-3;4)", 25.0),
+        ("WURZEL(QUADRATESUMME(-3;4))", 5.0),
+        ("SQRT(64)", 8.0),
+        ("SQRT(-0)", 0.0),
+        ("SUMXMY2(A1:A7,B1:B7)", 79.0),
+        ("SUMMEXMY2(B7:B1;A7:A1)", 79.0),
+        ("summexmy2 (A1:A7;B1:B7)", 79.0),
+        ("SUMXMY2+A1", 2.0),
+        (
+            "SQRT(SUMXMY2(A1:A7,B1:B7)/COUNT(A1:A7))",
+            (79.0_f64 / 7.0).sqrt(),
+        ),
+    ] {
+        let actual = evaluate_formula(formula, &table).unwrap();
+        assert_eq!(actual.to_bits(), wanted.to_bits(), "{formula}");
+    }
+}
+
+#[test]
+fn square_sum_treats_direct_values_differently_from_references() {
+    use CellValue::{Bool, Float, Int, Null, String as Text};
+    let table = DataTable {
+        rows: vec![
+            vec![Float(3.0), Int(4), Text("0007".into())],
+            vec![Null, Float(f64::NAN), Bool(true)],
+        ],
+        total_rows: Some(2_000_000),
+        ..formula_table()
+    };
+    for (formula, wanted) in [
+        (r#"SUMSQ(A1:C2,"3",TRUE,-2)"#, 39.0),
+        ("QUADRATESUMME((A1:B1000000000);FALSE;1+1)", 29.0),
+        ("SUMSQ(C1:C2)", 0.0),
+        ("SUMSQ(C1,C2)", 0.0),
+        ("SUMSQ(A1:A2,A1:A2)", 18.0),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(wanted), "{formula}");
+    }
+    let many = |n| format!("SUMSQ({})", vec!["2"; n].join(","));
+    assert_eq!(evaluate_formula(&many(255), &table), Some(1020.0));
+    assert_eq!(evaluate_formula(&many(256), &table), None);
+}
+
+#[test]
+fn paired_square_errors_preserve_offsets_and_ignore_non_measurements() {
+    use CellValue::{Bool, Float, Int, Null, String as Text};
+    let table = DataTable {
+        rows: vec![
+            vec![Int(0), Int(1)],
+            vec![Null, Int(17)],
+            vec![Int(123), Text("9".into())],
+            vec![Int(1), Int(3)],
+            vec![Bool(true), Int(98)],
+            vec![Int(2), Int(5)],
+            vec![Int(100), Float(f64::INFINITY)],
+        ],
+        total_rows: Some(1_000_000),
+        ..formula_table()
+    };
+    for (formula, want) in [
+        ("SUMXMY2(A1:A999999999,B1:B999999999)", Some(14.0)),
+        ("SUMXMY2(A1,B1)", Some(1.0)),
+        ("SUMXMY2(A2,B2)", Some(0.0)),
+        ("SUMXMY2(A1:A7,B1:B6)", None),
+        ("SUMXMY2(A1:B1,A1:A2)", None),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), want, "{formula}");
+    }
+}
+
+#[test]
+fn square_sums_keep_tiny_contributions_and_small_exact_differences() {
+    use CellValue::{Float, Int, String as Text};
+    let mut table = DataTable {
+        rows: vec![vec![Float(1e-162)]; 100],
+        ..formula_table()
+    };
+    let tiny = evaluate_formula("SUMSQ(A1:A100)", &table).unwrap();
+    assert!(
+        (98e-324..=102e-324).contains(&tiny) && tiny > 0.0,
+        "{tiny:e}"
+    );
+
+    table.rows = vec![vec![Int(9_007_199_254_740_993), Int(9_007_199_254_740_992)]];
+    assert_eq!(evaluate_formula("SUMXMY2(A1,B1)", &table), Some(1.0));
+
+    table.columns[0].data_type = "Decimal128(28,3)".into();
+    table.columns[1].data_type = "Decimal128(28,4)".into();
+    table.rows[0] = vec![
+        Text("100000000000000000.101".into()),
+        Text("100000000000000000.1000".into()),
+    ];
+    let value = evaluate_formula("SUMXMY2(A1,B1)", &table).unwrap();
+    assert!((value - 1e-6).abs() < 1e-20, "{value:e}");
+    assert_eq!(evaluate_formula("SUMSQ(A1)", &table), Some(1e34));
+}
+
+#[test]
+fn square_formula_errors_are_runtime_only_in_an_inactive_branch() {
+    let table = formula_table();
+    for formula in [
+        "SQRT(-1)",
+        "SQRT(2,3)",
+        "SUMSQ()",
+        "SUMSQ(,1)",
+        "SUMSQ(1e155)",
+        "SUMSQ(1e154,1e154)",
+        r#"SUMSQ("no measurement")"#,
+        "IF(1,5,SUMSQ())",
+        "SUMXMY2(A1:A2,B1:B2,0)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+    for formula in [
+        "IF(1,5,SQRT(-20))",
+        "IFERROR(SUMSQ(1e155),5)",
+        "IF(1,5,SUMXMY2(A1:A2,B1:B3))",
+        r#"IF(1,5,SUMSQ("no measurement"))"#,
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), Some(5.0), "{formula}");
+    }
+}
+
+#[test]
+fn squared_error_formula_written_to_xlsx_reopens_as_a_typed_number() {
+    use CellValue::{Float, Int, Null, String as Text};
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    let folder = tempfile::tempdir().unwrap();
+    let source = folder.path().join("messwerte.xlsx");
+    let out = folder.path().join("fehler.xlsx");
+    let mut table = DataTable {
+        rows: vec![
+            vec![Int(1), Int(4), Text("0007".into()), Null],
+            vec![Int(9), Int(5), Text("0010".into()), Null],
+        ],
+        ..formula_table()
+    };
+    table.columns.push(ColumnInfo {
+        name: "Abstand".into(),
+        data_type: "Float64".into(),
+    });
+    ExcelReader.write_file(&source, &table).unwrap();
+    let mut read = ExcelReader.read_file(&source).unwrap();
+    assert!(commit_cell_text(
+        &mut read,
+        0,
+        3,
+        "=WURZEL(SUMMEXMY2(A1:A2;B1:B2))".into(),
+        BinaryDisplayMode::default(),
+    ));
+    ExcelReader.write_file(&out, &read).unwrap();
+    let reopened = ExcelReader.read_file(&out).unwrap();
+    assert_eq!(reopened.get(0, 3), Some(&Float(5.0)));
+    assert_eq!(reopened.get(0, 2), Some(&Text("0007".into())));
+    assert_eq!(
+        ExcelReader.read_file(&source).unwrap().get(0, 3),
+        Some(&Null)
+    );
+}

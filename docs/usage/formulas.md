@@ -340,7 +340,31 @@ range are used. A scalar expression is a one-cell argument. Pass
 the ranges as separate arguments rather than multiplying ranges
 inside the call. The German name is `SUMMENPRODUKT`.
 
+### Measure differences between plan and actual
+
+`SUMXMY2(A1:A20,B1:B20)` squares the difference at each corresponding
+position and adds the results. A positive and a negative error do not
+cancel. Give the ranges the same height and width. A pair with a blank,
+text or a Boolean is skipped without shifting either range; zero is a
+number. Only loaded pairs are used. In German use `SUMMEXMY2`.
+
+For four complete pairs, `SQRT(SUMXMY2(A1:A4,B1:B4)/4)` gives the root
+mean square error in the original units. Use the number of numeric
+pairs rather than the number of rows if some pairs are missing.
+
+`SUMSQ(3,4)` returns 25. Use `SUMSQ(C1:C20)` if the deviations are
+already in one column. It accepts up to 255 arguments. Plain text,
+Booleans, blanks and non-finite readings in a referenced range are
+ignored. A directly entered Boolean or numeric text is counted.
+The German name is `QUADRATESUMME`.
+
+Open **Insert Column > Examples** and search by either name to choose
+the source columns without writing a formula by hand.
+
 ## Single-value functions
+
+- `SQRT(value)` (`WURZEL`) takes the nonnegative square root. A negative
+  value has no result unless you provide a fallback with `IFERROR`.
 
 - `ABS(value)` returns the magnitude without the sign.
 - `ROUND(value, places)`, also `RUNDEN`, rounds to a whole number of

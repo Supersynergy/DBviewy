@@ -9,8 +9,8 @@ pub(super) fn is_forecast(name: &str) -> bool {
 
 #[derive(Clone, Copy)]
 pub(super) struct Block {
-    top: usize,
-    left: usize,
+    pub(super) top: usize,
+    pub(super) left: usize,
     rows: usize,
     cols: usize,
 }
@@ -24,6 +24,20 @@ impl Block {
             cols: a.1.abs_diff(b.1).checked_add(1)?,
         })
     }
+
+    pub(super) fn common_loaded(self, other: Self, table: &DataTable) -> Option<(usize, usize)> {
+        if (self.rows, self.cols) != (other.rows, other.cols) {
+            return None;
+        }
+        // Read matching offsets only, and never iterate beyond the loaded
+        // rectangle even when the spreadsheet references a huge range.
+        Some((
+            self.rows
+                .min(table.row_count().saturating_sub(self.top.max(other.top))),
+            self.cols
+                .min(table.col_count().saturating_sub(self.left.max(other.left))),
+        ))
+    }
 }
 
 fn number(cell: &CellValue) -> Option<f64> {
@@ -35,17 +49,7 @@ fn number(cell: &CellValue) -> Option<f64> {
 }
 
 pub(super) fn fit(table: &DataTable, y: Block, x: Block) -> Option<PairedMoments> {
-    if (y.rows, y.cols) != (x.rows, x.cols) {
-        return None;
-    }
-    // Compare only positions present on both sides, not two individually
-    // filtered streams. Bounding by loaded rows also keeps huge ranges cheap.
-    let rows = y
-        .rows
-        .min(table.row_count().saturating_sub(y.top.max(x.top)));
-    let cols = y
-        .cols
-        .min(table.col_count().saturating_sub(y.left.max(x.left)));
+    let (rows, cols) = y.common_loaded(x, table)?;
     let mut moments = None;
     for row in 0..rows {
         for col in 0..cols {

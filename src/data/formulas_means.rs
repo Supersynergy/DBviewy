@@ -12,14 +12,14 @@ pub(super) enum Kind {
     Trimmed,
 }
 
-fn exact_range(tokens: &[Token]) -> Option<Rectangle> {
+pub(super) fn exact_range(tokens: &[Token]) -> Option<Rectangle> {
     let (range, end) = rectangle(tokens, 0)?;
     (end == tokens.len()).then_some(range)
 }
 
 /// A quoted identification code isn't a measurement. Decimal columns can
 /// keep large numbers in strings to avoid rounding them at ingestion.
-fn visit_range(
+pub(super) fn visit_range(
     table: &DataTable,
     range: Rectangle,
     mut take: impl FnMut(f64) -> Option<()>,

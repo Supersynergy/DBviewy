@@ -57,9 +57,12 @@ pub(crate) fn number_end(bytes: &[u8], start: usize) -> Option<usize> {
     Some(end)
 }
 
-/// ANZAHL2 followed by an argument list is a function, not a cell address.
+/// Known names ending in digits need an argument list to be functions.
 /// Keep the distinction in both tokenisation and relative-row shifting.
 pub(crate) fn numbered_function(bytes: &[u8], start: usize, end: usize) -> bool {
-    bytes[start..end].eq_ignore_ascii_case(b"ANZAHL2")
+    let name = &bytes[start..end];
+    [b"ANZAHL2".as_slice(), b"SUMXMY2", b"SUMMEXMY2"]
+        .iter()
+        .any(|alias| name.eq_ignore_ascii_case(alias))
         && bytes[end..].iter().find(|b| !b.is_ascii_whitespace()) == Some(&b'(')
 }

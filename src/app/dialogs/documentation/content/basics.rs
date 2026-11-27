@@ -738,6 +738,14 @@ Esc keeps the old draft. The table changes only when you choose Add.
   the best place; use **RANK.AVG** to average the tied places. Add a
   third argument of 1 to rank smallest first. Keeping the comparison
   range fixed lets Insert Column sort it once for the whole column.
+- **`SUMXMY2(A1:A20,B1:B20)`** sums squared differences at matching
+  positions. Give both ranges the same shape. Pairs with blank cells,
+  text or Booleans are skipped without shifting later pairs. Zero
+  counts. `SQRT(SUMXMY2(A1:A4,B1:B4)/4)` gives the root mean square
+  error for four numeric pairs in their original units.
+- **`SUMSQ(3,4)`** adds the squares and returns 25. **`SQRT(25)`**
+  returns 5. In **Insert Column > Examples** you can also search for
+  QUADRATESUMME, WURZEL or SUMMEXMY2 and choose the columns.
 - **`GEOMEAN(A1:A20)`** averages positive growth factors. Subtract 1
   for the growth rate. **`HARMEAN(A1:A20)`** averages positive rates
   for equal amounts, such as speeds on equal-length legs.

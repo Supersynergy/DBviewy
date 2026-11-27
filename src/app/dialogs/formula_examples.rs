@@ -67,6 +67,21 @@ const RECIPES: &[Recipe] = &[
         form: Form::Trimmed,
     },
     Recipe {
+        english: "SUMSQ",
+        german: "QUADRATESUMME",
+        form: Form::Whole,
+    },
+    Recipe {
+        english: "SQRT",
+        german: "WURZEL",
+        form: Form::Scalar,
+    },
+    Recipe {
+        english: "SUMXMY2",
+        german: "SUMMEXMY2",
+        form: Form::Paired,
+    },
+    Recipe {
         english: "COUNT",
         german: "ANZAHL",
         form: Form::Running,
@@ -262,7 +277,9 @@ impl Recipe {
             Form::Exact => format!(r#"{c}1{sep}"SKU-01""#),
             Form::Find(pattern) => {
                 let fallback = if german { "WENNFEHLER" } else { "IFERROR" };
-                return Some(format!(r#"={fallback}({name}("{pattern}"{sep}{c}1){sep}0)"#));
+                return Some(format!(
+                    r#"={fallback}({name}("{pattern}"{sep}{c}1){sep}0)"#
+                ));
             }
             Form::Rank => format!("{c}1{sep}${c}$1:${c}${n}"),
             Form::Nth => format!("${c}$1:${c}${n}{sep}{}", n.min(2)),

@@ -591,3 +591,80 @@ fn localized_means_prepare_fixed_ranges_and_fill_numeric_results() {
         assert!((other - expected).abs() < 1e-10);
     }
 }
+
+#[test]
+fn squared_error_examples_are_findable_in_both_languages_and_reuse_fixed_ranges() {
+    let app = examples_app();
+    let table = &app.tabs[0].table;
+    for (query, expected_name, partner, german, formula) in [
+        ("sumsq", "SUMSQ", None, false, "=SUMSQ($A$1:$A$4)"),
+        (
+            "quadratesumme",
+            "SUMSQ",
+            None,
+            true,
+            "=QUADRATESUMME($A$1:$A$4)",
+        ),
+        ("sqrt", "SQRT", None, false, "=SQRT(A1)"),
+        ("wurzel", "SQRT", None, true, "=WURZEL(A1)"),
+        (
+            "sumxmy2",
+            "SUMXMY2",
+            Some(2),
+            false,
+            "=SUMXMY2($A$1:$A$4,$C$1:$C$4)",
+        ),
+        (
+            "summexmy2",
+            "SUMXMY2",
+            Some(2),
+            true,
+            "=SUMMEXMY2($A$1:$A$4;$C$1:$C$4)",
+        ),
+    ] {
+        let found = matching(query)[0];
+        assert_eq!(found.english, expected_name);
+        assert_eq!(
+            found.expression(0, partner, 4, german).as_deref(),
+            Some(formula)
+        );
+        let (rows, bad) = super::super::fill_formula_template(&formula[1..], table);
+        assert!(bad.is_none(), "{formula}");
+        assert_eq!(rows.len(), 4);
+        if partner.is_some() {
+            assert_eq!(rows, [(0, 166.0), (1, 166.0), (2, 166.0), (3, 166.0)]);
+            assert!(found.expression(0, None, 4, german).is_none());
+        }
+    }
+}
+
+#[test]
+fn squared_error_picker_keyboard_accepts_a_draft_without_changing_the_table() {
+    let mut app = examples_app();
+    let tab = &mut app.tabs[0];
+    let ctx = egui::Context::default();
+    let draft = egui::Id::new("squared-error-formula");
+    picker_frame(&ctx, tab, draft, vec![]);
+    picker_frame(
+        &ctx,
+        tab,
+        draft,
+        vec![egui::Event::Text("summexmy2".into())],
+    );
+    assert_eq!(tab.new_col_formula, "=11");
+    picker_frame(&ctx, tab, draft, vec![key(egui::Key::Enter)]);
+    let source = tab.new_col_formula.as_str();
+    assert!(
+        source.starts_with(if current_language() == "de" {
+            "=SUMMEXMY2("
+        } else {
+            "=SUMXMY2("
+        }),
+        "{source}"
+    );
+    assert!(source.contains("$A$1:$A$4") && source.contains("$C$1:$C$4"));
+    assert!(!source.contains("$B"));
+    assert!(ctx.memory(|m| m.has_focus(draft)));
+    assert_eq!(tab.table.col_count(), 3);
+    assert!(tab.table.undo_stack.is_empty() && tab.table.edits.is_empty());
+}

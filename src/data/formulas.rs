@@ -40,6 +40,8 @@ mod product;
 mod quantiles;
 #[path = "formula_rank_math.rs"]
 mod rank_math;
+#[path = "formulas_squares.rs"]
+mod squares;
 #[path = "formulas_text.rs"]
 mod text;
 #[path = "formulas_time.rs"]
@@ -198,6 +200,8 @@ enum Function {
     Conditional(ConditionalAggregate),
     ConditionalMany(ConditionalAggregate),
     Abs,
+    SquareRoot,
+    SumSquares,
     Round(Rounding),
     If,
     IfError,
@@ -339,6 +343,10 @@ fn function_named(name: &str) -> Option<Function> {
             Function::Conditional(ConditionalAggregate::Average),
         ),
         ("ABS", Abs),
+        ("SQRT", Function::SquareRoot),
+        ("WURZEL", Function::SquareRoot),
+        ("SUMSQ", Function::SumSquares),
+        ("QUADRATESUMME", Function::SumSquares),
         ("ROUND", Round(Nearest)),
         ("RUNDEN", Round(Nearest)),
         ("ROUNDUP", Round(Away)),
@@ -807,6 +815,7 @@ fn eval_function(
             return workdays::evaluate(kind, intl, tokens, pos, context);
         }
         Function::SumProduct => return product::evaluate(tokens, pos, context),
+        Function::SumSquares => return squares::evaluate(tokens, pos, context),
         Function::NumberValue => return numbervalue::evaluate(tokens, pos, context),
         Function::NetPresentValue => return cashflow::periodic(tokens, pos, context),
         Function::DatedNetPresentValue => return cashflow::dated(tokens, pos, context),
@@ -827,6 +836,7 @@ fn eval_function(
     let (value, end) = eval_expression(tokens, pos + 1, context)?;
     let (value, end) = match function {
         Function::Abs => (value.abs(), end),
+        Function::SquareRoot => (if value == 0.0 { 0.0 } else { value.sqrt() }, end),
         Function::Round(mode) => {
             let (places, end) = if matches!(tokens.get(end), Some(FormulaToken::Separator)) {
                 eval_expression(tokens, end + 1, context)?
