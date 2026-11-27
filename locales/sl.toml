@@ -4631,6 +4631,8 @@ no_writer = "DBviewy ne zna zapisati {name}. Uporabi končnico, kot je .csv ali 
 
 [imgview]
 import = "Uvozi sliko..."
+import_hint = "Dodaj sliko iz datoteke ali URL-ja v album SQLite."
+import_sqlite_only = "Najprej odpri zapisljivo zbirko SQLite."
 title = "Slika"
 menu = "Prikaži sliko"
 menu_hint = "Odpri to sliko v pregledovalniku"
@@ -4891,6 +4893,8 @@ pattern = "Dolžina vzorca"
 pattern_hint = "Koliko prvih izbranih celic sestavlja vzorec, ki se ponavlja."
 pattern_why = "Samo za ponavljanje vzorca."
 preview = "Prve vrednosti"
+scope = "{n} celic v {cols} stolpcih"
+stale = "Cilj se je spremenil. Ponovno odpri pogovorno okno za zapolnitev niza."
 fill = "Zapolni"
 fill_hint = "Zapiše niz v izbrane celice. En razveljavi povrne vse."
 cancel_hint = "Zapri, ne da bi spremenil katero koli celico."

@@ -4636,6 +4636,8 @@ no_writer = "DBviewy nu poate scrie {name}. Folosește o extensie ca .csv sau .p
 
 [imgview]
 import = "Importă o imagine..."
+import_hint = "Adaugă în albumul SQLite o imagine dintr-un fișier sau de la un URL."
+import_sqlite_only = "Deschide întâi o bază de date SQLite editabilă."
 title = "Imagine"
 menu = "Vezi imaginea"
 menu_hint = "Deschide această imagine în vizualizator"
@@ -4896,6 +4898,8 @@ pattern = "Lungimea modelului"
 pattern_hint = "Câte dintre primele celule selectate formează modelul care se repetă."
 pattern_why = "Doar pentru repetarea unui model."
 preview = "Primele valori"
+scope = "{n} celule în {cols} coloane"
+stale = "Destinația s-a schimbat. Deschide din nou fereastra de completare a seriei."
 fill = "Umple"
 fill_hint = "Scrie seria în celulele selectate. O singură anulare le întoarce pe toate."
 cancel_hint = "Închide fără să schimbi vreo celulă."

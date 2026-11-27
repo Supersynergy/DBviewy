@@ -4634,6 +4634,8 @@ no_writer = "DBviewy ei osaa kirjoittaa tiedostoa {name}. Käytä päätettä ku
 
 [imgview]
 import = "Tuo kuva..."
+import_hint = "Lisää kuva tiedostosta tai URL-osoitteesta SQLite-albumiin."
+import_sqlite_only = "Avaa ensin muokattava SQLite-tietokanta."
 title = "Kuva"
 menu = "Näytä kuva"
 menu_hint = "Avaa tämä kuva näkymässä"
@@ -4894,6 +4896,8 @@ pattern = "Kuvion pituus"
 pattern_hint = "Moniko ensimmäisistä valituista soluista muodostaa toistuvan kuvion."
 pattern_why = "Vain kuvion toistamiseen."
 preview = "Ensimmäiset arvot"
+scope = "{n} solua, {cols} saraketta"
+stale = "Kohde muuttui. Avaa sarjan täyttöikkuna uudelleen."
 fill = "Täytä"
 fill_hint = "Kirjoita sarja valittuihin soluihin. Yksi kumoaminen peruu kaiken."
 cancel_hint = "Sulje muuttamatta yhtään solua."

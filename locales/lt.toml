@@ -4631,6 +4631,8 @@ no_writer = "DBviewy negali įrašyti {name}. Naudok plėtinį, pvz., .csv arba 
 
 [imgview]
 import = "Importuoti vaizdą..."
+import_hint = "Pridėk vaizdą iš failo ar URL prie SQLite albumo."
+import_sqlite_only = "Pirmiausia atverk redaguojamą SQLite duomenų bazę."
 title = "Paveikslėlis"
 menu = "Žiūrėti paveikslėlį"
 menu_hint = "Atidaryti šį paveikslėlį peržiūroje"
@@ -4891,6 +4893,8 @@ pattern = "Rašto ilgis"
 pattern_hint = "Kiek pirmų pažymėtų langelių sudaro pasikartojantį raštą."
 pattern_why = "Tik rašto kartojimui."
 preview = "Pirmos reikšmės"
+scope = "{n} langelių, {cols} stulpelių"
+stale = "Paskirties vieta pasikeitė. Iš naujo atverk sekos pildymo langą."
 fill = "Užpildyti"
 fill_hint = "Įrašo seką į pažymėtus langelius. Vienas atšaukimas viską grąžina."
 cancel_hint = "Uždaryti nekeičiant nė vieno langelio."

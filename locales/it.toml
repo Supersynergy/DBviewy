@@ -4634,6 +4634,8 @@ no_writer = "DBviewy non sa scrivere {name}. Usa un'estensione come .csv o .parq
 
 [imgview]
 import = "Importa immagine..."
+import_hint = "Aggiungi un'immagine da un file o un URL all'album SQLite."
+import_sqlite_only = "Apri prima un database SQLite modificabile."
 title = "Immagine"
 menu = "Visualizza immagine"
 menu_hint = "Apri questa immagine nel visualizzatore"
@@ -4894,6 +4896,8 @@ pattern = "Lunghezza dello schema"
 pattern_hint = "Quante delle prime celle selezionate formano lo schema che si ripete."
 pattern_why = "Solo per ripetere uno schema."
 preview = "Primi valori"
+scope = "{n} celle in {cols} colonne"
+stale = "La destinazione è cambiata. Riapri la finestra di riempimento della serie."
 fill = "Riempi"
 fill_hint = "Scrive la serie nelle celle selezionate. Un solo annulla toglie tutto."
 cancel_hint = "Chiudi senza cambiare nessuna cella."

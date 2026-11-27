@@ -4631,6 +4631,8 @@ no_writer = "DBviewy ei saa kirjutada faili {name}. Kasuta laiendit nagu .csv v�
 
 [imgview]
 import = "Impordi pilt..."
+import_hint = "Lisa failist või URL-ilt pilt SQLite'i albumisse."
+import_sqlite_only = "Ava kõigepealt muudetav SQLite'i andmebaas."
 title = "Pilt"
 menu = "Kuva pilt"
 menu_hint = "Ava see pilt vaaturis"
@@ -4891,6 +4893,8 @@ pattern = "Mustri pikkus"
 pattern_hint = "Mitu esimest valitud lahtrit moodustavad korduva mustri."
 pattern_why = "Ainult mustri kordamiseks."
 preview = "Esimesed väärtused"
+scope = "{n} lahtrit {cols} veerus"
+stale = "Sihtkoht on muutunud. Ava sarja täitmise dialoog uuesti."
 fill = "Täida"
 fill_hint = "Kirjuta jada valitud lahtritesse. Üks tagasivõtmine tühistab kõik."
 cancel_hint = "Sulge ühtki lahtrit muutmata."

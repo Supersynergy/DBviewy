@@ -4622,6 +4622,8 @@ no_writer = "DBviewy は {name} を書き込めません。.csv や .parquet な
 
 [imgview]
 import = "画像をインポート..."
+import_hint = "ファイルや URL の画像を SQLite アルバムに追加します。"
+import_sqlite_only = "先に編集可能な SQLite データベースを開いてください。"
 title = "画像"
 menu = "画像を表示"
 menu_hint = "この画像をビューアで開く"
@@ -4882,6 +4884,8 @@ pattern = "パターンの長さ"
 pattern_hint = "最初に選んだセルのうち、繰り返すパターンになるセルの数。"
 pattern_why = "パターンを繰り返すときだけ。"
 preview = "最初の値"
+scope = "{cols} 列、{n} セル"
+stale = "対象が変わりました。連続データの作成ダイアログを開き直してください。"
 fill = "入力"
 fill_hint = "選んだセルに連続データを書き込む。1回の元に戻すで全部戻る。"
 cancel_hint = "セルを変えずに閉じる。"

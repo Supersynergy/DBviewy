@@ -408,9 +408,11 @@ The dialog guesses from the first selected cells and you can change it:
   29 February, then 31 March. Timestamps keep their time.
 - **Repeat the first cells**: the first cells repeat down the rest.
 
-The preview shows the first values. **Fill** writes them all as one step, so
-one Ctrl+Z reverts the whole fill. Values go through the paste path, so the
-column's type still applies. On a database tab they become pending changes.
+The dialog shows the target tab, the number of selected visible cells and
+a preview for up to three columns. The preview updates as you type.
+Reopen the dialog if the tab, table or visible selection changes.
+Choose **Fill** to write all changes. One Ctrl+Z reverts them. Values
+go through the paste path. On a database tab they become pending changes.
 
 ## Starting from nothing
 

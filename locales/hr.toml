@@ -4631,6 +4631,8 @@ no_writer = "DBviewy ne može zapisati {name}. Uzmi nastavak poput .csv ili .par
 
 [imgview]
 import = "Uvezi sliku..."
+import_hint = "Dodaj sliku iz datoteke ili s URL-a u album SQLite."
+import_sqlite_only = "Najprije otvori bazu SQLite koja se može uređivati."
 title = "Slika"
 menu = "Prikaži sliku"
 menu_hint = "Otvori ovu sliku u pregledniku"
@@ -4891,6 +4893,8 @@ pattern = "Duljina uzorka"
 pattern_hint = "Koliko prvih odabranih ćelija čini uzorak koji se ponavlja."
 pattern_why = "Samo za ponavljanje uzorka."
 preview = "Prve vrijednosti"
+scope = "{n} ćelija u {cols} stupaca"
+stale = "Odredište se promijenilo. Ponovno otvori dijalog za popunjavanje niza."
 fill = "Ispuni"
 fill_hint = "Upisuje niz u odabrane ćelije. Jedno poništavanje vraća sve."
 cancel_hint = "Zatvori bez mijenjanja ijedne ćelije."

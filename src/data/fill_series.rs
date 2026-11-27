@@ -110,7 +110,7 @@ fn parse_num(s: &str) -> Option<(f64, usize)> {
         .parse::<f64>()
         .or_else(|_| t.replace(',', ".").parse::<f64>())
         .ok()?;
-    Some((v, decimals(t)))
+    v.is_finite().then(|| (v, decimals(t)))
 }
 
 fn cell_num(c: &CellValue) -> Option<(f64, usize)> {
@@ -302,9 +302,16 @@ pub fn values(spec: &FillSpec, own: &[CellValue], n: usize) -> Result<Vec<String
             let (start, sd) = parse_num(&spec.start).ok_or(FillError::BadStart)?;
             let (step, td) = parse_num(&spec.step).ok_or(FillError::BadStep)?;
             let dec = sd.max(td);
-            Ok((0..n)
-                .map(|i| fmt_num(start + step * i as f64, dec))
-                .collect())
+            (0..n)
+                .map(|i| {
+                    let value = start + step * i as f64;
+                    if value.is_finite() {
+                        Ok(fmt_num(value, dec))
+                    } else {
+                        Err(FillError::TooFar)
+                    }
+                })
+                .collect()
         }
         FillKind::Counter => {
             let c = split_counter(spec.start.trim()).ok_or(FillError::BadStart)?;

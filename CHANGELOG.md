@@ -25,6 +25,7 @@
 - Calculate percentiles and quartiles, including p95 response times, with inclusive and exclusive Excel formulas.
 - Reveal the correct row when navigating filtered tables with zoomed or resized rows.
 - Fill down typed values within the visible selection, with one Undo.
+- Preview Fill series by column and refuse to write if the target has changed.
 - Keep selection statistics compact and exclude hidden rows and columns.
 - Check data completeness with `COUNTA`, `COUNTBLANK` and `ISBLANK`, also in German.
 - Fill running averages and counts without rescanning earlier rows.

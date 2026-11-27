@@ -4635,6 +4635,8 @@ no_writer = "DBviewy không ghi được {name}. Hãy dùng phần mở rộng n
 
 [imgview]
 import = "Nhập hình ảnh..."
+import_hint = "Thêm ảnh từ tệp hoặc URL vào album SQLite."
+import_sqlite_only = "Trước tiên hãy mở cơ sở dữ liệu SQLite có thể chỉnh sửa."
 title = "Ảnh"
 menu = "Xem ảnh"
 menu_hint = "Mở ảnh này trong trình xem"
@@ -4895,6 +4897,8 @@ pattern = "Độ dài mẫu"
 pattern_hint = "Bao nhiêu ô đầu tiên được chọn tạo thành mẫu lặp lại."
 pattern_why = "Chỉ dành cho việc lặp một mẫu."
 preview = "Giá trị đầu tiên"
+scope = "{n} ô trong {cols} cột"
+stale = "Vùng đích đã thay đổi. Hãy mở lại hộp thoại Điền chuỗi."
 fill = "Điền"
 fill_hint = "Ghi chuỗi vào các ô đã chọn. Một lần hoàn tác sẽ trả lại tất cả."
 cancel_hint = "Đóng mà không đổi ô nào."

@@ -4630,6 +4630,8 @@ no_writer = "DBviewy cannot write {name}. Use an ending such as .csv or .parquet
 
 [imgview]
 import = "Import image..."
+import_hint = "Add an image from a file or URL to the SQLite album."
+import_sqlite_only = "Open an editable SQLite database first."
 title = "Image"
 menu = "View image"
 menu_hint = "Open this picture in the image viewer"
@@ -4890,6 +4892,8 @@ pattern = "Pattern length"
 pattern_hint = "How many of the first selected cells make up the pattern that repeats."
 pattern_why = "Only for repeating a pattern."
 preview = "First values"
+scope = "{n} cells in {cols} columns"
+stale = "The target changed. Reopen the Fill series dialog."
 fill = "Fill"
 fill_hint = "Write the series into the selected cells. One undo reverts it all."
 cancel_hint = "Close without changing any cell."

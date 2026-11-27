@@ -1112,10 +1112,21 @@ pub(super) fn draw_data_row_direct(
                         interaction.ctx_view_image = Some((actual_row, col_idx));
                         ui.close();
                     }
-                    if !readonly
-                        && table.format_name.as_deref() == Some("SQLite")
-                        && ui.button(crate::i18n::t("imgview.import")).clicked()
+                    let import_block = if readonly {
+                        Some("context_menu.header_row_readonly")
+                    } else if table.format_name.as_deref() != Some("SQLite")
+                        || table.source_path.is_none()
                     {
+                        Some("imgview.import_sqlite_only")
+                    } else {
+                        None
+                    };
+                    if crate::ui::menu_entry::keyed_menu_entry(
+                        ui,
+                        "imgview.import",
+                        &crate::i18n::t("imgview.import_hint"),
+                        import_block.map(crate::i18n::t).as_deref(),
+                    ) {
                         interaction.ctx_import_image = Some((actual_row, col_idx));
                         ui.close();
                     }

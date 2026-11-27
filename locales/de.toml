@@ -4634,6 +4634,8 @@ no_writer = "DBviewy kann {name} nicht schreiben. Nimm eine Endung wie .csv oder
 
 [imgview]
 import = "Bild importieren..."
+import_hint = "Füge dem SQLite-Album ein Bild aus einer Datei oder von einer URL hinzu."
+import_sqlite_only = "Öffne zuerst eine bearbeitbare SQLite-Datenbank."
 title = "Bild"
 menu = "Bild anzeigen"
 menu_hint = "Dieses Bild im Bildbetrachter öffnen"
@@ -4894,6 +4896,8 @@ pattern = "Musterlänge"
 pattern_hint = "Wie viele der ersten markierten Zellen das Muster bilden, das sich wiederholt."
 pattern_why = "Nur zum Wiederholen eines Musters."
 preview = "Erste Werte"
+scope = "{n} Zellen in {cols} Spalten"
+stale = "Das Ziel hat sich geändert. Öffne den Dialog zum Ausfüllen der Reihe erneut."
 fill = "Ausfüllen"
 fill_hint = "Schreib die Reihe in die markierten Zellen. Ein Rückgängig nimmt alles zurück."
 cancel_hint = "Schließen, ohne eine Zelle zu ändern."

@@ -4631,6 +4631,8 @@ no_writer = "DBviewy nevar ierakstīt {name}. Izmanto paplašinājumu, piemēram
 
 [imgview]
 import = "Importēt attēlu..."
+import_hint = "Pievieno SQLite albumam attēlu no faila vai URL."
+import_sqlite_only = "Vispirms atver rediģējamu SQLite datubāzi."
 title = "Attēls"
 menu = "Skatīt attēlu"
 menu_hint = "Atvērt šo attēlu skatītājā"
@@ -4891,6 +4893,8 @@ pattern = "Raksta garums"
 pattern_hint = "Cik no pirmajām atlasītajām šūnām veido rakstu, kas atkārtojas."
 pattern_why = "Tikai raksta atkārtošanai."
 preview = "Pirmās vērtības"
+scope = "{n} šūnas, {cols} kolonnas"
+stale = "Mērķis ir mainījies. Atver virknes aizpildīšanas logu vēlreiz."
 fill = "Aizpildīt"
 fill_hint = "Ieraksta virkni atlasītajās šūnās. Viena atsaukšana visu atceļ."
 cancel_hint = "Aizvērt, nemainot nevienu šūnu."

@@ -245,3 +245,31 @@ fn a_counter_past_the_signed_range_still_counts() {
     };
     assert_eq!(values(&huge, &[], 4), Err(FillError::TooFar));
 }
+
+#[test]
+fn number_series_rejects_nonfinite_start_step_and_result() {
+    for start in ["NaN", "inf", "-inf", "1e500"] {
+        let spec = FillSpec {
+            start: start.into(),
+            step: "1".into(),
+            ..FillSpec::default()
+        };
+        assert_eq!(values(&spec, &[], 2), Err(FillError::BadStart), "{start}");
+    }
+    for step in ["NaN", "inf", "-inf", "1e500"] {
+        let spec = FillSpec {
+            start: "1".into(),
+            step: step.into(),
+            ..FillSpec::default()
+        };
+        assert_eq!(values(&spec, &[], 2), Err(FillError::BadStep), "{step}");
+    }
+    for (start, step) in [("1e308", "1e308"), ("-1e308", "-1e308")] {
+        let spec = FillSpec {
+            start: start.into(),
+            step: step.into(),
+            ..FillSpec::default()
+        };
+        assert_eq!(values(&spec, &[], 2), Err(FillError::TooFar));
+    }
+}

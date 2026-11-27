@@ -4622,6 +4622,8 @@ no_writer = "Octa는 {name}을(를) 쓸 수 없어. .csv나 .parquet 같은 확�
 
 [imgview]
 import = "이미지 가져오기..."
+import_hint = "파일이나 URL의 이미지를 SQLite 앨범에 추가하세요."
+import_sqlite_only = "먼저 편집할 수 있는 SQLite 데이터베이스를 여세요."
 title = "이미지"
 menu = "이미지 보기"
 menu_hint = "이 이미지를 뷰어에서 열기"
@@ -4882,6 +4884,8 @@ pattern = "패턴 길이"
 pattern_hint = "처음 선택한 셀 중 몇 개가 반복되는 패턴을 이루는지."
 pattern_why = "패턴을 반복할 때만."
 preview = "첫 값들"
+scope = "{cols}개 열의 셀 {n}개"
+stale = "대상이 변경됐습니다. 연속 채우기 창을 다시 여세요."
 fill = "채우기"
 fill_hint = "선택한 셀에 연속 데이터를 써. 실행 취소 한 번이면 전부 되돌려."
 cancel_hint = "셀을 바꾸지 않고 닫기."

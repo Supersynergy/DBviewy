@@ -4635,6 +4635,8 @@ no_writer = "DBviewy neumí zapsat {name}. Použij příponu jako .csv nebo .par
 
 [imgview]
 import = "Importovat obrázek..."
+import_hint = "Přidej snímek ze souboru nebo URL do alba SQLite."
+import_sqlite_only = "Nejprve otevři upravitelnou databázi SQLite."
 title = "Obrázek"
 menu = "Zobrazit obrázek"
 menu_hint = "Otevřít tento obrázek v prohlížeči"
@@ -4895,6 +4897,8 @@ pattern = "Délka vzoru"
 pattern_hint = "Kolik prvních vybraných buněk tvoří vzor, který se opakuje."
 pattern_why = "Jen pro opakování vzoru."
 preview = "První hodnoty"
+scope = "{n} buněk v {cols} sloupcích"
+stale = "Cíl se změnil. Znovu otevři dialog pro vyplnění řady."
 fill = "Vyplnit"
 fill_hint = "Zapíše řadu do vybraných buněk. Jedno zpět vrátí všechno."
 cancel_hint = "Zavřít a nezměnit žádnou buňku."

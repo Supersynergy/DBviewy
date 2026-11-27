@@ -4634,6 +4634,8 @@ no_writer = "DBviewy kan inte skriva {name}. Använd en filändelse som .csv ell
 
 [imgview]
 import = "Importera bild..."
+import_hint = "Lägg till en bild från en fil eller en webbadress i SQLite-albumet."
+import_sqlite_only = "Öppna först en redigerbar SQLite-databas."
 title = "Bild"
 menu = "Visa bild"
 menu_hint = "Öppna den här bilden i visaren"
@@ -4894,6 +4896,8 @@ pattern = "Mönsterlängd"
 pattern_hint = "Hur många av de första markerade cellerna som utgör mönstret som upprepas."
 pattern_why = "Bara för att upprepa ett mönster."
 preview = "Första värden"
+scope = "{n} celler i {cols} kolumner"
+stale = "Målet har ändrats. Öppna dialogrutan för att fylla serier igen."
 fill = "Fyll"
 fill_hint = "Skriv serien i de markerade cellerna. En ångra tar tillbaka allt."
 cancel_hint = "Stäng utan att ändra någon cell."

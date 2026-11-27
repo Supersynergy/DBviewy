@@ -4634,6 +4634,8 @@ no_writer = "DBviewy ne sait pas écrire {name}. Prends une extension comme .csv
 
 [imgview]
 import = "Importer une image..."
+import_hint = "Ajoute une image depuis un fichier ou une URL à l'album SQLite."
+import_sqlite_only = "Ouvre d'abord une base SQLite modifiable."
 title = "Image"
 menu = "Voir l'image"
 menu_hint = "Ouvrir cette image dans la visionneuse"
@@ -4894,6 +4896,8 @@ pattern = "Longueur du motif"
 pattern_hint = "Combien des premières cellules sélectionnées forment le motif qui se répète."
 pattern_why = "Seulement pour répéter un motif."
 preview = "Premières valeurs"
+scope = "{n} cellules dans {cols} colonnes"
+stale = "La cible a changé. Rouvre la fenêtre de remplissage de série."
 fill = "Remplir"
 fill_hint = "Écris la série dans les cellules sélectionnées. Une seule annulation défait tout."
 cancel_hint = "Fermer sans changer aucune cellule."

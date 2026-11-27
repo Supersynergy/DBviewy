@@ -4631,6 +4631,8 @@ no_writer = "O DBviewy não consegue escrever {name}. Usa uma extensão como .cs
 
 [imgview]
 import = "Importar imagem..."
+import_hint = "Adiciona ao álbum SQLite uma imagem de um ficheiro ou URL."
+import_sqlite_only = "Abre primeiro uma base de dados SQLite editável."
 title = "Imagem"
 menu = "Ver imagem"
 menu_hint = "Abrir esta imagem no visualizador"
@@ -4896,6 +4898,8 @@ pattern = "Pattern length"
 pattern_hint = "How many of the first selected cells make up the pattern that repeats."
 pattern_why = "Only for repeating a pattern."
 preview = "First values"
+scope = "{n} células em {cols} colunas"
+stale = "O destino mudou. Volta a abrir a janela de preenchimento da série."
 fill = "Fill"
 fill_hint = "Write the series into the selected cells. One undo reverts it all."
 cancel_hint = "Close without changing any cell."

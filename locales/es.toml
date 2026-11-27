@@ -4634,6 +4634,8 @@ no_writer = "DBviewy no puede escribir {name}. Usa una extensión como .csv o .p
 
 [imgview]
 import = "Importar imagen..."
+import_hint = "Añade una imagen desde un archivo o URL al álbum de SQLite."
+import_sqlite_only = "Abre primero una base de datos SQLite editable."
 title = "Imagen"
 menu = "Ver imagen"
 menu_hint = "Abrir esta imagen en el visor"
@@ -4894,6 +4896,8 @@ pattern = "Longitud del patrón"
 pattern_hint = "Cuántas de las primeras celdas seleccionadas forman el patrón que se repite."
 pattern_why = "Solo para repetir un patrón."
 preview = "Primeros valores"
+scope = "{n} celdas en {cols} columnas"
+stale = "El destino ha cambiado. Vuelve a abrir el diálogo Rellenar serie."
 fill = "Rellenar"
 fill_hint = "Escribe la serie en las celdas seleccionadas. Un solo deshacer lo revierte todo."
 cancel_hint = "Cerrar sin cambiar ninguna celda."

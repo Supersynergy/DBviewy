@@ -150,11 +150,15 @@ Two date rules worth knowing:
 - **Workdays skip Saturday and Sunday.** From a Friday the next workday is the
   Monday. Public holidays are not known.
 
-The dialog previews the first values before anything is written. **Fill**
-writes them all as one step, so one **Ctrl+Z** reverts the whole fill. Each
-value goes through the same path as a paste, so the column's type still
-applies. On a database tab the filled cells become pending changes like any
-other edit.
+The dialog names the target tab and counts the selected cells in visible
+rows and columns. It previews up to five results in each of the first three
+columns and updates as you type. Nothing is written until you choose
+**Fill**. If you switch tabs or change the table or the visible selection
+before applying, open the dialog again to review the new target.
+
+Choose **Fill** to write the changes. One **Ctrl+Z** reverts them.
+Each value goes through the same path as a paste, so the column's type
+still applies. On a database tab the changes are pending like any other edit.
 
 ## Undo / Redo
 

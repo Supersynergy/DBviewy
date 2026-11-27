@@ -4634,6 +4634,8 @@ no_writer = "DBviewy kan {name} niet schrijven. Gebruik een extensie zoals .csv 
 
 [imgview]
 import = "Afbeelding importeren..."
+import_hint = "Voeg vanuit een bestand of URL een afbeelding toe aan het SQLite-album."
+import_sqlite_only = "Open eerst een bewerkbare SQLite-database."
 title = "Afbeelding"
 menu = "Afbeelding bekijken"
 menu_hint = "Open deze afbeelding in de bekijken"
@@ -4894,6 +4896,8 @@ pattern = "Patroonlengte"
 pattern_hint = "Hoeveel van de eerste geselecteerde cellen het patroon vormen dat zich herhaalt."
 pattern_why = "Alleen voor het herhalen van een patroon."
 preview = "Eerste waarden"
+scope = "{n} cellen in {cols} kolommen"
+stale = "Het doel is gewijzigd. Open het venster voor het vullen van reeksen opnieuw."
 fill = "Invullen"
 fill_hint = "Schrijf de reeks in de geselecteerde cellen. Eén keer ongedaan maken draait alles terug."
 cancel_hint = "Sluiten zonder een cel te veranderen."

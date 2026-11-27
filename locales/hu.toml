@@ -4635,6 +4635,8 @@ no_writer = "Az DBviewy nem tudja írni a(z) {name} fájlt. Használj olyan kite
 
 [imgview]
 import = "Kép importálása..."
+import_hint = "Adj képet fájlból vagy URL-ről az SQLite-albumhoz."
+import_sqlite_only = "Előbb nyiss meg egy szerkeszthető SQLite-adatbázist."
 title = "Kép"
 menu = "Kép megtekintése"
 menu_hint = "Nyisd meg ezt a képet a nézegetőben"
@@ -4895,6 +4897,8 @@ pattern = "Minta hossza"
 pattern_hint = "Hány első kijelölt cella alkotja az ismétlődő mintát."
 pattern_why = "Csak minta ismétléséhez."
 preview = "Első értékek"
+scope = "{n} cella, {cols} oszlop"
+stale = "A célterület megváltozott. Nyisd meg újra a sorozatkitöltés ablakát."
 fill = "Kitöltés"
 fill_hint = "Beírja a sorozatot a kijelölt cellákba. Egy visszavonás mindent visszaállít."
 cancel_hint = "Bezárás úgy, hogy egy cella se változzon."

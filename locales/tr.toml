@@ -4634,6 +4634,8 @@ no_writer = "DBviewy {name} dosyasını yazamaz. .csv ya da .parquet gibi bir uz
 
 [imgview]
 import = "Resim içe aktar..."
+import_hint = "Dosyadan veya URL'den SQLite albümüne bir resim ekle."
+import_sqlite_only = "Önce düzenlenebilir bir SQLite veritabanı aç."
 title = "Görsel"
 menu = "Görseli görüntüle"
 menu_hint = "Bu görseli görüntüleyicide aç"
@@ -4894,6 +4896,8 @@ pattern = "Desen uzunluğu"
 pattern_hint = "İlk seçili hücrelerden kaçının tekrarlanan deseni oluşturduğu."
 pattern_why = "Yalnızca bir deseni tekrarlamak için."
 preview = "İlk değerler"
+scope = "{cols} sütunda {n} hücre"
+stale = "Hedef değişti. Seriyi doldur penceresini yeniden aç."
 fill = "Doldur"
 fill_hint = "Seriyi seçili hücrelere yazar. Tek bir geri alma hepsini geri çevirir."
 cancel_hint = "Hiçbir hücreyi değiştirmeden kapat."

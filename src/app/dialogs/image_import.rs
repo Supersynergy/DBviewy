@@ -99,7 +99,7 @@ pub(crate) fn render(app: &mut OctaApp, ctx: &egui::Context) {
                         .pick_file()
                         .map(Source::File);
                 }
-                ui.horizontal(|ui| {
+                octa::ui::control_row::control_line(ui, |ui| {
                     ui.label("URL");
                     ui.text_edit_singleline(&mut state.url);
                     if ui

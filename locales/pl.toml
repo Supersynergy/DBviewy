@@ -4634,6 +4634,8 @@ no_writer = "DBviewy nie potrafi zapisać {name}. Użyj rozszerzenia takiego jak
 
 [imgview]
 import = "Importuj obraz..."
+import_hint = "Dodaj do albumu SQLite obraz z pliku lub adresu URL."
+import_sqlite_only = "Najpierw otwórz bazę SQLite, którą można edytować."
 title = "Obraz"
 menu = "Zobacz obraz"
 menu_hint = "Otwórz ten obraz w przeglądarce"
@@ -4894,6 +4896,8 @@ pattern = "Długość wzoru"
 pattern_hint = "Ile pierwszych zaznaczonych komórek tworzy powtarzany wzór."
 pattern_why = "Tylko do powtarzania wzoru."
 preview = "Pierwsze wartości"
+scope = "{n} komórek w {cols} kolumnach"
+stale = "Obszar docelowy się zmienił. Otwórz ponownie okno wypełniania serii."
 fill = "Wypełnij"
 fill_hint = "Wpisz serię do zaznaczonych komórek. Jedno cofnięcie odwraca wszystko."
 cancel_hint = "Zamknij bez zmieniania żadnej komórki."

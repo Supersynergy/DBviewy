@@ -4636,6 +4636,8 @@ no_writer = "DBviewy tidak bisa menulis {name}. Pakai akhiran seperti .csv atau 
 
 [imgview]
 import = "Impor gambar..."
+import_hint = "Tambahkan gambar dari berkas atau URL ke album SQLite."
+import_sqlite_only = "Buka dulu basis data SQLite yang bisa diedit."
 title = "Gambar"
 menu = "Lihat gambar"
 menu_hint = "Buka gambar ini di penampil"
@@ -4896,6 +4898,8 @@ pattern = "Panjang pola"
 pattern_hint = "Berapa banyak sel pertama yang dipilih membentuk pola yang diulang."
 pattern_why = "Hanya untuk mengulang pola."
 preview = "Nilai pertama"
+scope = "{n} sel di {cols} kolom"
+stale = "Tujuannya berubah. Buka lagi dialog Isi seri."
 fill = "Isi"
 fill_hint = "Tulis deret ke sel yang dipilih. Satu kali urungkan membatalkan semuanya."
 cancel_hint = "Tutup tanpa mengubah sel apa pun."

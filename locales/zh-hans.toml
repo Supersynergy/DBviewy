@@ -4622,6 +4622,8 @@ no_writer = "DBviewy 无法写入 {name}。请使用 .csv 或 .parquet 这样的
 
 [imgview]
 import = "导入图像..."
+import_hint = "从文件或 URL 向 SQLite 相册添加图片。"
+import_sqlite_only = "请先打开可编辑的 SQLite 数据库。"
 title = "图片"
 menu = "查看图片"
 menu_hint = "在查看器中打开此图片"
@@ -4882,6 +4884,8 @@ pattern = "模式长度"
 pattern_hint = "最先选中的单元格中有几个构成要重复的模式。"
 pattern_why = "仅用于重复模式。"
 preview = "前几个值"
+scope = "{cols} 列，共 {n} 个单元格"
+stale = "目标区域已更改。请重新打开填充序列对话框。"
 fill = "填充"
 fill_hint = "把序列写入所选单元格。撤销一次即可全部还原。"
 cancel_hint = "关闭，不改动任何单元格。"
