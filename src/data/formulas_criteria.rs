@@ -426,7 +426,16 @@ impl Condition {
 }
 
 pub(super) fn wildcard(pattern: &str) -> Option<Regex> {
-    let mut regex = String::from(r"\A");
+    compile_wildcard(pattern, true)
+}
+
+/// Both modes use Excel's escaping. Criteria and lookups match the whole
+/// cell; SEARCH needs the first matching substring instead.
+pub(super) fn compile_wildcard(pattern: &str, anchored: bool) -> Option<Regex> {
+    let mut regex = String::new();
+    if anchored {
+        regex.push_str(r"\A");
+    }
     let mut chars = pattern.chars().peekable();
     while let Some(ch) = chars.next() {
         match ch {
@@ -438,7 +447,9 @@ pub(super) fn wildcard(pattern: &str) -> Option<Regex> {
             literal => regex.push_str(&regex::escape(&literal.to_string())),
         }
     }
-    regex.push_str(r"\z");
+    if anchored {
+        regex.push_str(r"\z");
+    }
     RegexBuilder::new(&regex)
         .case_insensitive(true)
         .dot_matches_new_line(true)

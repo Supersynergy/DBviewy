@@ -75,8 +75,8 @@
 - Compare paired measurements with CORREL, SLOPE and sample or population
   covariance. Pick X and Y in Formula examples; missing values never shift the
   remaining pairs out of alignment.
-- Check imported text with LEN, EXACT and FIND, with German formula names
-  and searchable examples for ID length, case and separator positions.
+- Check imported text with LEN, EXACT and FIND. SEARCH (SUCHEN) finds text
+  regardless of case and accepts Excel wildcards. Find all four in Formula examples.
 - Explain an empty grid with a removable zero-value filter chip. The same
   strip now includes instant search filters and Filter to marked.
 - Rank scores with RANK.EQ or RANK.AVG. A calculated column sorts a fixed

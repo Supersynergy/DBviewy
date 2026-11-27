@@ -366,9 +366,11 @@ their results can be filtered, compared or used in other formulas.
 | `=LEN(A1)` | 6 | Check an ID's length, including spaces. |
 | `=EXACT(A1,"SKU-01")` | 1 | Check spelling and case. A difference gives 0. |
 | `=IFERROR(FIND("-",A1),0)` | 4 | Locate a delimiter. Return 0 when it is missing. |
+| `=IFERROR(SEARCH("sku-??",A1),0)` | 1 | Find a code prefix and any two characters. |
 
-The German names are `LÄNGE`, `IDENTISCH` and `FINDEN`. Find all three
-in the formula examples. Text cells retain their leading zeroes and
+Find `LÄNGE`, `IDENTISCH`, `FINDEN` and `SUCHEN` under **Insert Column >
+Examples**. The SEARCH draft uses `sku-??`; replace it with your pattern.
+Text cells retain their leading zeroes and
 spaces. Numeric arguments use their unformatted value, and blank cells
 act as empty text. Combine pieces with `&`, for example `LEN(A1&"/"&B1)`.
 
@@ -377,6 +379,13 @@ an optional starting position, counted from 1. Use a whole number.
 `LEN` counts Unicode characters, not UTF-8 bytes. A combining accent or
 emoji variation selector still counts separately. `FIND` uses the same
 positions. `EXACT` does not change case or normalise accents.
+
+`SEARCH` ignores case and returns the first matching position in the
+original text. Its optional start follows the same rules as FIND.
+Use `?` for one character or `*` for zero or more. Write `~?`, `~*` or
+`~~` to match those signs literally. Accents are not removed. A missing
+match produces no result unless you supply a fallback with `IFERROR`.
+See [Microsoft's SEARCH reference](https://support.microsoft.com/en-us/excel/functions/search-function).
 
 ## Rank scores and find the highest or lowest values
 

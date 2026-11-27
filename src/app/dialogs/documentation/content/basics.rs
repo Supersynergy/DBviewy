@@ -729,6 +729,11 @@ Esc keeps the old draft. The table changes only when you choose Add.
   from 1. A third FIND argument starts at a later character. No match
   gives no result unless you supply a fallback such as 0. In German
   search for LÄNGE, IDENTISCH or FINDEN in **Examples**.
+- **`IFERROR(SEARCH("sku-??",A1),0)`** finds the first position of an
+  SKU prefix and any two characters, ignoring case. Here 0 means no
+  match. Use `?` for one character and `*` for zero or more. A tilde
+  escapes either wildcard or another tilde. In **Examples**, search
+  for SEARCH or SUCHEN, then replace the sample pattern with yours.
 - **`RANK.EQ(A1,$A$1:$A$20)`** gives a rank, largest first. Ties share
   the best place; use **RANK.AVG** to average the tied places. Add a
   third argument of 1 to rank smallest first. Keeping the comparison

@@ -17,7 +17,7 @@ enum Form {
     Round,
     Scalar,
     Exact,
-    Find,
+    Find(&'static str),
     Rank,
     Nth,
     Percentile,
@@ -103,7 +103,12 @@ const RECIPES: &[Recipe] = &[
     Recipe {
         english: "FIND",
         german: "FINDEN",
-        form: Form::Find,
+        form: Form::Find("-"),
+    },
+    Recipe {
+        english: "SEARCH",
+        german: "SUCHEN",
+        form: Form::Find("sku-??"),
     },
     Recipe {
         english: "RANK.EQ",
@@ -238,9 +243,9 @@ impl Recipe {
             Form::Round => format!("{c}1{sep}2"),
             Form::Scalar => format!("{c}1"),
             Form::Exact => format!(r#"{c}1{sep}"SKU-01""#),
-            Form::Find => {
+            Form::Find(pattern) => {
                 let fallback = if german { "WENNFEHLER" } else { "IFERROR" };
-                return Some(format!(r#"={fallback}({name}("-"{sep}{c}1){sep}0)"#));
+                return Some(format!(r#"={fallback}({name}("{pattern}"{sep}{c}1){sep}0)"#));
             }
             Form::Rank => format!("{c}1{sep}${c}$1:${c}${n}"),
             Form::Nth => format!("${c}$1:${c}${n}{sep}{}", n.min(2)),

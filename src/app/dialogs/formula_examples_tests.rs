@@ -118,6 +118,34 @@ fn ranking_recipes_pin_the_sample_and_offer_both_language_names() {
 }
 
 #[test]
+fn search_example_fills_the_position_column_from_original_text_rows() {
+    let table = DataTable {
+        columns: vec![ColumnInfo {
+            name: "Code".into(),
+            data_type: "Utf8".into(),
+        }],
+        rows: ["SKU-01", "ä😀sKu-02", "0007", "sku-😀7"]
+            .map(|code| vec![CellValue::String(code.into())])
+            .to_vec(),
+        ..DataTable::empty()
+    };
+    for (query, german, expected_formula) in [
+        ("search", false, r#"=IFERROR(SEARCH("sku-??",A1),0)"#),
+        ("suchen", true, r#"=WENNFEHLER(SUCHEN("sku-??";A1);0)"#),
+    ] {
+        let example = matching(query)[0];
+        assert_eq!(example.english, "SEARCH");
+        let draft = example
+            .expression(0, None, table.row_count(), german)
+            .unwrap();
+        assert_eq!(draft, expected_formula);
+        let (rows, bad) = super::super::fill_formula_template(&draft[1..], &table);
+        assert!(bad.is_none());
+        assert_eq!(rows, vec![(0, 1.0), (1, 3.0), (2, 0.0), (3, 1.0)]);
+    }
+}
+
+#[test]
 fn text_checks_are_searchable_and_examples_evaluate_in_both_languages() {
     let table = DataTable {
         rows: vec![vec![CellValue::String("SKU-01".into())]],

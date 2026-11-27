@@ -1324,6 +1324,112 @@ fn text_checks_save_numeric_results_and_preserve_text_ids_in_xlsx() {
 }
 
 #[test]
+fn search_finds_first_case_insensitive_wildcard_and_unicode_position() {
+    let table = DataTable::empty();
+    for (f, expected) in [
+        (r#"SEARCH("base","database")"#, 5.0),
+        (r#"SEARCH("margin","Profit Margin")"#, 8.0),
+        (r#"SEARCH("y","AYF0093.YoungMensApparel",8)"#, 9.0),
+        (r#"SUCHEN("Ä?Z";"ü😀ä🙂z")"#, 3.0),
+        (r#"SEARCH("sku-??","pré-SKU-01")"#, 5.0),
+        (
+            r#"SEARCH("x*z","aX
+Z")"#,
+            2.0,
+        ),
+        (r#"SEARCH("m~?~*~~","éM?*~")"#, 2.0),
+        (r#"SEARCH("[?]","pre-[+]")"#, 5.0),
+        (r#"SEARCH("x~q","ax~q")"#, 2.0),
+        (r#"SEARCH("a*a","axaxa",2)"#, 3.0),
+        (r#"SEARCH("","é😀b",2)"#, 2.0),
+        (r#"IFERROR(SEARCH("not-here","A"),0)"#, 0.0),
+        (r#"IF(1,7,SEARCH("x",Z99,0))"#, 7.0),
+        (r#"SEARCH("/","id"&"/"&"007")"#, 3.0),
+    ] {
+        assert_eq!(evaluate_formula(f, &table), Some(expected), "{f:?}");
+    }
+}
+
+#[test]
+fn search_rejects_invalid_arguments_without_changing_find_or_anchored_criteria() {
+    let mut table = DataTable::empty();
+    table.columns = vec![ColumnInfo {
+        name: "Code".into(),
+        data_type: "Utf8".into(),
+    }];
+    table.rows = ["pre-SKU-01", "SKU-02", "unrelated"]
+        .map(|cell| vec![CellValue::String(cell.into())])
+        .to_vec();
+    for f in [
+        r#"SEARCH("e","é")"#,
+        r#"SEARCH("a","abc",0)"#,
+        r#"SEARCH("a","abc",1.5)"#,
+        r#"SEARCH("a","😀a",3)"#,
+        r#"SEARCH("a","abc",1e300)"#,
+        r#"SEARCH("*","")"#,
+        r#"SEARCH("a")"#,
+        r#"SEARCH("a","ab",1,2)"#,
+        r#"IF(1,7,SEARCH(A1&,"x"))"#,
+        r#"FIND("sku-??",A1)"#,
+    ] {
+        assert_eq!(evaluate_formula(f, &table), None, "{f}");
+    }
+    let long = "a".repeat(300);
+    let long_pattern = format!(r#"SEARCH("{long}","é{}")"#, long.to_uppercase());
+    assert_eq!(evaluate_formula(&long_pattern, &table), Some(2.0));
+    for (f, expected) in [
+        (r#"SEARCH("sku-??",A1)"#, 5.0),
+        (r#"COUNTIF(A1:A3,"sku-??")"#, 1.0),
+        (r#"XMATCH("sku-??",A1:A3,2)"#, 2.0),
+    ] {
+        assert_eq!(evaluate_formula(f, &table), Some(expected), "{f}");
+    }
+}
+
+#[test]
+fn search_positions_roundtrip_as_numbers_without_rewriting_xlsx_text() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::Workbook;
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("search-source.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet();
+    sheet.write_string(0, 0, "Code").unwrap();
+    sheet.write_string(0, 1, "Position").unwrap();
+    let cases = [
+        ("0007", 0.0),
+        ("é01SKU-08", 4.0),
+        ("sku-51", 1.0),
+        ("sKu-😀8", 1.0),
+    ];
+    for (r, (code, _)) in cases.iter().enumerate() {
+        sheet.write_string(r as u32 + 1, 0, *code).unwrap();
+        sheet.write_number(r as u32 + 1, 1, 0).unwrap();
+    }
+    book.save(&source).unwrap();
+
+    let mut table = ExcelReader.read_file(&source).unwrap();
+    for (r, _) in cases.iter().enumerate() {
+        assert!(commit_cell_text(
+            &mut table,
+            r,
+            1,
+            format!(r#"=WENNFEHLER(SUCHEN("sku-??";A{});0)"#, r + 1),
+            BinaryDisplayMode::default(),
+        ));
+    }
+    let saved = dir.path().join("search-result.xlsx");
+    ExcelReader.write_file(&saved, &table).unwrap();
+    let reopened = ExcelReader.read_file(&saved).unwrap();
+    for (r, (code, position)) in cases.into_iter().enumerate() {
+        assert_eq!(reopened.get(r, 0), Some(&CellValue::String(code.into())));
+        assert_eq!(reopened.get(r, 1), Some(&CellValue::Float(position)));
+    }
+}
+
+#[test]
 fn directed_rounding_distinguishes_away_from_and_towards_zero() {
     let table = formula_table();
     for (formula, expected) in [

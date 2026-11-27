@@ -1,8 +1,11 @@
 //! Text checks with numeric results, without coercing imported identifiers.
 
-use std::borrow::Cow;
+use std::{borrow::Cow, cell::RefCell, collections::VecDeque};
+
+use regex::Regex;
 
 use super::control::{arguments, unparen};
+use super::criteria::compile_wildcard;
 use super::{CellValue, Evaluation, FormulaBadCell, FormulaToken as Token, eval_complete};
 
 #[derive(Clone, Copy, Debug)]
@@ -10,6 +13,7 @@ pub(super) enum Kind {
     Length,
     Exact,
     Find,
+    Search,
 }
 
 pub(super) fn evaluate(
@@ -26,7 +30,7 @@ pub(super) fn evaluate(
             let right = text(second?, context)?;
             f64::from(u8::from(left == right))
         }
-        Kind::Find => {
+        Kind::Find | Kind::Search => {
             let needle = text(first?, context)?;
             let haystack = text(second?, context)?;
             let start = match third {
@@ -38,7 +42,7 @@ pub(super) fn evaluate(
                 // match, the starting position or any referenced cell.
                 0.0
             } else {
-                find(&needle, &haystack, start)? as f64
+                find(kind, &needle, &haystack, start)? as f64
             }
         }
         _ => return None,
@@ -46,7 +50,7 @@ pub(super) fn evaluate(
     Some((value, end))
 }
 
-fn find(needle: &str, haystack: &str, start: f64) -> Option<usize> {
+fn find(kind: Kind, needle: &str, haystack: &str, start: f64) -> Option<usize> {
     if start.fract() != 0.0 || start < 1.0 || start > haystack.len().max(1) as f64 {
         return None;
     }
@@ -57,8 +61,56 @@ fn find(needle: &str, haystack: &str, start: f64) -> Option<usize> {
         haystack.char_indices().nth(skipped)?.0
     };
     let suffix = &haystack[offset..];
-    let byte = suffix.find(needle)?;
+    let byte = if needle.is_empty() {
+        0
+    } else if matches!(kind, Kind::Search) {
+        if suffix.is_empty() {
+            return None;
+        }
+        // Fill shifts references in each row, but a typical pattern stays
+        // constant. Share a handful of recently used patterns per thread.
+        if needle.len() <= CACHEABLE_PATTERN_BYTES {
+            SEARCH_PATTERNS.with_borrow_mut(|patterns| patterns.find(needle, suffix))?
+        } else {
+            compile_wildcard(needle, false)?.find(suffix)?.start()
+        }
+    } else {
+        suffix.find(needle)?
+    };
     Some(skipped + suffix[..byte].chars().count() + 1)
+}
+
+const SEARCH_CACHE_SLOTS: usize = 4;
+const CACHEABLE_PATTERN_BYTES: usize = 256;
+
+thread_local! {
+    static SEARCH_PATTERNS: RefCell<SearchPatterns> = const {
+        RefCell::new(SearchPatterns(VecDeque::new()))
+    };
+}
+
+struct SearchPatterns(VecDeque<(Box<str>, Regex)>);
+
+impl SearchPatterns {
+    fn find(&mut self, pattern: &str, text: &str) -> Option<usize> {
+        if let Some(index) = self
+            .0
+            .iter()
+            .position(|(stored, _)| stored.as_ref() == pattern)
+        {
+            if index > 0 {
+                let entry = self.0.remove(index)?;
+                self.0.push_front(entry);
+            }
+        } else {
+            let regex = compile_wildcard(pattern, false)?;
+            if self.0.len() == SEARCH_CACHE_SLOTS {
+                self.0.pop_back();
+            }
+            self.0.push_front((pattern.into(), regex));
+        }
+        self.0.front()?.1.find(text).map(|matched| matched.start())
+    }
 }
 
 fn text<'a, 't: 'a>(tokens: &'a [Token], context: &mut Evaluation<'t>) -> Option<Cow<'a, str>> {
@@ -158,3 +210,7 @@ fn scalar_text<'a, 't: 'a>(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "formulas_text_tests.rs"]
+mod tests;

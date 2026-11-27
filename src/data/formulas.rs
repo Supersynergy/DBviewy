@@ -287,6 +287,8 @@ fn function_named(name: &str) -> Option<Function> {
         ("IDENTISCH", Function::Text(text::Kind::Exact)),
         ("FIND", Function::Text(text::Kind::Find)),
         ("FINDEN", Function::Text(text::Kind::Find)),
+        ("SEARCH", Function::Text(text::Kind::Search)),
+        ("SUCHEN", Function::Text(text::Kind::Search)),
         ("LARGE", Function::Nth(order::Extent::Highest)),
         ("KGRÖSSTE", Function::Nth(order::Extent::Highest)),
         ("SMALL", Function::Nth(order::Extent::Lowest)),
