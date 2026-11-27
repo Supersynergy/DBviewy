@@ -139,6 +139,11 @@ column_navigator_hint = "Przełącza zadokowany panel z listą wszystkich kolumn
 show_invisibles = "Pokaż niewidoczne znaki"
 show_invisibles_hint = "Oznacza białe znaki w komórkach tekstowych: . to spacja, -> to tabulator, _ to nietypowa spacja, np. twarda, | to znak o zerowej szerokości, CR to powrót karetki. Spacje na początku lub końcu wartości i nietypowe znaki mają kolorowe tło."
 [search_menu]
+select_blanks = "Zaznacz puste komórki"
+select_blanks_hint = "Zaznacza puste komórki w zaznaczeniu lub w widocznej części wczytanej tabeli. Dane nie zmieniają się."
+select_blanks_none = "W tym zakresie nie ma widocznych pustych komórek."
+select_blanks_large = "Zakres jest za duży. Zaznacz mniejszy zakres lub przefiltruj tabelę."
+select_blanks_done = "Zaznaczone puste komórki: {count}"
 find_hint = "Przejdź do pola wyszukiwania"
 find_replace_hint = "Znajdź i zamień tekst"
 find_duplicates_hint = "Znajdź dokładnie zduplikowane wiersze: podświetl, otwórz w nowej karcie, przefiltruj lub usuń"

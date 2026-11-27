@@ -139,6 +139,11 @@ show_invisibles = "Mostra els caràcters invisibles"
 show_invisibles_hint = "Marca els espais dins de les cel·les de text: . per a un espai, -> per a una tabulació, _ per a un espai inusual com l'espai no separable, | per a un caràcter d'amplada zero, CR per a un retorn de carro. Els espais a l'inici o al final d'un valor i els caràcters inusuals tenen el fons de color."
 
 [search_menu]
+select_blanks = "Selecciona les cel·les buides"
+select_blanks_hint = "Selecciona les cel·les buides de la selecció o de la taula visible carregada. No modifica les dades."
+select_blanks_none = "No hi ha cap cel·la buida visible en aquest interval."
+select_blanks_large = "L'interval és massa gran. Selecciona'n un de més petit o filtra la taula."
+select_blanks_done = "Cel·les buides seleccionades: {count}"
 find_hint = "Vés al quadre de cerca"
 find_replace_hint = "Cerca i substitueix text"
 find_duplicates_hint = "Troba files duplicades exactes: ressalta-les, obre-les en una pestanya nova, filtra-les o elimina-les"

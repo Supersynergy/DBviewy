@@ -146,6 +146,11 @@ column_navigator_hint = "Pārslēdz piestiprinātu paneli ar visu kolonnu saraks
 show_invisibles = "Rādīt neredzamās rakstzīmes"
 show_invisibles_hint = "Atzīmē atstarpes teksta šūnās: . atstarpei, -> tabulācijai, _ neparastai atstarpei, piemēram, nedalāmajai, | nulles platuma rakstzīmei, CR kursora atgriezei. Atstarpes vērtības sākumā vai beigās un neparastās rakstzīmes saņem krāsainu fonu."
 [search_menu]
+select_blanks = "Atlasīt tukšas šūnas"
+select_blanks_hint = "Atlasa tukšas šūnas atlasē vai redzamajā ielādētajā tabulā. Dati netiek mainīti."
+select_blanks_none = "Šajā diapazonā nav redzamu tukšu šūnu."
+select_blanks_large = "Diapazons ir pārāk liels. Atlasi mazāku diapazonu vai filtrē tabulu."
+select_blanks_done = "Atlasītas tukšas šūnas: {count}"
 find_hint = "Pārlēkt uz meklēšanas lodziņu"
 find_replace_hint = "Atrast un aizstāt tekstu"
 find_duplicates_hint = "Atrast precīzi vienādas rindas: izcelt, atvērt jaunā cilnē, filtrēt vai dzēst"

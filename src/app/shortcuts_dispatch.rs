@@ -456,6 +456,9 @@ impl OctaApp {
                     tab.view_mode = modes[next_idx];
                 }
             }
+            if action_fired(SA::SelectBlanks) {
+                self.select_visible_blanks();
+            }
             if action_fired(SA::ToggleReadOnly) {
                 self.toggle_readonly();
             }

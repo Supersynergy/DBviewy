@@ -150,6 +150,11 @@ column_navigator_hint = "Bật/tắt bảng gắn liệt kê mọi cột: hiện
 show_invisibles = "Hiện ký tự ẩn"
 show_invisibles_hint = "Đánh dấu khoảng trắng trong ô văn bản: . cho dấu cách, -> cho tab, _ cho dấu cách lạ như dấu cách không ngắt, | cho ký tự độ rộng bằng không, CR cho ký tự về đầu dòng. Dấu cách ở đầu hoặc cuối giá trị và các ký tự lạ có nền màu."
 [search_menu]
+select_blanks = "Chọn ô trống"
+select_blanks_hint = "Chọn các ô trống trong vùng chọn hoặc phần bảng đã tải đang hiển thị. Dữ liệu không thay đổi."
+select_blanks_none = "Không có ô trống nào hiển thị trong phạm vi này."
+select_blanks_large = "Phạm vi quá lớn. Hãy chọn vùng nhỏ hơn hoặc lọc bảng."
+select_blanks_done = "Số ô trống đã chọn: {count}"
 find_hint = "Nhảy tới ô tìm kiếm"
 find_replace_hint = "Tìm và thay thế văn bản"
 find_duplicates_hint = "Tìm các hàng trùng lặp chính xác: tô sáng, mở trong tab mới, lọc hoặc xóa"

@@ -139,6 +139,11 @@ column_navigator_hint = "Slår et dokket panel til/fra med alle kolonner: vis, s
 show_invisibles = "Vis usynlige tegn"
 show_invisibles_hint = "Markerer blanktegn i tekstceller: . for et mellemrum, -> for en tab, _ for et usædvanligt mellemrum som det hårde, | for et tegn uden bredde, CR for en vognretur. Mellemrum først eller sidst i en værdi og de usædvanlige tegn får en farvet baggrund."
 [search_menu]
+select_blanks = "Vælg tomme celler"
+select_blanks_hint = "Vælger tomme celler i markeringen eller i den synlige, indlæste tabel. Data ændres ikke."
+select_blanks_none = "Ingen synlige tomme celler i området."
+select_blanks_large = "Området er for stort. Vælg et mindre område, eller filtrér tabellen."
+select_blanks_done = "Valgte tomme celler: {count}"
 find_hint = "Spring til søgefeltet"
 find_replace_hint = "Søg og erstat tekst"
 find_duplicates_hint = "Find nøjagtigt ens rækker: fremhæv, åbn i ny fane, filtrer eller slet dem"

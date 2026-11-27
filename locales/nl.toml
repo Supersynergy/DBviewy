@@ -139,6 +139,11 @@ column_navigator_hint = "Schakelt een vast paneel met alle kolommen om: tonen, v
 show_invisibles = "Onzichtbare tekens tonen"
 show_invisibles_hint = "Markeert witruimte in tekstcellen: . voor een spatie, -> voor een tab, _ voor een ongewone spatie zoals de harde spatie, | voor een teken zonder breedte, CR voor een regelterugloop. Spaties aan het begin of eind van een waarde en de ongewone tekens krijgen een gekleurde achtergrond."
 [search_menu]
+select_blanks = "Lege cellen selecteren"
+select_blanks_hint = "Selecteert lege cellen in de selectie of in de zichtbare, geladen tabel. De gegevens blijven ongewijzigd."
+select_blanks_none = "Geen zichtbare lege cellen in dit bereik."
+select_blanks_large = "Het bereik is te groot. Kies een kleiner bereik of filter de tabel."
+select_blanks_done = "Geselecteerde lege cellen: {count}"
 find_hint = "Naar het zoekvak springen"
 find_replace_hint = "Tekst zoeken en vervangen"
 find_duplicates_hint = "Exact dubbele rijen zoeken: markeren, in een nieuw tabblad openen, filteren of verwijderen"

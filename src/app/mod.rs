@@ -54,6 +54,7 @@ pub(crate) mod recipe;
 pub(crate) mod refresh;
 pub(crate) mod rpc;
 pub(crate) mod search_history;
+mod select_blanks;
 pub(crate) mod session;
 pub(crate) mod shortcuts_dispatch;
 pub(crate) mod sidebar;

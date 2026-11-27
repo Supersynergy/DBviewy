@@ -139,6 +139,11 @@ column_navigator_hint = "切换列出所有列的固定面板：显示、隐藏�
 show_invisibles = "显示不可见字符"
 show_invisibles_hint = "在文本单元格里标出空白：. 表示空格，-> 表示制表符，_ 表示不间断空格这类少见的空格，| 表示零宽字符，CR 表示回车符。值开头或结尾的空格以及少见的字符会带彩色背景。"
 [search_menu]
+select_blanks = "选择空白单元格"
+select_blanks_hint = "选择所选范围内或已加载且可见的表格中的空白单元格，不会修改数据。"
+select_blanks_none = "此范围内没有可见的空白单元格。"
+select_blanks_large = "范围过大。请选择较小的范围或筛选表格。"
+select_blanks_done = "已选择 {count} 个空白单元格"
 find_hint = "跳到搜索框"
 find_replace_hint = "查找并替换文本"
 find_duplicates_hint = "查找完全重复的行：高亮、在新标签页中打开、筛选或删除"

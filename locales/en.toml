@@ -146,6 +146,11 @@ column_navigator_hint = "Toggle a docked panel listing every column, with show, 
 show_invisibles = "Show invisible characters"
 show_invisibles_hint = "Mark the whitespace inside text cells: . for a space, -> for a tab, _ for an unusual space such as a non-breaking one, | for a zero-width character, CR for a carriage return. Spaces at the start or end of a value and the unusual characters get a coloured background."
 [search_menu]
+select_blanks = "Select blank cells"
+select_blanks_hint = "Select blank cells in the selection or in the visible loaded table. No data changes."
+select_blanks_none = "No visible blank cells in this range."
+select_blanks_large = "This range is too large. Select a smaller range or filter the table."
+select_blanks_done = "Blank cells selected: {count}"
 find_hint = "Jump to the search box"
 find_replace_hint = "Find and replace text"
 find_duplicates_hint = "Find exact duplicate rows: highlight, open in a new tab, filter, or drop them"

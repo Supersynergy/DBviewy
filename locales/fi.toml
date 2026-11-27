@@ -139,6 +139,11 @@ column_navigator_hint = "Näyttää tai piilottaa telakoidun paneelin, joka list
 show_invisibles = "Näytä näkymättömät merkit"
 show_invisibles_hint = "Merkitsee tyhjätilan tekstisoluissa: . välilyönnille, -> sarkaimelle, _ epätavalliselle välilyönnille kuten sitovalle, | nollaleveälle merkille, CR rivinalulle. Arvon alussa tai lopussa olevat välilyönnit ja epätavalliset merkit saavat värillisen taustan."
 [search_menu]
+select_blanks = "Valitse tyhjät solut"
+select_blanks_hint = "Valitsee tyhjät solut valinnasta tai ladatusta näkyvästä taulukosta. Tiedot eivät muutu."
+select_blanks_none = "Alueella ei ole näkyviä tyhjiä soluja."
+select_blanks_large = "Alue on liian suuri. Valitse pienempi alue tai suodata taulukkoa."
+select_blanks_done = "Valitut tyhjät solut: {count}"
 find_hint = "Siirry hakukenttään"
 find_replace_hint = "Etsi ja korvaa tekstiä"
 find_duplicates_hint = "Etsi täsmälleen samanlaiset rivit: korosta, avaa uuteen välilehteen, suodata tai poista ne"

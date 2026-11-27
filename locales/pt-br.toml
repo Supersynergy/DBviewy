@@ -139,6 +139,11 @@ show_invisibles = "Mostrar caracteres invisíveis"
 show_invisibles_hint = "Marca os espaços nas células de texto: . para um espaço, -> para uma tabulação, _ para um espaço incomum como o não separável, | para um caractere de largura zero, CR para um retorno de carro. Espaços no início ou no fim de um valor e os caracteres incomuns ficam com fundo colorido."
 
 [search_menu]
+select_blanks = "Selecionar células vazias"
+select_blanks_hint = "Seleciona as células vazias da seleção ou da tabela visível carregada. Os dados não são alterados."
+select_blanks_none = "Não há células vazias visíveis neste intervalo."
+select_blanks_large = "O intervalo é grande demais. Selecione um intervalo menor ou filtre a tabela."
+select_blanks_done = "Células vazias selecionadas: {count}"
 find_hint = "Ir para a caixa de pesquisa"
 find_replace_hint = "Localizar e substituir texto"
 find_duplicates_hint = "Encontrar linhas duplicadas exatas: destacar, abrir em uma nova aba, filtrar ou remover"

@@ -150,6 +150,11 @@ column_navigator_hint = "Menampilkan/menyembunyikan panel yang menampilkan semua
 show_invisibles = "Tampilkan karakter tak terlihat"
 show_invisibles_hint = "Menandai spasi di dalam sel teks: . untuk spasi, -> untuk tab, _ untuk spasi yang tidak biasa seperti spasi tak terputus, | untuk karakter lebar nol, CR untuk carriage return. Spasi di awal atau akhir nilai dan karakter yang tidak biasa diberi latar berwarna."
 [search_menu]
+select_blanks = "Pilih sel kosong"
+select_blanks_hint = "Memilih sel kosong dalam pilihan atau tabel terlihat yang sudah dimuat. Data tidak berubah."
+select_blanks_none = "Tidak ada sel kosong yang terlihat dalam rentang ini."
+select_blanks_large = "Rentang terlalu besar. Pilih rentang yang lebih kecil atau filter tabel."
+select_blanks_done = "Sel kosong yang dipilih: {count}"
 find_hint = "Lompat ke kotak pencarian"
 find_replace_hint = "Cari dan ganti teks"
 find_duplicates_hint = "Temukan baris duplikat persis: sorot, buka di tab baru, saring, atau hapus"

@@ -150,6 +150,11 @@ column_navigator_hint = "Comută un panou andocat cu toate coloanele: afișare, 
 show_invisibles = "Arată caracterele invizibile"
 show_invisibles_hint = "Marchează spațiile albe din celulele text: . pentru un spațiu, -> pentru un tab, _ pentru un spațiu neobișnuit, cum e cel neseparabil, | pentru un caracter de lățime zero, CR pentru un retur de car. Spațiile de la începutul sau sfârșitul unei valori și caracterele neobișnuite primesc un fundal colorat."
 [search_menu]
+select_blanks = "Selectează celulele goale"
+select_blanks_hint = "Selectează celulele goale din selecție sau din tabelul vizibil încărcat. Datele nu se schimbă."
+select_blanks_none = "Nu există celule goale vizibile în acest interval."
+select_blanks_large = "Intervalul este prea mare. Selectează un interval mai mic sau filtrează tabelul."
+select_blanks_done = "Celule goale selectate: {count}"
 find_hint = "Sari la caseta de căutare"
 find_replace_hint = "Caută și înlocuiește text"
 find_duplicates_hint = "Găsește rânduri duplicate exacte: evidențiază, deschide într-o filă nouă, filtrează sau elimină"

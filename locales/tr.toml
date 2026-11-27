@@ -139,6 +139,11 @@ column_navigator_hint = "Tüm sütunları listeleyen sabit bir paneli açar/kapa
 show_invisibles = "Görünmez karakterleri göster"
 show_invisibles_hint = "Metin hücrelerindeki boşlukları işaretler: . boşluk, -> sekme, _ bölünemez boşluk gibi alışılmadık bir boşluk, | sıfır genişlikli karakter, CR satır başı. Bir değerin başındaki veya sonundaki boşluklar ve alışılmadık karakterler renkli arka plan alır."
 [search_menu]
+select_blanks = "Boş hücreleri seç"
+select_blanks_hint = "Seçimdeki veya yüklenen tablonun görünen bölümündeki boş hücreleri seçer. Veriler değişmez."
+select_blanks_none = "Bu aralıkta görünen boş hücre yok."
+select_blanks_large = "Aralık çok büyük. Daha küçük bir aralık seç veya tabloyu filtrele."
+select_blanks_done = "Seçilen boş hücre sayısı: {count}"
 find_hint = "Arama kutusuna geç"
 find_replace_hint = "Metin bul ve değiştir"
 find_duplicates_hint = "Tamamen aynı satırları bul: vurgula, yeni sekmede aç, filtrele veya sil"

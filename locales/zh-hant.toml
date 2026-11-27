@@ -139,6 +139,11 @@ show_invisibles = "顯示不可見字元"
 show_invisibles_hint = "在文字儲存格裡標出空白：. 表示空格，-> 表示定位字元，_ 表示不間斷空格這類少見的空格，| 表示零寬字元，CR 表示回車符。值開頭或結尾的空格以及少見的字元會帶彩色背景。"
 
 [search_menu]
+select_blanks = "選取空白儲存格"
+select_blanks_hint = "選取範圍內或已載入且可見的表格中的空白儲存格，不會修改資料。"
+select_blanks_none = "此範圍內沒有可見的空白儲存格。"
+select_blanks_large = "範圍過大。請選取較小的範圍或篩選表格。"
+select_blanks_done = "已選取 {count} 個空白儲存格"
 find_hint = "跳到搜尋框"
 find_replace_hint = "查詢並取代文字"
 find_duplicates_hint = "查詢完全重複的列：醒目提示、在新分頁中開啟、篩選或刪除"

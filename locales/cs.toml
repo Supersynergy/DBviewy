@@ -150,6 +150,11 @@ column_navigator_hint = "Přepíná ukotvený panel se seznamem všech sloupců:
 show_invisibles = "Zobrazit neviditelné znaky"
 show_invisibles_hint = "Označí bílé znaky v textových buňkách: . pro mezeru, -> pro tabulátor, _ pro neobvyklou mezeru, třeba nezlomitelnou, | pro znak s nulovou šířkou, CR pro návrat vozíku. Mezery na začátku nebo konci hodnoty a neobvyklé znaky mají barevné pozadí."
 [search_menu]
+select_blanks = "Vybrat prázdné buňky"
+select_blanks_hint = "Vybere prázdné buňky v označené oblasti nebo ve viditelné načtené tabulce. Data se nezmění."
+select_blanks_none = "V této oblasti nejsou viditelné prázdné buňky."
+select_blanks_large = "Oblast je příliš velká. Vyber menší oblast nebo tabulku vyfiltruj."
+select_blanks_done = "Vybrané prázdné buňky: {count}"
 find_hint = "Přejít do vyhledávacího pole"
 find_replace_hint = "Najít a nahradit text"
 find_duplicates_hint = "Najít přesně duplicitní řádky: zvýraznit, otevřít v nové kartě, filtrovat nebo odstranit"

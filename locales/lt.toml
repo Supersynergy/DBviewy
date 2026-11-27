@@ -146,6 +146,11 @@ column_navigator_hint = "Perjungia prisegtą skydelį su visų stulpelių sąra�
 show_invisibles = "Rodyti nematomus simbolius"
 show_invisibles_hint = "Pažymi tarpus teksto ląstelėse: . tarpui, -> tabuliacijai, _ neįprastam tarpui, pvz., nepertraukiamam, | nulinio pločio simboliui, CR grįžimui į eilutės pradžią. Tarpai reikšmės pradžioje ar gale ir neįprasti simboliai gauna spalvotą foną."
 [search_menu]
+select_blanks = "Pažymėti tuščius langelius"
+select_blanks_hint = "Pažymi tuščius langelius pasirinktame intervale arba matomoje įkeltoje lentelėje. Duomenys nesikeičia."
+select_blanks_none = "Šiame intervale matomų tuščių langelių nėra."
+select_blanks_large = "Intervalas per didelis. Pasirink mažesnį intervalą arba filtruok lentelę."
+select_blanks_done = "Pažymėti tušti langeliai: {count}"
 find_hint = "Pereiti į paieškos laukelį"
 find_replace_hint = "Rasti ir pakeisti tekstą"
 find_duplicates_hint = "Rasti tiksliai sutampančias eilutes: paryškinti, atverti naujoje kortelėje, filtruoti arba pašalinti"

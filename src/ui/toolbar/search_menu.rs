@@ -16,7 +16,11 @@ pub(super) fn search_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarA
     // Destructured rather than used as `cx.field` so the moved body needs no
     // rewriting: the locals keep the names the code already used.
     let ToolbarCtx {
-        colors, has_data, ..
+        colors,
+        has_data,
+        current_view_mode,
+        visible_rows,
+        ..
     } = cx;
     top_menu_button(
         ui,
@@ -41,6 +45,24 @@ pub(super) fn search_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarA
                 no_table.as_deref(),
             ) {
                 action.toggle_replace_bar = true;
+                ui.close();
+            }
+            let blanks_blocked = no_table.or_else(|| {
+                if current_view_mode != crate::data::ViewMode::Table {
+                    Some(t("greyed.need_table_view"))
+                } else {
+                    visible_rows
+                        .is_empty()
+                        .then(|| t("search_menu.select_blanks_none"))
+                }
+            });
+            if crate::ui::menu_entry::keyed_menu_entry(
+                ui,
+                "search_menu.select_blanks",
+                &t("search_menu.select_blanks_hint"),
+                blanks_blocked.as_deref(),
+            ) {
+                action.select_blanks = true;
                 ui.close();
             }
             ui.separator();

@@ -139,6 +139,11 @@ column_navigator_hint = "Schaltet ein andockbares Fenster mit allen Spalten um: 
 show_invisibles = "Unsichtbare Zeichen anzeigen"
 show_invisibles_hint = "Markiert Leerraum in Textzellen: . für ein Leerzeichen, -> für einen Tab, _ für ein ungewöhnliches Leerzeichen wie das geschützte, | für ein Zeichen ohne Breite, CR für einen Wagenrücklauf. Leerzeichen am Anfang oder Ende eines Werts und die ungewöhnlichen Zeichen bekommen einen farbigen Hintergrund."
 [search_menu]
+select_blanks = "Leerzellen auswählen"
+select_blanks_hint = "Wählt leere Zellen im markierten Bereich oder in der sichtbaren, geladenen Tabelle aus. Die Daten bleiben unverändert."
+select_blanks_none = "In diesem Bereich sind keine leeren Zellen sichtbar."
+select_blanks_large = "Der Bereich ist zu groß. Wähle einen kleineren Bereich oder filtere die Tabelle."
+select_blanks_done = "Ausgewählte Leerzellen: {count}"
 find_hint = "Zum Suchfeld springen"
 find_replace_hint = "Text suchen und ersetzen"
 find_duplicates_hint = "Exakt doppelte Zeilen finden: markieren, in neuem Tab öffnen, filtern oder löschen"

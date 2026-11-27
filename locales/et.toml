@@ -146,6 +146,11 @@ column_navigator_hint = "Lülitab sisse/välja dokitud paneeli, mis loetleb kõi
 show_invisibles = "Näita nähtamatuid märke"
 show_invisibles_hint = "Märgib tühiruumi tekstilahtrites: . tühiku jaoks, -> tabi jaoks, _ ebatavalise tühiku jaoks nagu sisetühik, | nulllaiusega märgi jaoks, CR rea algusse naasmise märgi (carriage return) jaoks. Väärtuse alguses või lõpus olevad tühikud ja ebatavalised märgid saavad värvilise tausta."
 [search_menu]
+select_blanks = "Vali tühjad lahtrid"
+select_blanks_hint = "Valib tühjad lahtrid valikust või nähtavast laaditud tabelist. Andmeid ei muudeta."
+select_blanks_none = "Selles vahemikus pole nähtavaid tühje lahtreid."
+select_blanks_large = "Vahemik on liiga suur. Vali väiksem vahemik või filtreeri tabelit."
+select_blanks_done = "Valitud tühjad lahtrid: {count}"
 find_hint = "Hüppa otsingukasti"
 find_replace_hint = "Otsi ja asenda teksti"
 find_duplicates_hint = "Leia täpselt korduvad read: tõsta esile, ava uuel vahekaardil, filtreeri või kustuta"

@@ -320,6 +320,8 @@ pub struct ToolbarAction {
     pub open_api: bool,
     pub toggle_theme: bool,
     pub search_changed: bool,
+    /// Search -> select empty cells in the visible table.
+    pub select_blanks: bool,
     /// The search box lost focus with a non-empty query: record it in the
     /// persistent search history.
     pub commit_search_history: bool,

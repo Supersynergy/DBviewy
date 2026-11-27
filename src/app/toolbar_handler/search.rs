@@ -17,6 +17,9 @@ impl OctaApp {
                 self.open_find_box();
             }
         }
+        if action.select_blanks {
+            self.select_visible_blanks();
+        }
         if action.search_focus {
             self.search_focus_requested = true;
         }

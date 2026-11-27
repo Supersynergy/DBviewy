@@ -247,6 +247,24 @@ editor: see [SQL](sql.md#finding-and-replacing).
     The table preview only includes rows the filters leave visible. To replace across
     the whole table, clear the column filters first.
 
+## Select blank cells
+
+Choose **Search > Select blank cells** or look up the action in
+**Find a command**. Select a group of cells, rows or columns first to
+limit the search; with just the cursor, it searches the loaded table.
+Hidden rows and columns and rows excluded by filters stay out of the
+result. Page-based sources search only the current page.
+
+Both missing values and empty text match. A zero, false or text that
+contains spaces is not blank. The status line reports how many cells
+were selected. Click a cell to clear the selection.
+
+This changes the selection, not the data. If nothing matches, or the
+area is too large, the previous selection stays. The command refuses
+a scan or output range over two million cells or a result over 50,000
+matches rather than selecting a partial result. Ordinary Paste still
+starts at the active cell; it does not fill a scattered selection.
+
 ## Find duplicates
 
 **Data -> Find duplicates...** (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd>)

@@ -150,6 +150,11 @@ column_navigator_hint = "Be- vagy kikapcsolja az összes oszlopot listázó dokk
 show_invisibles = "Láthatatlan karakterek mutatása"
 show_invisibles_hint = "Jelöli a szövegcellákban lévő térközöket: . a szóköz, -> a tabulátor, _ a szokatlan szóköz, például a nem törhető, | a nulla szélességű karakter, CR a kocsivissza. Az érték elején vagy végén álló szóközök és a szokatlan karakterek színes hátteret kapnak."
 [search_menu]
+select_blanks = "Üres cellák kijelölése"
+select_blanks_hint = "Kijelöli az üres cellákat a kijelölt tartományban vagy a betöltött táblázat látható részén. Az adatok nem változnak."
+select_blanks_none = "Ebben a tartományban nincs látható üres cella."
+select_blanks_large = "A tartomány túl nagy. Jelölj ki kisebb tartományt vagy szűrd a táblázatot."
+select_blanks_done = "Kijelölt üres cellák: {count}"
 find_hint = "Ugrás a keresőmezőre"
 find_replace_hint = "Szöveg keresése és cseréje"
 find_duplicates_hint = "Pontosan egyező duplikált sorok keresése: kiemelés, megnyitás új lapon, szűrés vagy törlés"

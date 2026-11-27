@@ -255,6 +255,17 @@ impl OctaApp {
             | SA::GoToCell
             | SA::OpenPartition
             | SA::OpenTestData => need_table(),
+            SA::SelectBlanks => need_table().or_else(|| {
+                tab.and_then(|tab| {
+                    if tab.view_mode != octa::data::ViewMode::Table {
+                        Some(t("greyed.need_table_view"))
+                    } else {
+                        tab.filtered_rows
+                            .is_empty()
+                            .then(|| t("search_menu.select_blanks_none"))
+                    }
+                })
+            }),
             SA::FilterToCellValue => self.selected_cell_filter().err().map(t),
             SA::SaveDbSql | SA::RunSqlOnServer => need_db(),
             SA::ToggleFollow

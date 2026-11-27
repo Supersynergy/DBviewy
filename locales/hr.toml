@@ -146,6 +146,11 @@ column_navigator_hint = "Uključuje/isključuje usidreni prozor s popisom svih s
 show_invisibles = "Prikaži nevidljive znakove"
 show_invisibles_hint = "Označava praznine u tekstnim ćelijama: . za razmak, -> za tabulator, _ za neobičan razmak poput neprelomljivog, | za znak nulte širine, CR za povratak na početak retka. Razmaci na početku ili kraju vrijednosti i neobični znakovi dobivaju obojenu pozadinu."
 [search_menu]
+select_blanks = "Odaberi prazne ćelije"
+select_blanks_hint = "Odabire prazne ćelije u odabiru ili u vidljivoj učitanoj tablici. Podaci se ne mijenjaju."
+select_blanks_none = "U ovom rasponu nema vidljivih praznih ćelija."
+select_blanks_large = "Raspon je prevelik. Odaberi manji raspon ili filtriraj tablicu."
+select_blanks_done = "Odabrane prazne ćelije: {count}"
 find_hint = "Skoči na okvir za pretragu"
 find_replace_hint = "Pronađi i zamijeni tekst"
 find_duplicates_hint = "Pronađi točne duplikate redaka: istakni, otvori u novoj kartici, filtriraj ili ukloni"

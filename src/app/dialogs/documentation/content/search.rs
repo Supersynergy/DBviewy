@@ -10,6 +10,13 @@
 
 pub const SEARCH: &str = r#"# Search & Replace
 
+Use **Search > Select blank cells** to select missing values or empty
+text without changing the data. With a range, row or column selection,
+only those visible cells are checked. Otherwise the command checks the
+visible loaded table. Zero, false and spaces are not blank. The status
+line shows the count; no matches or an oversized result leave the old
+selection in place. You can also find the action with Ctrl+K.
+
 ## DBviewy instant search
 
 The search field stays centred above the table, outside the scrolling menus.

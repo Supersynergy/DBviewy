@@ -133,3 +133,42 @@ fn view_map_stays_greyed_for_a_table_with_nothing_to_plot() {
     let fruit = table("CSV", &[("fruit", "Utf8")], rows);
     assert!(!view_map_reaches_the_map(fruit));
 }
+
+#[test]
+fn search_menu_selects_blanks_without_changing_a_readonly_source() {
+    let mut app = OctaApp::new(
+        vec![],
+        Default::default(),
+        octa::ui::settings::IconVariant::Rose,
+    );
+    app.readonly_mode = true;
+    app.tabs[0].table = table(
+        "CSV",
+        &[("ID", "Utf8"), ("Note", "Utf8")],
+        vec![
+            vec![text("001"), CellValue::Null],
+            vec![text("002"), text("ok")],
+            vec![text("003"), text("")],
+        ],
+    );
+    app.recompute_filter();
+    let ctx = egui::Context::default();
+    let mut texts = vec![];
+    for _ in 0..3 {
+        texts = step(&mut app, &ctx, vec![]);
+    }
+    click_on(&mut app, &ctx, &t("menu.search"), &texts);
+    for _ in 0..2 {
+        texts = step(&mut app, &ctx, vec![]);
+    }
+    click_on(&mut app, &ctx, &t("search_menu.select_blanks"), &texts);
+    assert_eq!(
+        app.tabs[0].table_state.selected_cells,
+        [(0, 1), (2, 1)].into()
+    );
+    assert!(app.tabs[0].table.edits.is_empty());
+    assert_eq!(
+        app.status_message.as_ref().unwrap().0,
+        t("search_menu.select_blanks_done").replace("{count}", "2")
+    );
+}

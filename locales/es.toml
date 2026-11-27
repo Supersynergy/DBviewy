@@ -139,6 +139,11 @@ column_navigator_hint = "Muestra un panel acoplado con todas las columnas: mostr
 show_invisibles = "Mostrar caracteres invisibles"
 show_invisibles_hint = "Marca los espacios en blanco dentro de las celdas de texto: . para un espacio, -> para un tabulador, _ para un espacio poco habitual como el de no separación, | para un carácter de ancho cero, CR para un retorno de carro. Los espacios al principio o al final de un valor y los caracteres poco habituales llevan un fondo de color."
 [search_menu]
+select_blanks = "Seleccionar celdas vacías"
+select_blanks_hint = "Selecciona las celdas vacías de la selección o de la tabla visible cargada. No modifica los datos."
+select_blanks_none = "No hay celdas vacías visibles en este intervalo."
+select_blanks_large = "El intervalo es demasiado grande. Selecciona uno más pequeño o filtra la tabla."
+select_blanks_done = "Celdas vacías seleccionadas: {count}"
 find_hint = "Ir al cuadro de búsqueda"
 find_replace_hint = "Buscar y reemplazar texto"
 find_duplicates_hint = "Encontrar filas duplicadas exactas: resaltarlas, abrirlas en una pestaña nueva, filtrarlas o eliminarlas"

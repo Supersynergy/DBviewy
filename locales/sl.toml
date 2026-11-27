@@ -146,6 +146,11 @@ column_navigator_hint = "Preklopi zasidrano ploščo s seznamom vseh stolpcev: p
 show_invisibles = "Pokaži nevidne znake"
 show_invisibles_hint = "Označi presledke v besedilnih celicah: . za presledek, -> za tabulator, _ za nenavaden presledek, na primer nedeljivega, | za znak brez širine, CR za pomik na začetek vrstice. Presledki na začetku ali koncu vrednosti in nenavadni znaki dobijo barvno ozadje."
 [search_menu]
+select_blanks = "Izberi prazne celice"
+select_blanks_hint = "Izbere prazne celice v izboru ali v vidni naloženi tabeli. Podatki se ne spremenijo."
+select_blanks_none = "V tem obsegu ni vidnih praznih celic."
+select_blanks_large = "Obseg je prevelik. Izberi manjši obseg ali filtriraj tabelo."
+select_blanks_done = "Izbrane prazne celice: {count}"
 find_hint = "Skoči v iskalno polje"
 find_replace_hint = "Poišči in zamenjaj besedilo"
 find_duplicates_hint = "Poišči povsem podvojene vrstice: označi, odpri v novem zavihku, filtriraj ali izbriši"

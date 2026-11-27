@@ -139,6 +139,11 @@ column_navigator_hint = "모든 열을 나열하는 고정 패널을 켜거나 �
 show_invisibles = "보이지 않는 문자 표시"
 show_invisibles_hint = "텍스트 셀 안의 공백을 표시해: . 은 공백, -> 는 탭, _ 는 줄바꿈 없는 공백 같은 특이한 공백, | 는 폭이 0인 문자, CR 은 캐리지 리턴. 값의 앞이나 뒤에 있는 공백과 특이한 문자는 배경색이 들어가."
 [search_menu]
+select_blanks = "빈 셀 선택"
+select_blanks_hint = "선택 영역이나 불러온 표의 표시 영역에서 빈 셀을 선택합니다. 데이터는 변경되지 않습니다."
+select_blanks_none = "이 범위에 표시된 빈 셀이 없습니다."
+select_blanks_large = "범위가 너무 큽니다. 더 작은 범위를 선택하거나 표를 필터링하세요."
+select_blanks_done = "선택한 빈 셀: {count}개"
 find_hint = "검색 상자로 이동"
 find_replace_hint = "텍스트 찾아 바꾸기"
 find_duplicates_hint = "완전히 중복된 행 찾기: 강조, 새 탭에서 열기, 필터링 또는 삭제"

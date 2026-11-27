@@ -139,6 +139,11 @@ column_navigator_hint = "Växlar en dockad panel som listar alla kolumner: visa,
 show_invisibles = "Visa osynliga tecken"
 show_invisibles_hint = "Markerar blanktecken i textceller: . för ett blanksteg, -> för en tabb, _ för ett ovanligt blanksteg som det hårda, | för ett tecken utan bredd, CR för en vagnretur. Blanksteg först eller sist i ett värde och de ovanliga tecknen får färgad bakgrund."
 [search_menu]
+select_blanks = "Markera tomma celler"
+select_blanks_hint = "Markerar tomma celler i markeringen eller den synliga inlästa tabellen. Data ändras inte."
+select_blanks_none = "Inga synliga tomma celler i området."
+select_blanks_large = "Området är för stort. Välj ett mindre område eller filtrera tabellen."
+select_blanks_done = "Markerade tomma celler: {count}"
 find_hint = "Hoppa till sökrutan"
 find_replace_hint = "Sök och ersätt text"
 find_duplicates_hint = "Hitta exakta dubblettrader: markera, öppna i ny flik, filtrera eller ta bort dem"

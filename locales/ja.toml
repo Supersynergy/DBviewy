@@ -139,6 +139,11 @@ column_navigator_hint = "すべての列を一覧表示するドッキングパ�
 show_invisibles = "不可視文字を表示"
 show_invisibles_hint = "テキストセル内の空白を印で示す: . はスペース、-> はタブ、_ はノーブレークスペースなど珍しいスペース、| は幅ゼロの文字、CR は復帰文字。値の先頭や末尾のスペースと珍しい文字は背景に色が付く。"
 [search_menu]
+select_blanks = "空白セルを選択"
+select_blanks_hint = "選択範囲、または読み込み済みテーブルの表示範囲にある空白セルを選択します。データは変更されません。"
+select_blanks_none = "この範囲に表示されている空白セルはありません。"
+select_blanks_large = "範囲が大きすぎます。範囲を小さくするかテーブルを絞り込んでください。"
+select_blanks_done = "選択した空白セル: {count}"
 find_hint = "検索ボックスへ移動する"
 find_replace_hint = "テキストを検索して置換する"
 find_duplicates_hint = "完全に重複する行を探す：強調表示、新しいタブで開く、絞り込み、または削除"

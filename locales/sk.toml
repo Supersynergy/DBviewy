@@ -146,6 +146,11 @@ column_navigator_hint = "Prepína ukotvený panel so zoznamom všetkých stĺpco
 show_invisibles = "Zobraziť neviditeľné znaky"
 show_invisibles_hint = "Označí biele znaky v textových bunkách: . pre medzeru, -> pre tabulátor, _ pre nezvyčajnú medzeru, napríklad nezlomiteľnú, | pre znak s nulovou šírkou, CR pre návrat vozíka. Medzery na začiatku alebo konci hodnoty a nezvyčajné znaky majú farebné pozadie."
 [search_menu]
+select_blanks = "Vybrať prázdne bunky"
+select_blanks_hint = "Vyberie prázdne bunky v označení alebo vo viditeľnej načítanej tabuľke. Údaje sa nezmenia."
+select_blanks_none = "V tomto rozsahu nie sú viditeľné prázdne bunky."
+select_blanks_large = "Rozsah je príliš veľký. Vyber menší rozsah alebo tabuľku vyfiltruj."
+select_blanks_done = "Vybrané prázdne bunky: {count}"
 find_hint = "Prejsť do vyhľadávacieho poľa"
 find_replace_hint = "Nájsť a nahradiť text"
 find_duplicates_hint = "Nájsť presne duplicitné riadky: zvýrazniť, otvoriť v novej karte, filtrovať alebo odstrániť"

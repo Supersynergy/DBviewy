@@ -841,3 +841,38 @@ fn database_quick_filter_uses_the_existing_exact_value_route_and_preserves_typed
     assert!(condition.contains("D''Azur"), "{condition}");
     assert!(app.tabs[0].table.edits.is_empty());
 }
+
+#[test]
+fn keyboard_select_blanks_returns_focus_and_leaves_other_tabs_unchanged() {
+    use octa::data::CellValue;
+    let (mut app, ctx) = opened("");
+    app.command_search = None;
+    app.tabs[0] = crate::app::db_view::tests::db_tab();
+    app.tabs[0].db_origin = None;
+    app.tabs[0].table.rows[0][0] = CellValue::Null;
+    let mut other = crate::app::db_view::tests::db_tab();
+    other.db_origin = None;
+    other.table_state.selected_cell = Some((0, 1));
+    app.tabs.push(other);
+    app.recompute_filter();
+    ctx.memory_mut(|m| m.request_focus(other_field()));
+    app.open_command_search(&ctx);
+    let command = t("search_menu.select_blanks");
+    app.command_search.as_mut().unwrap().query = command.clone();
+    settle(&mut app, &ctx);
+    assert_eq!(app.command_rows(&command)[0].action, SA::SelectBlanks);
+    assert!(app.command_unavailable(SA::SelectBlanks).is_none());
+    step(&mut app, &ctx, key(egui::Key::Enter));
+    settle(&mut app, &ctx);
+    assert!(app.command_search.is_none());
+    assert!(ctx.memory(|m| m.has_focus(other_field())));
+    assert_eq!(app.tabs[0].table_state.selected_cells, [(0, 0)].into());
+    assert_eq!(app.tabs[1].table_state.selected_cell, Some((0, 1)));
+    assert!(app.tabs[1].table_state.selected_cells.is_empty());
+    assert!(app.tabs[0].table.edits.is_empty());
+    app.tabs[0].view_mode = octa::data::ViewMode::Raw;
+    assert_eq!(
+        app.command_unavailable(SA::SelectBlanks),
+        Some(t("greyed.need_table_view"))
+    );
+}
