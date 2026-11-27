@@ -50,6 +50,7 @@ pub(crate) const INSIDE: &[(&str, SA)] = &[
     ("dialog.vf_count_words", SA::ColumnValueFrequency),
     ("dialog.vf_count_pairs", SA::ColumnValueFrequency),
     ("dialog.vf_result_tab", SA::ColumnValueFrequency),
+    ("transform_op.split", SA::OpenTransform),
     ("outliers.method_neighbours", SA::OpenOutliers),
     ("calc.kind_previous", SA::OpenCalculatedColumn),
     ("calc.kind_next", SA::OpenCalculatedColumn),

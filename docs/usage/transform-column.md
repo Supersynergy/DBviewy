@@ -20,6 +20,19 @@ press **Apply**.
 | **Repair garbled characters** | Fix text read with the wrong character set and saved that way, so `MÃ¼ller` becomes `Müller`. Only cells whose repair can be proven are changed; anything else is left untouched.                                     |
 | **Tidy ID format**            | Write every valid IBAN, card number, barcode, VAT number or email address one standard way. Values that are not valid stay untouched. See [Data Validation](data-validation.md#tidy-id-format).                       |
 
+### Preview a split
+
+Choose **Split column**, pick a source column and a splitting rule, then
+open **Preview (sample)**. It shows up to three of the first loaded rows
+and the first six new columns, including their proposed names. The sample
+does not change the source. For example, a slash splits `0007/Nord`
+into `0007` and `Nord`; the identifier stays text. Blank parts and
+missing parts appear separately as `""` and `-`.
+
+Later rows may have more parts than the sample. Long source cells are
+not previewed. **Apply** still splits all loaded rows with the same rule
+and adds new columns; it never overwrites the source column.
+
 ### Repair garbled characters
 
 When a file is read with the wrong character set and then saved, the

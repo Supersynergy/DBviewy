@@ -24,6 +24,9 @@ use octa::ui::settings::{DialogSize, dialog_header, remember_dialog_rect, size_d
 
 use crate::app::state::{OctaApp, SplitMode, TransformOp, TransformState};
 
+#[path = "transform_preview.rs"]
+mod split_preview;
+
 pub(crate) fn render_transform_dialog(app: &mut OctaApp, ctx: &egui::Context) {
     if app.transform_dialog.is_none() {
         return;
@@ -111,6 +114,9 @@ pub(crate) fn render_transform_dialog(app: &mut OctaApp, ctx: &egui::Context) {
 
             if st.op.creates_column() {
                 new_column_controls(ui, &mut st, &col_names);
+            }
+            if st.op == TransformOp::Split {
+                split_preview::render(ui, &st, &col_names, &app.tabs[app.active_tab].table);
             }
 
             if let Some(err) = &st.error {

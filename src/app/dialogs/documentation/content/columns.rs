@@ -214,7 +214,12 @@ save, and respects read-only mode.
   (for example a comma, so `a,b,c` becomes three cells), a **regular
   expression**, or a **fixed width** (every N characters). New columns are
   named after the source with a `_1`, `_2`, ... suffix; rows with fewer parts
-  get empty cells.
+  get empty cells. **Preview (sample)** shows up to the first three
+  loaded rows and the first six new columns. For example, split
+  `0007/Nord` on `/` to check that `0007` stays text. Empty parts are
+  marked `""`; missing parts are marked `-`. Later rows can have more
+  parts, and long cells are not previewed. Only **Apply** inserts
+  the new columns.
 - **Merge columns** - join two or more columns into one new column with a
   separator you choose (like joining First and Last name with a space).
 - **Fill down** / **Fill up** - copy the nearest non-empty value into the

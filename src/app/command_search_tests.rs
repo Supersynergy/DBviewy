@@ -885,6 +885,16 @@ fn frequency_result_table_is_discoverable() {
 }
 
 #[test]
+fn split_column_is_findable_in_transform() {
+    let (app, _) = opened("");
+    assert!(
+        app.command_rows("split column")
+            .iter()
+            .any(|row| row.action == SA::OpenTransform)
+    );
+}
+
+#[test]
 fn fill_selection_command_opens_the_review_and_is_disabled_in_readonly() {
     let (mut app, ctx) = opened("");
     app.tabs[0] = crate::app::db_view::tests::db_tab();
