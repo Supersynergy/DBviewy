@@ -10,6 +10,8 @@ use std::cmp::Ordering;
 
 use super::{CellValue, DataTable};
 
+#[path = "formulas_cashflow.rs"]
+mod cashflow;
 #[path = "formulas_control.rs"]
 mod control;
 #[path = "formulas_criteria.rs"]
@@ -213,6 +215,8 @@ enum Function {
     Pairs(pairs::Kind),
     Nth(order::Extent),
     Power,
+    NetPresentValue,
+    DatedNetPresentValue,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -273,6 +277,10 @@ fn function_named(name: &str) -> Option<Function> {
         ("MEDIAN", Function::Aggregate(Median)),
         ("NUMBERVALUE", Function::NumberValue),
         ("ZAHLENWERT", Function::NumberValue),
+        ("NPV", Function::NetPresentValue),
+        ("NBW", Function::NetPresentValue),
+        ("XNPV", Function::DatedNetPresentValue),
+        ("XKAPITALWERT", Function::DatedNetPresentValue),
         ("LEN", Function::Text(text::Kind::Length)),
         ("LÄNGE", Function::Text(text::Kind::Length)),
         ("EXACT", Function::Text(text::Kind::Exact)),
@@ -789,6 +797,8 @@ fn eval_function(
         }
         Function::SumProduct => return product::evaluate(tokens, pos, context),
         Function::NumberValue => return numbervalue::evaluate(tokens, pos, context),
+        Function::NetPresentValue => return cashflow::periodic(tokens, pos, context),
+        Function::DatedNetPresentValue => return cashflow::dated(tokens, pos, context),
         Function::Text(kind) => return text::evaluate(kind, tokens, pos, context),
         Function::Rank(kind) => return order::rank(kind, tokens, pos, context),
         Function::Pairs(kind) => return pairs::evaluate(kind, tokens, pos, context),

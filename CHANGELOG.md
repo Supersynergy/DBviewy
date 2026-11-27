@@ -24,6 +24,7 @@
 - Preview formula results in Insert Column without changing the table.
 - Find formula examples by English or German name and use a selected input column.
 - Convert imported number text with explicit decimal and grouping separators.
+- Discount regular or dated payments with NPV and XNPV (NBW and XKAPITALWERT).
 - Calculate percentiles and quartiles, including p95 response times, with inclusive and exclusive Excel formulas.
 - Measure sample and population spread with standard deviation and variance, including running columns.
 - Reveal the correct row when navigating filtered tables with zoomed or resized rows.

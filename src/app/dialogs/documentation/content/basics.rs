@@ -704,6 +704,14 @@ Esc keeps the old draft. The table changes only when you choose Add.
 - **`TRUNC(A1)`** drops the fractional part, so -8.9 becomes -8.
   Give it a second argument to keep a specific number of places.
   In German use KÜRZEN. Find all three in **Examples** in **Insert Column**.
+- **`NPV(10%,A1:A4)`** discounts regular payments from the end of
+  period one. Add payments made today separately. Enter zero to keep
+  a period with no payment; blank and non-numeric cells are skipped.
+- **`XNPV(10%,A1:A4,B1:B4)`** pairs amounts with payment dates and
+  discounts from the first date using a 365-day year. Include one
+  positive and one negative amount; do not leave a date or payment
+  blank. In **Insert Column > Examples**, search for NBW or XKAPITALWERT.
+  Check the chosen ranges and replace the sample rate before adding.
 - **`LEN(A1)`** counts characters including spaces. **`EXACT(A1,"SKU-01")`**
   returns 1 for an exact, case-sensitive match or 0 otherwise.
 - **`IFERROR(FIND("-",A1),0)`** locates the first hyphen, counting

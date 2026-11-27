@@ -27,6 +27,8 @@ enum Form {
     MonthShift,
     MonthEnd,
     NumberValue,
+    PeriodicValue,
+    DatedValue,
 }
 
 #[derive(Clone, Copy)]
@@ -76,6 +78,16 @@ const RECIPES: &[Recipe] = &[
         english: "TRUNC",
         german: "KÜRZEN",
         form: Form::Scalar,
+    },
+    Recipe {
+        english: "NPV",
+        german: "NBW",
+        form: Form::PeriodicValue,
+    },
+    Recipe {
+        english: "XNPV",
+        german: "XKAPITALWERT",
+        form: Form::DatedValue,
     },
     Recipe {
         english: "LEN",
@@ -184,7 +196,7 @@ impl Recipe {
     }
 
     fn uses_pair(self) -> bool {
-        matches!(self.form, Form::Paired | Form::Slope)
+        matches!(self.form, Form::Paired | Form::Slope | Form::DatedValue)
     }
 
     fn expression(
@@ -213,16 +225,17 @@ impl Recipe {
             }
             Form::Rank => format!("{c}1{sep}${c}$1:${c}${n}"),
             Form::Nth => format!("${c}$1:${c}${n}{sep}{}", n.min(2)),
-            Form::Paired | Form::Slope => {
+            Form::PeriodicValue => format!("10%{sep}${c}$1:${c}${n}"),
+            Form::Paired | Form::Slope | Form::DatedValue => {
                 let other = partner.filter(|&other| other != col)?;
                 let y = letters(other);
                 let x_range = format!("${c}$1:${c}${n}");
                 let y_range = format!("${y}$1:${y}${n}");
-                if matches!(self.form, Form::Slope) {
+                match self.form {
                     // Excel uses the response first, then the predictor.
-                    format!("{y_range}{sep}{x_range}")
-                } else {
-                    format!("{x_range}{sep}{y_range}")
+                    Form::Slope => format!("{y_range}{sep}{x_range}"),
+                    Form::DatedValue => format!("10%{sep}{x_range}{sep}{y_range}"),
+                    _ => format!("{x_range}{sep}{y_range}"),
                 }
             }
             Form::Percentile => format!("${c}$1:${c}${n}{sep}95%"),
@@ -484,8 +497,11 @@ pub(super) fn render(
         let recipe = recipes.get(st.selected).copied();
         let paired = recipe.is_some_and(Recipe::uses_pair);
         let column_label = t("dialog.date_column");
-        if recipe.is_some() {
-            let x_label = if paired {
+        if let Some(recipe) = recipe {
+            let dated = matches!(recipe.form, Form::DatedValue);
+            let x_label = if matches!(recipe.form, Form::PeriodicValue | Form::DatedValue) {
+                t("rfm.amount")
+            } else if paired {
                 format!("{column_label} (X)")
             } else {
                 column_label.clone()
@@ -502,10 +518,15 @@ pub(super) fn render(
             }
             if paired {
                 let available = partner_source(tab, st.source, st.partner);
+                let y_label = if dated {
+                    t("rfm.date")
+                } else {
+                    format!("{column_label} (Y)")
+                };
                 st.partner = choose_column(
                     ui,
                     tab,
-                    &format!("{column_label} (Y)"),
+                    &y_label,
                     "formula_example_partner",
                     available,
                     Some(st.source),

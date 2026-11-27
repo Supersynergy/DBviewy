@@ -20,13 +20,20 @@ fn every_example_evaluates_in_both_languages_with_wide_column_references() {
     assert_eq!(letters(26), "AA");
     assert_eq!(letters(701), "ZZ");
     assert_eq!(letters(702), "AAA");
+    let mut payments = table.clone();
+    payments.rows[0][26] = CellValue::Int(-45_000);
     for &recipe in RECIPES {
+        let input = if matches!(recipe.form, Form::DatedValue) {
+            &payments
+        } else {
+            &table
+        };
         for german in [false, true] {
             let formula = recipe
                 .expression(26, Some(27), table.row_count(), german)
                 .unwrap();
             let expr = formula.strip_prefix('=').unwrap();
-            let value = evaluate_formula(expr, &table);
+            let value = evaluate_formula(expr, input);
             if matches!(recipe.form, Form::Running) && recipe.english == "STDEV.S" {
                 // There is no sample deviation on row one.
                 assert_eq!(value, None);
@@ -413,4 +420,76 @@ fn calendar_period_examples_are_searchable_and_keep_date_cell_relative() {
             assert_eq!(evaluate_formula(&shifted[1..], &table), Some(53.0));
         }
     }
+}
+
+#[test]
+fn cashflow_recipes_emit_the_expected_rate_and_anchored_ranges() {
+    for (q, name, partner, german, expected) in [
+        ("npv", "NPV", None, false, "=NPV(10%,$AA$1:$AA$30)"),
+        ("nbw", "NPV", None, true, "=NBW(10%;$AA$1:$AA$30)"),
+        (
+            "xnpv",
+            "XNPV",
+            Some(27),
+            false,
+            "=XNPV(10%,$AA$1:$AA$30,$AB$1:$AB$30)",
+        ),
+        (
+            "xkapitalwert",
+            "XNPV",
+            Some(27),
+            true,
+            "=XKAPITALWERT(10%;$AA$1:$AA$30;$AB$1:$AB$30)",
+        ),
+    ] {
+        let found = matching(q);
+        assert_eq!(found[0].english, name);
+        assert_eq!(
+            found[0].expression(26, partner, 30, german).as_deref(),
+            Some(expected)
+        );
+    }
+}
+
+#[test]
+fn dated_recipe_names_amounts_and_dates_and_keyboard_only_updates_the_draft() {
+    let mut app = examples_app();
+    let tab = &mut app.tabs[0];
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    let draft = egui::Id::new("cashflow-draft");
+    let query = egui::Id::new(("dbviewy_formula_examples", tab.id)).with("query");
+    picker_frame(&ctx, tab, draft, vec![]);
+    assert!(ctx.memory(|m| m.has_focus(query)));
+    let output = picker_frame(
+        &ctx,
+        tab,
+        draft,
+        vec![egui::Event::Text("xkapitalwert".into())],
+    );
+    let expr = if current_language() == "de" {
+        "=XKAPITALWERT(10%;$C$1:$C$4;$A$1:$A$4)"
+    } else {
+        "=XNPV(10%,$C$1:$C$4,$A$1:$A$4)"
+    };
+    let texts: Vec<_> = output
+        .shapes
+        .iter()
+        .filter_map(|item| match &item.shape {
+            egui::Shape::Text(shape) if item.clip_rect.intersects(shape.visual_bounding_rect()) => {
+                Some(shape.galley.text())
+            }
+            _ => None,
+        })
+        .collect();
+    assert!(texts.contains(&expr), "{texts:?}");
+    assert!(texts.contains(&t("rfm.amount").as_str()), "{texts:?}");
+    assert!(texts.contains(&t("rfm.date").as_str()), "{texts:?}");
+    assert!(texts.iter().all(|text| !text.contains("Hidden units")));
+    assert_eq!(tab.new_col_formula, "=11");
+    picker_frame(&ctx, tab, draft, vec![key(egui::Key::Enter)]);
+    assert_eq!(tab.new_col_formula, expr);
+    assert!(ctx.memory(|m| m.has_focus(draft)));
+    assert_eq!(tab.table.col_count(), 3);
+    assert!(tab.table.undo_stack.is_empty());
 }

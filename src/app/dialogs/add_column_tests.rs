@@ -2062,3 +2062,71 @@ fn date32_conversion_distinguishes_invalid_serials_from_null_and_numeric_result(
     assert_eq!(tab.table.get(0, 1), Some(&CellValue::Int(60)));
     assert_eq!(tab.table.get(2, 1), Some(&CellValue::Float(61.1)));
 }
+
+#[test]
+fn cashflow_preview_commit_and_xlsx_keep_the_same_value_and_allow_one_undo() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = data::DataTable {
+        columns: [("Amount", "Int64"), ("Paid", "Date32")]
+            .map(|(name, kind)| data::ColumnInfo {
+                name: name.into(),
+                data_type: kind.into(),
+            })
+            .to_vec(),
+        rows: [(-100, "2024-01-01"), (88, "2024-12-31"), (22, "2024-12-31")]
+            .map(|(n, date)| vec![CellValue::Int(n), CellValue::Date(date.into())])
+            .to_vec(),
+        ..data::DataTable::empty()
+    };
+    // Independent reference: the payments of 88 + 22 fall 365 days after
+    // -100. At a 12% rate the result is -100 + 110 / 1.12.
+    let expected = -100.0 + 110.0 / 1.12;
+    tab.new_col_name = "Dated value".into();
+    tab.new_col_formula = "=XKAPITALWERT(12%;$A$1:$A$3;$B$1:$B$3)".into();
+    tab.new_col_type = "Float64".into();
+    tab.insert_col_at = Some(0);
+    let preview = FormulaPreview::read(&tab.new_col_formula, &tab.table).unwrap();
+    assert!(preview.first_bad.is_none());
+    assert_eq!(preview.values.len(), 3);
+    for value in preview.values {
+        assert!((value.unwrap() - expected).abs() < 1e-10);
+    }
+    assert_eq!(tab.table.col_count(), 2);
+    assert!(tab.table.undo_stack.is_empty());
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    assert_eq!(tab.table.undo_stack.len(), 1);
+    let dir = tempfile::tempdir().unwrap();
+    let xlsx = dir.path().join("dated-payments.xlsx");
+    ExcelReader.write_file(&xlsx, &tab.table).unwrap();
+    let reopened = ExcelReader.read_file(&xlsx).unwrap();
+    for row in 0..3 {
+        for table in [&tab.table, &reopened] {
+            let Some(CellValue::Float(amount)) = table.get(row, 0) else {
+                panic!("missing calculated value at row {row}");
+            };
+            assert!((amount - expected).abs() < 1e-10, "{amount} vs {expected}");
+        }
+        // XLSX stores numbers as doubles, including integer source values.
+        let input_amount = [-100_i64, 88, 22][row];
+        assert_eq!(tab.table.get(row, 1), Some(&CellValue::Int(input_amount)));
+        assert_eq!(
+            reopened.get(row, 1),
+            Some(&CellValue::Float(input_amount as f64))
+        );
+        let iso = ["2024-01-01", "2024-12-31", "2024-12-31"][row];
+        assert!(
+            matches!(reopened.get(row, 2), Some(CellValue::Date(s) | CellValue::DateTime(s))
+                if s == iso || s == &format!("{iso} 00:00:00"))
+        );
+    }
+    tab.table.undo();
+    assert_eq!(tab.table.col_count(), 2);
+    assert_eq!(tab.table.get(0, 0), Some(&CellValue::Int(-100)));
+    assert_eq!(
+        tab.table.get(2, 1),
+        Some(&CellValue::Date("2024-12-31".into()))
+    );
+}

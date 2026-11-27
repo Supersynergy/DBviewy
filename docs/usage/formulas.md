@@ -313,6 +313,35 @@ These functions change the calculated value, not just its display.
 They accept whole numbers for `places`, including negative values.
 Open **Examples** in **Insert Column** and search by either function name.
 
+## Discount a schedule of payments
+
+- `=NPV(10%,B1:B3)` (German `=NBW(10%;B1:B3)`) discounts regular
+  payments. The first numeric payment is at the end of period one.
+  Add an amount paid today separately, for example `=A1+NPV(10%,B1:B3)`.
+  Blanks, text and booleans in the range are ignored. Enter an actual
+  zero to keep a period with no payment. If amounts were imported as
+  text, convert them to numbers first.
+- `=XNPV(10%,B1:B4,C1:C4)` (German
+  `=XKAPITALWERT(10%;B1:B4;C1:C4)`) discounts payments with actual dates.
+  Include the starting payment in the range. Pair equal-length rows or
+  columns of amounts and dates. The first date is the valuation date
+  and cannot be later than any subsequent date. Later entries can be
+  out of order, and several payments can share a date. Use at least
+  one positive and one negative amount.
+
+Use a per-period rate for NPV and an annual rate for XNPV. XNPV divides
+elapsed calendar days by 365 and accepts date or timestamp cells, ISO
+date text and Excel serial dates. It rejects a missing date or a
+non-numeric amount instead of shifting the payments out of alignment.
+Both rates must be greater than -100%.
+
+Open **Examples** in **Insert Column** and search for either name.
+The draft uses 10% as an example and fixes the selected ranges with
+`$`. Replace the rate and check the addresses before you add the
+column. The draft covers the loaded rows; filtering the grid does not
+change the requested ranges. A full-range total repeats in every output
+row. Use it as a cell formula if you only need one result.
+
 ## Check imported text and codes
 
 Suppose A1 holds the code `SKU-01`. These functions return numbers, so
