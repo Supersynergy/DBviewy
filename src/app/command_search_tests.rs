@@ -878,6 +878,13 @@ fn keyboard_select_blanks_returns_focus_and_leaves_other_tabs_unchanged() {
 }
 
 #[test]
+fn frequency_result_table_is_discoverable() {
+    let (app, _) = opened("");
+    let rows = app.command_rows("frequency report as table");
+    assert!(rows.iter().any(|row| row.action == SA::ColumnValueFrequency));
+}
+
+#[test]
 fn fill_selection_command_opens_the_review_and_is_disabled_in_readonly() {
     let (mut app, ctx) = opened("");
     app.tabs[0] = crate::app::db_view::tests::db_tab();

@@ -13,15 +13,18 @@
 use eframe::egui;
 use egui::RichText;
 use egui_extras::{Column, TableBuilder};
+use std::sync::Arc;
+use std::time::Instant;
 
 use octa::data::value_frequency::{
     BinningMode, ValueFrequency, WordMode, compute_value_frequency, compute_word_frequency,
 };
+use octa::data::{CellValue, ColumnInfo, DataTable};
 use octa::ui::settings::{
     DialogSize, draw_window_controls, remember_dialog_rect, size_dialog_window,
 };
 
-use super::super::state::OctaApp;
+use super::super::state::{OctaApp, TabState};
 use crate::app::pushdown::ServerVf;
 
 /// Top-N presets shown in the toolbar. `None` means "all distinct values".
@@ -54,6 +57,7 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
     let mut close_requested = false;
     let mut copy_payload: Option<String> = None;
     let mut grid_actions = FrequencyActions::default();
+    let mut detached = None;
     let mut run_local = false;
     // On a server tab every Bins value is a query, so the field commits on
     // Enter or when it loses focus; a file tab recounts live as it types.
@@ -237,7 +241,7 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
                 ) else {
                     return;
                 };
-                std::sync::Arc::new(f)
+                Arc::new(f)
             }
             ServerVf::Local => {
                 let Some(f) = compute_value_frequency(
@@ -249,7 +253,7 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
                     // Bounds already checked above; defensive only.
                     return;
                 };
-                std::sync::Arc::new(f)
+                Arc::new(f)
             }
             ServerVf::Ready(f, total) => {
                 server_total = Some(total);
@@ -302,7 +306,7 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
         egui::Panel::bottom("value_frequency_footer")
             .frame(egui::Frame::default().inner_margin(egui::Margin::symmetric(0, 8)))
             .show(ui, |ui| {
-                octa::ui::control_row::control_line(ui, |ui| {
+                octa::ui::control_row::control_row(ui, |ui| {
                     if ui.button(octa::i18n::t("common.close")).clicked() {
                         close_requested = true;
                     }
@@ -313,6 +317,13 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
                                 tracing::error!("Could not copy value frequencies: {err:#}")
                             }
                         }
+                    }
+                    if frequency_result_button(ui, freq.rows.len()).clicked() {
+                        detached = Some(FrequencySnapshot {
+                            report: Arc::clone(&freq),
+                            by_words,
+                            server_total,
+                        });
                     }
                     ui.label(
                         RichText::new(format!(
@@ -396,6 +407,20 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
         tab.filter_dirty = true;
     }
 
+    let new_tab =
+        detached.and_then(
+            |snapshot| match frequency_result_tab(app, active, &snapshot) {
+                Ok(tab) => Some(tab),
+                Err(err) => {
+                    app.status_message = Some((
+                        format!("{}: {err:#}", octa::i18n::t("dialog.vf_title")),
+                        Instant::now(),
+                    ));
+                    None
+                }
+            },
+        );
+    close_requested |= new_tab.is_some();
     if run_local {
         app.value_frequency_run_local(active);
     }
@@ -419,6 +444,119 @@ pub(crate) fn render_value_frequency_dialog(app: &mut OctaApp, ctx: &egui::Conte
         tab.value_frequency_col = None;
         tab.value_frequency_size = DialogSize::Normal;
     }
+    if let Some(new_tab) = new_tab {
+        app.push_result_tab(new_tab);
+    }
+}
+
+fn result_scope_label(rows: usize) -> String {
+    octa::i18n::t("dialog.vf_result_tab_hint")
+        .replace("{n}", &octa::ui::status_bar::format_number(rows))
+}
+
+fn frequency_result_button(ui: &mut egui::Ui, rows: usize) -> egui::Response {
+    let count = octa::ui::status_bar::format_number(rows);
+    let label = format!("{} ({count})", octa::i18n::t("dialog.vf_result_tab"));
+    ui.add_enabled(rows > 0, egui::Button::new(label))
+        .on_hover_text(result_scope_label(rows))
+        .on_disabled_hover_text(octa::i18n::t("dialog.vf_no_values"))
+}
+
+struct FrequencySnapshot {
+    report: Arc<ValueFrequency>,
+    by_words: bool,
+    server_total: Option<usize>,
+}
+
+/// Only cell categories partition the population in descending count
+/// order. Word counts can overlap; binned counts are in interval order.
+fn frequency_result_table(report: &ValueFrequency, by_words: bool) -> anyhow::Result<DataTable> {
+    let cumulative = !report.binned && !by_words;
+    let mut columns = vec![
+        ("value", "Utf8"),
+        ("count", "Int64"),
+        ("percent", "Float64"),
+    ];
+    if cumulative {
+        columns.push(("cumulative_percent", "Float64"));
+    }
+    let mut running = 0_usize;
+    let rows = report
+        .rows
+        .iter()
+        .map(|row| {
+            let mut cells = vec![
+                CellValue::String(row.label.clone()),
+                CellValue::Int(i64::try_from(row.count)?),
+                CellValue::Float(share(row.count, report.total_non_null) * 100.0),
+            ];
+            if cumulative {
+                running = running
+                    .checked_add(row.count)
+                    .ok_or_else(|| anyhow::anyhow!("frequency total exceeds the numeric range"))?;
+                cells.push(CellValue::Float(
+                    share(running, report.total_non_null) * 100.0,
+                ));
+            }
+            Ok(cells)
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    Ok(DataTable {
+        columns: columns
+            .into_iter()
+            .map(|(name, data_type)| ColumnInfo {
+                name: name.into(),
+                data_type: data_type.into(),
+            })
+            .collect(),
+        rows,
+        ..DataTable::empty()
+    })
+}
+
+fn frequency_result_tab(
+    app: &OctaApp,
+    source_index: usize,
+    snapshot: &FrequencySnapshot,
+) -> anyhow::Result<TabState> {
+    let source = &app.tabs[source_index];
+    let report = &snapshot.report;
+    let mut tab = TabState::new(app.settings.default_search_mode);
+    tab.table = frequency_result_table(report, snapshot.by_words)?;
+    tab.filter_dirty = true;
+    tab.custom_tab_label = Some(format!(
+        "{} - {} - {}",
+        octa::i18n::t("dialog.vf_title"),
+        source.result_source_label(),
+        report.column_name
+    ));
+    let mut hint = vec![result_scope_label(report.rows.len())];
+    if let Some(total) = snapshot.server_total {
+        hint.push(
+            octa::i18n::t("pushdown.vf_server")
+                .replace("{total}", &octa::ui::status_bar::format_number(total)),
+        );
+        if source.table.is_modified() {
+            tab.parse_error_banner = Some(octa::i18n::t("pushdown.note_unsaved"));
+        }
+    } else if source.source_has_more() {
+        tab.parse_error_banner = Some(octa::i18n::t("cohort.loaded_note"));
+    }
+    if let Some(note) = &tab.parse_error_banner {
+        hint.push(note.clone());
+    }
+    tab.tab_hint = Some(hint.join(" "));
+    tab.table_state.header_tooltips = vec![
+        report.column_name.clone(),
+        octa::i18n::t("dialog.vf_col_count"),
+        "%".into(),
+    ];
+    if tab.table.col_count() > 3 {
+        tab.table_state
+            .header_tooltips
+            .push(octa::i18n::t("chart.pareto_share"));
+    }
+    Ok(tab)
 }
 
 #[derive(Default)]

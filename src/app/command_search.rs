@@ -49,6 +49,7 @@ pub(crate) const INSIDE: &[(&str, SA)] = &[
     ("dialog.tc_kind_working_days", SA::OpenTimeCalc),
     ("dialog.vf_count_words", SA::ColumnValueFrequency),
     ("dialog.vf_count_pairs", SA::ColumnValueFrequency),
+    ("dialog.vf_result_tab", SA::ColumnValueFrequency),
     ("outliers.method_neighbours", SA::OpenOutliers),
     ("calc.kind_previous", SA::OpenCalculatedColumn),
     ("calc.kind_next", SA::OpenCalculatedColumn),

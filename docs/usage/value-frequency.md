@@ -139,6 +139,29 @@ viewport. A Top-N report copies only its top N. The three columns are
 `<column>`, `count` and `percent`. Tabs, quotes and line breaks in
 a value stay inside its field.
 
+## Open the report as a table
+
+**Open frequency report as table** says how many rows it will open. It
+copies that report to a separate tab, not to the source. With **Top 20**,
+it opens no more than 20 rows. Use **All** first when you need every value,
+for example to save the complete result as XLSX or Parquet.
+
+The `value` column stays text, so a code such as `0007` keeps its zeros.
+`count` is an integer and `percent` is a number on a 0-100 scale.
+The tab carries any caveat about counting only loaded rows or excluding
+unsaved database edits.
+
+A report of whole-cell values adds `cumulative_percent`: the running
+share of the original counted cells in the report's order. For example,
+categories with shares of 50, 30 and 20 reach 50, 80 and 100. A Top-N
+report can finish below 100. Word counts may overlap, and numeric bins
+are ordered by interval, so neither gets this column.
+
+To create a [Pareto chart](chart.md#pareto) for the complete distribution,
+open the **All** report, then choose **Chart > Pareto**, with `value` as
+the category and `count` as the measure. A chart made from only the Top-N
+rows describes that subset.
+
 ## Command line and MCP
 
 The same job without the GUI:

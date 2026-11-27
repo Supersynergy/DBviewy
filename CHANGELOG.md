@@ -77,6 +77,8 @@
   remaining pairs out of alignment.
 - Average growth factors, equal-distance speeds or trimmed measurements with
   GEOMEAN, HARMEAN and TRIMMEAN, with English and German examples.
+- Open the Value Frequency report as a separate, typed table. Whole-cell
+  counts include their running percentage for Pareto analysis.
 - Read Value Frequency shares as proportionate bars without hiding the
   exact percentages. Long results scroll with fixed headers.
 - See which columns pair in Row Hash Diff before reading the result. The
