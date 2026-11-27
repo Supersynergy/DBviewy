@@ -43,7 +43,7 @@ found.
 |----------------------------------------------------------------|----------|---------------------------|
 | Leading or trailing spaces in a text column                    | High     | Applied directly          |
 | Garbled characters from a wrong character set                  | High     | Applied directly          |
-| Whole-row duplicates                                           | High     | Applied directly          |
+| Whole-row duplicates                                           | High     | Opens a removal preview   |
 | A column that looks like [personal data](anonymize-columns.md) | High     | Opens Anonymise           |
 | A text column whose values are all numbers                     | Medium   | Applied directly          |
 | Numbers wearing a unit: `1.2k`, `EUR 4,00`, `12 kg`, `45%`     | Medium   | Opens Split numbers       |
@@ -155,7 +155,7 @@ table**, with the real column name and count filled in:
 
 ```
 Apply: remove the spaces around 12 values in 'city'. Undo with Ctrl+Z.
-Apply: delete 3 repeated rows, keeping the first of each. Undo with Ctrl+Z.
+Preview (sample): Drop duplicate rows
 Apply: opens Fill missing values with 'notes' chosen, so you pick how to fill them.
 ```
 
@@ -186,6 +186,10 @@ feature:
   [anonymising](anonymize-columns.md) needs an algorithm and possibly a salt.
   The panel will not guess these for you, and it does not reimplement
   any of those dialogs.
+
+The duplicate suggestion opens the same **Preview** as Find Duplicates.
+It keeps the first occurrence of each whole row. Nothing is removed before
+**Delete**, and **Cancel** leaves the suggestion available.
 
 Applying a direct fix **rescans automatically**. It has to: dropping a
 column shifts the numbering that every later suggestion refers to, so

@@ -26,7 +26,7 @@ impl OctaApp {
     /// TextEdit is focused, the events have already been consumed by that
     /// editor in an earlier panel and we just throw them away.
     pub(super) fn handle_table_clipboard(&mut self, ctx: &egui::Context) {
-        if self.value_fill.is_some() {
+        if self.value_fill.is_some() || self.duplicate_review.is_some() {
             return;
         }
         // Marked text owns Ctrl+C, wherever it is: a chat bubble, tool output,

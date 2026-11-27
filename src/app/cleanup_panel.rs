@@ -210,11 +210,12 @@ impl OctaApp {
                             if ui.small_button(t("cleanup.ignore")).clicked() {
                                 ignore = Some(idx);
                             }
-                            if ui
-                                .add_enabled(
-                                    !readonly,
-                                    egui::Button::new(t("cleanup.apply")).small(),
-                                )
+                            let action = if matches!(s.kind, octa::data::cleanup::CleanupKind::DuplicateRows) {
+                                "dialog.pv_preview"
+                            } else {
+                                "cleanup.apply"
+                            };
+                            if ui.add_enabled(!readonly, egui::Button::new(t(action)).small())
                                 .clicked()
                             {
                                 apply = Some(idx);
@@ -270,7 +271,7 @@ impl OctaApp {
                 // column index in it) may now be stale. Rescan rather than act
                 // on a list that no longer describes the table.
                 self.cleanup_panel.scanned = false;
-            } else {
+            } else if !matches!(s.kind, octa::data::cleanup::CleanupKind::DuplicateRows) {
                 // A dialog opened instead; nothing changed yet, so just stop
                 // the row from nagging.
                 self.cleanup_panel.ignored.push(idx);
@@ -306,7 +307,7 @@ impl OctaApp {
         }
         let changed = !matches!(
             s.kind,
-            K::MissingValues | K::Outliers | K::PersonalData { .. } | K::UnitsOrCurrency { .. }
+            K::DuplicateRows | K::MissingValues | K::Outliers | K::PersonalData { .. } | K::UnitsOrCurrency { .. }
         );
         match s.kind {
             K::TrimWhitespace => {
@@ -331,11 +332,7 @@ impl OctaApp {
                 }
             }
             K::DuplicateRows => {
-                super::dialogs::find_duplicates::drop_duplicates(
-                    self,
-                    &[],
-                    octa::data::dedupe::KeepWhich::First,
-                );
+                self.open_duplicate_review(&[], octa::data::dedupe::KeepWhich::First);
             }
             // A unit split is a question, not a fix: which columns to add is
             // the user's call, so this opens its dialog with a live preview.
@@ -501,7 +498,7 @@ fn describe_action(s: &Suggestion, column_label: &str) -> String {
     let key = match &s.kind {
         K::TrimWhitespace => "cleanup.action_trim",
         K::TypeMismatch { .. } => "cleanup.action_type",
-        K::DuplicateRows => "cleanup.action_duplicates",
+        K::DuplicateRows => return format!("{}: {}", t("dialog.pv_preview"), t("dedupe.title")),
         K::MissingValues => "cleanup.action_missing",
         K::Outliers => "cleanup.action_outliers",
         K::PersonalData { .. } => "cleanup.action_pii",

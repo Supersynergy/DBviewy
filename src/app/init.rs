@@ -325,6 +325,7 @@ impl OctaApp {
             close_queue: Vec::new(),
             exit_queue: None,
             replace_review: None,
+            duplicate_review: None,
             zoom_percent,
             last_work_calendar: None,
             pending_layout: None,

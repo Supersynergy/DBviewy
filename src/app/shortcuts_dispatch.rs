@@ -34,7 +34,7 @@ impl OctaApp {
         {
             return;
         }
-        if self.replace_review.is_some() || self.value_fill.is_some() {
+        if self.replace_review.is_some() || self.value_fill.is_some() || self.duplicate_review.is_some() {
             return;
         }
         let tab = &self.tabs[self.active_tab];

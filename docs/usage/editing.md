@@ -235,11 +235,13 @@ opens a modal that:
      key columns.
    - **Drop duplicate rows** is the one mode that edits the table. Choose
      whether to **keep the first** or **keep the last** occurrence of each
-     key; the rest are removed as a single undoable step (Ctrl+Z restores
-     them all) and the status bar reports how many rows went. The radio
-     button is greyed in read-only mode. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>
-     opens the dialog preset to this mode with every column ticked, so
-     whole-row repeats are two keys away. The same engine is available as
+     key. **Preview** shows the number of rows to remove, including rows
+     hidden by a filter or manual hiding, and sample row numbers and keys.
+     Only **Delete** removes them; **Cancel** returns to the key picker.
+     If the targets or their visibility changed, open a new preview.
+     One undo restores the removed rows. This action requires a complete
+     writable table. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd> opens the
+     picker with every column ticked. The same engine is available as
      [`octa --dedupe`](../cli/dedupe.md) and the
      [`drop_duplicates`](../mcp/tools/drop_duplicates.md) MCP / assistant
      tool.

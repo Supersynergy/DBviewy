@@ -845,6 +845,7 @@ pub(crate) struct OctaApp {
     /// (`OctaApp::next_exit_tab`). `None` while nobody is quitting.
     pub(crate) exit_queue: Option<Vec<super::tabs::TabId>>,
     pub(crate) replace_review: Option<super::replace_review::ReplaceReview>,
+    pub(crate) duplicate_review: Option<super::dialogs::find_duplicates::DuplicateReview>,
     pub(crate) registry: FormatRegistry,
     pub(crate) theme_mode: ThemeMode,
     /// Session search behaviour (Filter vs Highlight). Seeded from

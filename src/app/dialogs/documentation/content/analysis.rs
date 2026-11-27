@@ -110,12 +110,13 @@ Output modes (radio buttons):
   the repeats are hidden and what is left appeared exactly once on
   the key columns.
 - **Drop duplicate rows**: the one mode that edits the table. Pick
-  whether to keep the **first** or the **last** occurrence of each key;
-  the rest are removed as a single undoable step (Ctrl+Z brings them
-  all back) and the status bar reports how many rows went. Greyed in
-  read-only mode. **Ctrl+Shift+H** opens the dialog preset to this mode
-  with every column ticked, so whole-row repeats are two keys away. The
-  same engine runs as `octa --dedupe` and the `drop_duplicates`
+  whether to keep the **first** or the **last** occurrence of each key.
+  **Preview** shows the rows to remove and counts how many are hidden
+  or filtered out. Confirm with **Delete**. **Cancel** returns to the
+  picker, and a changed target needs a new preview. One undo restores
+  the removed rows. Only a complete writable table can use this mode.
+  **Ctrl+Shift+H** opens the picker with every column ticked. The same
+  engine runs as `octa --dedupe` and the `drop_duplicates`
   assistant/MCP tool.
 
 Notes:

@@ -11,7 +11,7 @@
 use eframe::egui;
 use egui::RichText;
 
-use octa::data::dedupe::{KeepWhich, dedupe_dropped_indices};
+use octa::data::dedupe::KeepWhich;
 use octa::data::duplicates::find_duplicate_rows;
 use octa::data::{CellValue, DataTable, MarkColor, MarkKey};
 use octa::ui::settings::{
@@ -20,7 +20,15 @@ use octa::ui::settings::{
 
 use super::super::state::{DuplicateFilter, FindDuplicatesMode, OctaApp, TabState};
 
+#[path = "find_duplicates_review.rs"]
+mod review;
+pub(crate) use review::DuplicateReview;
+
 pub(crate) fn render_find_duplicates_dialog(app: &mut OctaApp, ctx: &egui::Context) {
+    if app.duplicate_review.is_some() {
+        app.render_duplicate_review(ctx);
+        return;
+    }
     if !app.tabs[app.active_tab].show_find_duplicates {
         return;
     }
@@ -37,15 +45,14 @@ pub(crate) fn render_find_duplicates_dialog(app: &mut OctaApp, ctx: &egui::Conte
     let mut mode = app.tabs[app.active_tab].find_duplicates_mode;
     let is_large = app.tabs[app.active_tab].large.is_some();
     let readonly = app.is_readonly();
-    // A mode picked on an ordinary tab must not stay selected when the dialog
-    // is next opened on a large or read-only one, or Apply would silently do
-    // nothing.
-    if (is_large
+    let drop_unavailable = review::unavailable(&app.tabs[app.active_tab], readonly);
+    // Windowed filtering has no local equivalent. An explicitly selected
+    // removal mode stays selected and reports why Preview is unavailable.
+    if is_large
         && matches!(
             mode,
             FindDuplicatesMode::FilterDuplicates | FindDuplicatesMode::FilterUnique
-        ))
-        || (readonly && matches!(mode, FindDuplicatesMode::Drop(_)))
+        )
     {
         mode = FindDuplicatesMode::Highlight;
     }
@@ -169,12 +176,12 @@ pub(crate) fn render_find_duplicates_dialog(app: &mut OctaApp, ctx: &egui::Conte
             });
             // Drop is the one mode that edits the table, so it follows the
             // read-only chokepoint like every other edit path.
-            ui.add_enabled_ui(!readonly, |ui| {
+            ui.add_enabled_ui(drop_unavailable.is_none(), |ui| {
                 let dropping = matches!(mode, FindDuplicatesMode::Drop(_));
                 if ui
                     .radio(dropping, octa::i18n::t("dedupe.title"))
                     .on_hover_text(octa::i18n::t("dedupe.menu_hint"))
-                    .on_disabled_hover_text(octa::i18n::t("transform.readonly"))
+                    .on_disabled_hover_text(drop_unavailable.as_deref().unwrap_or(""))
                     .clicked()
                     && !dropping
                 {
@@ -199,15 +206,32 @@ pub(crate) fn render_find_duplicates_dialog(app: &mut OctaApp, ctx: &egui::Conte
 
             ui.add_space(8.0);
             octa::ui::control_row::control_line(ui, |ui| {
-                let can_run = !key_cols.is_empty();
-                let run_btn =
-                    ui.add_enabled(can_run, egui::Button::new(octa::i18n::t("common.apply")));
+                let dropping = matches!(mode, FindDuplicatesMode::Drop(_));
+                let can_run = !key_cols.is_empty() && (!dropping || drop_unavailable.is_none());
+                let label = if dropping {
+                    "dialog.pv_preview"
+                } else {
+                    "common.apply"
+                };
+                let run_btn = ui.add_enabled(can_run, egui::Button::new(octa::i18n::t(label)));
+                if ctx.data_mut(|d| {
+                    let restore = d.get_temp::<bool>(review::preview_key()).unwrap_or(false);
+                    d.remove::<bool>(review::preview_key());
+                    restore
+                }) {
+                    run_btn.request_focus();
+                }
                 if run_btn.clicked() {
                     run_requested = true;
                 }
                 if !can_run {
+                    let why = if dropping && let Some(why) = &drop_unavailable {
+                        why.clone()
+                    } else {
+                        octa::i18n::t("dialog.fd_select_one")
+                    };
                     ui.label(
-                        RichText::new(octa::i18n::t("dialog.fd_select_one"))
+                        RichText::new(why)
                             .size(10.0)
                             .color(ui.visuals().weak_text_color()),
                     );
@@ -259,8 +283,10 @@ pub(crate) fn render_find_duplicates_dialog(app: &mut OctaApp, ctx: &egui::Conte
         v
     };
     if let FindDuplicatesMode::Drop(keep) = mode {
-        drop_duplicates(app, &key_cols_vec, keep);
-        app.tabs[app.active_tab].show_find_duplicates = false;
+        if app.open_duplicate_review(&key_cols_vec, keep) {
+            app.return_duplicate_review_to_picker();
+            app.tabs[app.active_tab].show_find_duplicates = false;
+        }
         return;
     }
     let dup_rows: Vec<usize> = {
@@ -372,48 +398,26 @@ pub(crate) fn render_find_duplicates_dialog(app: &mut OctaApp, ctx: &egui::Conte
     app.tabs[app.active_tab].show_find_duplicates = false;
 }
 
-/// Delete every repeat on `key_cols` (empty = whole row) except the `keep`
-/// occurrence, as one undo step, and report the count in the status bar.
-/// Shared with the clean-up panel's "duplicate rows" fix.
-pub(crate) fn drop_duplicates(app: &mut OctaApp, key_cols: &[usize], keep: KeepWhich) {
-    if app.is_readonly() {
-        return;
-    }
-    let active = app.active_tab;
+/// Apply the confirmed removal plan in descending row order.
+fn apply_duplicate_rows(app: &mut OctaApp, key_cols: &[usize], keep: KeepWhich, dropped: &[usize]) {
     let key_names = app.column_names(key_cols);
-
-    // The plan reads through the edit overlay. Nothing is merged until
-    // at least one matching row is ready to be removed.
-    // The engine tells us exactly which original rows to drop, in descending
-    // order. Delete each (highest first, so indices don't shift) and coalesce
-    // the per-row DeleteRow undo actions into one Batch, so a single Ctrl+Z
-    // restores the full table.
-    let dropped = dedupe_dropped_indices(&app.tabs[active].table, key_cols, keep);
     let removed = dropped.len();
-    if removed == 0 {
-        app.status_message = Some((
-            octa::i18n::t("dialog.fd_no_dups"),
-            std::time::Instant::now(),
-        ));
-        return;
+    let tab = &mut app.tabs[app.active_tab];
+    // Merge only after approval; otherwise each deletion has to remap
+    // the remaining cell edits. A cancelled or empty preview never merges.
+    tab.table.apply_edits();
+    let undo_start = tab.table.undo_stack.len();
+    for &row in dropped {
+        tab.table.delete_row(row);
     }
-
-    {
-        // Merge only when committing. Otherwise each individual deletion
-        // would need to remap all the remaining cell edits.
-        app.tabs[active].table.apply_edits();
-        let undo_start = app.tabs[active].table.undo_stack.len();
-        for row_idx in dropped {
-            app.tabs[active].table.delete_row(row_idx);
-        }
-        app.tabs[active].table.coalesce_undo_since(undo_start);
-        app.tabs[active].table.structural_changes = true;
-        app.tabs[active].filter_dirty = true;
-        app.tabs[active].table_state.widths_initialized = false;
-        app.record_step(octa::data::recipe::RecipeStep::DropDuplicates(
-            octa::data::recipe::DropDuplicates::new(key_names, keep),
-        ));
-    }
+    tab.table.coalesce_undo_since(undo_start);
+    tab.table.structural_changes = true;
+    tab.filter_dirty = true;
+    tab.table_state.widths_initialized = false;
+    tab.table_state.invalidate_row_heights();
+    app.record_step(octa::data::recipe::RecipeStep::DropDuplicates(
+        octa::data::recipe::DropDuplicates::new(key_names, keep),
+    ));
 
     app.status_message = Some((
         format!("{removed} {}", octa::i18n::t("dedupe.removed_status")),
@@ -509,7 +513,7 @@ mod tests {
         let base = app.tabs[0].table.rows.clone();
         let edits = app.tabs[0].table.edits.clone();
         let undo = app.tabs[0].table.undo_stack.len();
-        drop_duplicates(&mut app, &[0, 1], KeepWhich::First);
+        assert!(!app.open_duplicate_review(&[0, 1], KeepWhich::First));
         assert_eq!(app.tabs[0].table.rows, base);
         assert_eq!(app.tabs[0].table.edits, edits);
         assert_eq!(app.tabs[0].table.undo_stack.len(), undo);
@@ -518,7 +522,9 @@ mod tests {
             .table
             .set(2, 1, CellValue::String("Früh".into()));
         let steps = app.tabs[0].table.undo_stack.len();
-        drop_duplicates(&mut app, &[0, 1], KeepWhich::First);
+        assert!(app.open_duplicate_review(&[0, 1], KeepWhich::First));
+        let review = app.duplicate_review.take().unwrap();
+        assert!(app.commit_duplicate_review(&review));
         let table = &mut app.tabs[0].table;
         assert_eq!(table.row_count(), 2);
         assert_eq!(
