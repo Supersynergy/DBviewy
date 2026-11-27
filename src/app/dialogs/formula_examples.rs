@@ -15,6 +15,7 @@ enum Form {
     Running,
     Whole,
     Round,
+    Truncate,
     Percentile,
     Workday,
     NumberValue,
@@ -52,6 +53,21 @@ const RECIPES: &[Recipe] = &[
         english: "ROUND",
         german: "RUNDEN",
         form: Form::Round,
+    },
+    Recipe {
+        english: "ROUNDUP",
+        german: "AUFRUNDEN",
+        form: Form::Round,
+    },
+    Recipe {
+        english: "ROUNDDOWN",
+        german: "ABRUNDEN",
+        form: Form::Round,
+    },
+    Recipe {
+        english: "TRUNC",
+        german: "KÜRZEN",
+        form: Form::Truncate,
     },
     Recipe {
         english: "PERCENTILE.INC",
@@ -101,6 +117,7 @@ impl Recipe {
             Form::Running => format!("{c}$1:{c}1"),
             Form::Whole => format!("${c}$1:${c}${n}"),
             Form::Round => format!("{c}1{sep}2"),
+            Form::Truncate => format!("{c}1"),
             Form::Percentile => format!("${c}$1:${c}${n}{sep}95%"),
             Form::Workday => format!("{c}1{sep}5"),
             Form::NumberValue if german => format!(r#"{c}1;",";".""#),

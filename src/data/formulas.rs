@@ -186,7 +186,7 @@ enum Function {
     Conditional(ConditionalAggregate),
     ConditionalMany(ConditionalAggregate),
     Abs,
-    Round,
+    Round(Rounding),
     If,
     IfError,
     Ifs,
@@ -229,6 +229,7 @@ impl Comparison {
 fn function_named(name: &str) -> Option<Function> {
     use Aggregate::{Average, Count, Max, Median, Min, Sum};
     use Function::{Abs, Quantile, Round};
+    use Rounding::{Away, Nearest, Toward, Truncate};
     use quantiles::Kind::{PercentileExc, PercentileInc, QuartileExc, QuartileInc};
     const NAMES: &[(&str, Function)] = &[
         ("SUM", Function::Aggregate(Sum)),
@@ -297,8 +298,14 @@ fn function_named(name: &str) -> Option<Function> {
             Function::Conditional(ConditionalAggregate::Average),
         ),
         ("ABS", Abs),
-        ("ROUND", Round),
-        ("RUNDEN", Round),
+        ("ROUND", Round(Nearest)),
+        ("RUNDEN", Round(Nearest)),
+        ("ROUNDUP", Round(Away)),
+        ("AUFRUNDEN", Round(Away)),
+        ("ROUNDDOWN", Round(Toward)),
+        ("ABRUNDEN", Round(Toward)),
+        ("TRUNC", Round(Truncate)),
+        ("KÜRZEN", Round(Truncate)),
         ("IF", Function::If),
         ("WENN", Function::If),
         ("IFERROR", Function::IfError),
@@ -425,6 +432,15 @@ fn function_named(name: &str) -> Option<Function> {
             Function::ConditionalMany(ConditionalAggregate::Max),
         ),
     ];
+    // German names with umlauts are also case-insensitive. The common
+    // ASCII names still avoid allocating a normalised string.
+    let uppercase;
+    let name = if name.is_ascii() {
+        name
+    } else {
+        uppercase = name.to_uppercase();
+        &uppercase
+    };
     NAMES
         .iter()
         .find(|(word, _)| word.eq_ignore_ascii_case(name))
@@ -752,13 +768,16 @@ fn eval_function(
     let (value, end) = eval_expression(tokens, pos + 1, context)?;
     let (value, end) = match function {
         Function::Abs => (value.abs(), end),
-        Function::Round => {
-            if !matches!(tokens.get(end), Some(FormulaToken::Separator)) {
+        Function::Round(mode) => {
+            let (places, end) = if matches!(tokens.get(end), Some(FormulaToken::Separator)) {
+                eval_expression(tokens, end + 1, context)?
+            } else if matches!(mode, Rounding::Truncate) {
+                (0.0, end)
+            } else {
                 return None;
-            }
-            let (places, end) = eval_expression(tokens, end + 1, context)?;
+            };
             let rounded = if context.table.is_some() {
-                round_decimal(value, places)?
+                round_decimal(value, places, mode)?
             } else {
                 0.0
             };
@@ -779,18 +798,42 @@ fn eval_function(
     (context.table.is_none() || value.is_finite()).then_some((value, end + 1))
 }
 
+#[derive(Clone, Copy, Debug)]
+enum Rounding {
+    Nearest,
+    Away,
+    Toward,
+    Truncate,
+}
+
 /// Round the shortest decimal representation rather than scaling the binary
 /// float. Scaling can put a decimal tie like 1.005 just below 100.5 and can
 /// overflow even when the rounded result itself is representable.
-fn round_decimal(value: f64, places: f64) -> Option<f64> {
+fn round_decimal(value: f64, places: f64, mode: Rounding) -> Option<f64> {
     if !value.is_finite() || places.fract() != 0.0 {
         return None;
     }
-    if value == 0.0 || places <= -310.0 {
+    if value == 0.0 {
         return Some(0.0);
     }
-    if places >= 324.0 {
+    let away = matches!(mode, Rounding::Away);
+    if places <= -309.0 {
+        // A non-zero step of 1e309 or more cannot be represented.
+        return (!away).then_some(0.0);
+    }
+    if places >= 324.0 || (places >= 0.0 && value.fract() == 0.0) {
         return Some(value);
+    }
+    if places == 0.0 {
+        // Directed rounding to a whole number needs no decimal conversion.
+        let integral = match mode {
+            Rounding::Away => Some(value.abs().ceil().copysign(value)),
+            Rounding::Toward | Rounding::Truncate => Some(value.trunc()),
+            Rounding::Nearest => None,
+        };
+        if let Some(integral) = integral {
+            return Some(if integral == 0.0 { 0.0 } else { integral });
+        }
     }
     let places = places as i32;
     let decimal = if value.is_subnormal() {
@@ -802,23 +845,26 @@ fn round_decimal(value: f64, places: f64) -> Option<f64> {
     };
     let (mantissa, exponent) = decimal.split_once('e')?;
     let keep = exponent.parse::<i32>().ok()? + places + 1;
-    if keep < 0 {
-        return Some(0.0);
-    }
-    let keep = keep as usize;
-    let mut digits = mantissa.bytes().filter(|&digit| digit != b'.');
     let mut units = 0u64;
-    for _ in 0..keep {
-        let Some(digit) = digits.next() else {
+    if keep < 0 {
+        units = u64::from(away);
+    } else {
+        let mut digits = mantissa.bytes().filter(|&digit| digit != b'.');
+        for _ in 0..keep {
+            let Some(digit) = digits.next() else {
+                return Some(value);
+            };
+            units = units * 10 + u64::from(digit - b'0');
+        }
+        let Some(first_discarded) = digits.next() else {
             return Some(value);
         };
-        units = units * 10 + u64::from(digit - b'0');
-    }
-    let Some(first_discarded) = digits.next() else {
-        return Some(value);
-    };
-    if first_discarded >= b'5' {
-        units += 1;
+        let increment = match mode {
+            Rounding::Nearest => first_discarded >= b'5',
+            Rounding::Away => first_discarded != b'0' || digits.any(|digit| digit != b'0'),
+            Rounding::Toward | Rounding::Truncate => false,
+        };
+        units += u64::from(increment);
     }
     if units == 0 {
         return Some(0.0);

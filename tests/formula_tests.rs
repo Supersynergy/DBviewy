@@ -978,6 +978,149 @@ fn round_handles_float_limits_without_intermediate_overflow() {
 }
 
 #[test]
+fn directed_rounding_distinguishes_away_from_and_towards_zero() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("ROUNDUP(3.2,0)", 4.0),
+        ("ROUNDUP(76.9,0)", 77.0),
+        ("ROUNDUP(3.14159,3)", 3.142),
+        ("ROUNDUP(-3.14159,1)", -3.2),
+        ("ROUNDUP(31415.92654,-2)", 31500.0),
+        ("ROUNDDOWN(3.14159,3)", 3.141),
+        ("ROUNDDOWN(-3.14159,1)", -3.1),
+        ("ROUNDDOWN(31415.92654,-2)", 31400.0),
+        ("AUFRUNDEN(-21.5;-1)", -30.0),
+        ("ABRUNDEN(-21.5;-1)", -20.0),
+        ("TRUNC(-8.9)", -8.0),
+        ("TRUNC(1299.9,-2)", 1200.0),
+        ("KÜRZEN(-4.38;1)", -4.3),
+        ("kürzen(8.9)", 8.0),
+        ("zählenwenn(A1:A3;20)", 1.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn directed_rounding_respects_exact_decimal_boundaries_and_tiny_remainders() {
+    let table = formula_table();
+    for (formula, expected) in [
+        ("ROUNDUP(1.07,2)", 1.07),
+        ("ROUNDDOWN(1.15,2)", 1.15),
+        ("ROUNDUP(-1.1500000000000001,2)", -1.16),
+        ("ROUNDDOWN(1.1499999999999997,2)", 1.14),
+        ("ROUNDUP(0.000001,2)", 0.01),
+        ("ROUNDUP(1.000001,2)", 1.01),
+        ("ROUNDDOWN(0.000001,2)", 0.0),
+        ("ROUNDUP(1200,-2)", 1200.0),
+        ("ROUNDDOWN(-1200,-2)", -1200.0),
+        ("ROUNDUP(-0.1,-2)", -100.0),
+        ("ROUNDUP(-0.0,-999)", 0.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn directed_rounding_bounds_subnormal_and_overflowing_steps() {
+    let mut table = formula_table();
+    table.rows[0][1] = CellValue::Float(f64::MAX);
+    table.rows[1][1] = CellValue::Float(f64::from_bits(1));
+    for (formula, expected) in [
+        ("ROUNDUP(B1,320)", Some(f64::MAX)),
+        ("ROUNDUP(B1,-308)", None),
+        ("ROUNDUP(B2,-309)", None),
+        ("ROUNDDOWN(B1,-308)", Some(1e308)),
+        ("TRUNC(B1,-309)", Some(0.0)),
+        ("ROUNDUP(B2,323)", Some(1e-323)),
+        ("ROUNDDOWN(B2,323)", Some(0.0)),
+        ("TRUNC(B2,324)", Some(f64::from_bits(1))),
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), expected, "{formula}");
+    }
+}
+
+#[test]
+fn directed_rounding_validates_arguments_and_composes_with_lazy_formulas() {
+    let table = formula_table();
+    for formula in [
+        "ROUNDUP(A1)",
+        "ROUNDDOWN(A1)",
+        "ROUNDUP(A1,)",
+        "ROUNDDOWN(A1,1.5)",
+        "TRUNC()",
+        "TRUNC(A1,)",
+        "TRUNC(A1,1,2)",
+        "TRUNC(A1:B2)",
+        "TRUNC(A1,1/0)",
+        "ROUNDUP(C1,0)",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+    for (formula, expected) in [
+        ("ROUNDUP(SUM(A1:A3)/7,A1/10)", 8.6),
+        ("IFERROR(ROUNDUP(1,-309),ROUNDDOWN(5.6,0))", 5.0),
+        ("IF(0,TRUNC(B99),7)", 7.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+    assert_eq!(evaluate_formula("IF(0,ROUNDUP(B99),7)", &table), None);
+}
+
+#[test]
+fn directed_rounding_keeps_calculated_values_numeric_on_xlsx_reopen() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+
+    let dir = tempfile::tempdir().unwrap();
+    let output = dir.path().join("rounded-quantities.xlsx");
+    let mut table = DataTable {
+        columns: ["Source", "Boxes", "Spend", "Units"]
+            .map(|name| ColumnInfo {
+                name: name.into(),
+                data_type: "Float64".into(),
+            })
+            .to_vec(),
+        rows: vec![vec![
+            CellValue::Float(-127.951),
+            CellValue::Float(0.0),
+            CellValue::Float(0.0),
+            CellValue::Float(0.0),
+        ]],
+        ..DataTable::empty()
+    };
+    for (c, expr) in ["=ROUNDUP(ABS(A1)/12,0)", "=ABRUNDEN(A1;2)", "=KÜRZEN(A1)"]
+        .into_iter()
+        .enumerate()
+    {
+        assert!(commit_cell_text(
+            &mut table,
+            0,
+            1 + c,
+            expr.into(),
+            BinaryDisplayMode::default()
+        ));
+    }
+    ExcelReader.write_file(&output, &table).unwrap();
+    let saved = ExcelReader.read_file(&output).unwrap();
+    for (c, expected) in [-127.951, 11.0, -127.95, -127.0].into_iter().enumerate() {
+        assert_eq!(saved.get(0, c), Some(&CellValue::Float(expected)));
+    }
+}
+
+#[test]
 fn scalar_functions_compose_with_ranges_signs_and_calculated_precision() {
     let table = formula_table();
     assert_eq!(

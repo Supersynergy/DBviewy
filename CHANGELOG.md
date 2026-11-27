@@ -47,6 +47,8 @@
   the cell editor share one parser.
 - Add `ROUND`, `ABS` and `MEDIAN` to cell and column formulas, including
   negative rounding precision and decimal ties away from zero.
+- Add ROUNDUP, ROUNDDOWN and TRUNC with German names and searchable examples
+  for whole quantities, decimal amounts and reporting to tens or hundreds.
 - Keep fixed Excel-style references such as `$B$1` when filling a calculated
   column. Evaluate against the original table regardless of insertion position.
 - Fill single-column running sums such as `SUM(A$1:A1)` in one pass instead

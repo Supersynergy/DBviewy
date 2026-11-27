@@ -274,6 +274,17 @@ inside the call. The German name is `SUMMENPRODUKT`.
   decimal places. Use a negative number of places to round to the left
   of the decimal point. For example, `ROUND(125, -1)` returns `130`.
   Halfway values round away from zero, so `ROUND(-1.475, 2)` returns `-1.48`.
+- `ROUNDUP(value, places)` (`AUFRUNDEN`) rounds away from zero.
+  `ROUNDUP(-3.14159, 1)` returns `-3.2`. Use `ROUNDUP(A1/B1, 0)`
+  to calculate how many whole boxes a positive quantity needs.
+- `ROUNDDOWN(value, places)` (`ABRUNDEN`) rounds towards zero.
+  `ROUNDDOWN(-3.14159, 1)` returns `-3.1`.
+- `TRUNC(value[, places])` (`KÜRZEN`) also rounds towards zero, but
+  defaults to zero places. `TRUNC(-8.9)` returns `-8`.
+
+These functions change the calculated value, not just its display.
+They accept whole numbers for `places`, including negative values.
+Open **Examples** in **Insert Column** and search by either function name.
 
 ## Calculate shift hours across midnight
 

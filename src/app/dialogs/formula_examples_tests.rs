@@ -59,6 +59,32 @@ fn search_accepts_english_german_and_formula_punctuation() {
 }
 
 #[test]
+fn directed_rounding_recipes_find_both_names_and_set_correct_arity() {
+    let table = DataTable {
+        columns: vec![ColumnInfo {
+            name: "Spend".into(),
+            data_type: "Float64".into(),
+        }],
+        rows: vec![vec![CellValue::Float(-1.141)]],
+        ..DataTable::empty()
+    };
+    for (query, german, expected_expr, value) in [
+        ("roundup", false, "=ROUNDUP(A1,2)", -1.15),
+        ("aufrunden", true, "=AUFRUNDEN(A1;2)", -1.15),
+        ("rounddown", false, "=ROUNDDOWN(A1,2)", -1.14),
+        ("abrunden", true, "=ABRUNDEN(A1;2)", -1.14),
+        ("trunc", false, "=TRUNC(A1)", -1.0),
+        ("kürzen", true, "=KÜRZEN(A1)", -1.0),
+    ] {
+        let hits = matching(query);
+        assert_eq!(hits.len(), 1, "{query}");
+        let draft = hits[0].expression(0, 1, german);
+        assert_eq!(draft, expected_expr);
+        assert_eq!(evaluate_formula(&draft[1..], &table), Some(value));
+    }
+}
+
+#[test]
 fn numbervalue_recipe_sets_explicit_input_separators_for_each_language() {
     for (query, german, input, expected_formula) in [
         ("zahlenwert", true, "2.500,27", r#"ZAHLENWERT(A1;",";".")"#),

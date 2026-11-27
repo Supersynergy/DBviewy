@@ -680,6 +680,12 @@ Esc keeps the old draft. The table changes only when you choose Add.
 - **`ROUND(A1*B1,2)`** rounds to two decimal places. Use a negative
   number of places to round tens or hundreds. Halfway values round away
   from zero. The German name RUNDEN also works.
+- **`ROUNDUP(A1,2)`** rounds away from zero; **`ROUNDDOWN(A1,2)`**
+  rounds towards zero. For -3.141, the results are -3.15 and -3.14.
+  In German use AUFRUNDEN and ABRUNDEN.
+- **`TRUNC(A1)`** drops the fractional part, so -8.9 becomes -8.
+  Give it a second argument to keep a specific number of places.
+  In German use KÜRZEN. Find all three in **Examples** in **Insert Column**.
 
 **Conditional aggregates**: `=COUNTIF(A1:A20,"West")` counts West,
 `=SUMIF(A1:A20,"West",B1:B20)` adds the matching amounts, and
