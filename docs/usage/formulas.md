@@ -405,6 +405,31 @@ behaviour. Raw serials from the 1904 system are not supported.
 
 German names: `DATUM`, `JAHR`, `MONAT`, `TAG`, `TAGE` and `WOCHENTAG`.
 
+### Move billing dates and find the month end
+
+| Formula | Result |
+| --- | --- |
+| `=EDATE("2024-01-31",1)` | 29 February 2024. The day is clamped if the new month is shorter. |
+| `=EOMONTH("2024-01-15",0)` | 31 January 2024. Use 0 for the current month. |
+| `=EOMONTH("2024-03-10",-1)` | 29 February 2024. A negative offset goes backwards. |
+| `=ISOWEEKNUM("2021-01-03")` | 53, the last ISO week of 2020. |
+
+Month offsets truncate fractions towards zero. ISO weeks start on Monday;
+week 1 contains the year's first Thursday. The first days of January can
+belong to the previous ISO year, and the last days of December to the next.
+Avoid grouping by calendar year plus ISO week when your data spans New Year.
+
+Find the German names `EDATUM`, `MONATSENDE` and `ISOKALENDERWOCHE`
+under **Formula examples**. [Microsoft's date-function reference](https://support.microsoft.com/en-us/excel/date-and-time-functions-reference)
+describes the Excel equivalents.
+
+EDATE and EOMONTH return serials, so you can use the results in another
+formula or subtract a date with DAYS. For actual date values in a new
+column, select **Date32** in **Insert Column**. Preview shows ISO dates,
+and an XLSX export writes them as dates. A non-integer, an out-of-range
+result or the fictional serial 60 leaves a blank cell. Other output types
+retain numerical formula results. Use a numeric type for ISO week numbers.
+
 ### Count working days or set a deadline
 
 - `=NETWORKDAYS(A1,B1,$D$1:$D$12)` counts working days from A1 to B1,

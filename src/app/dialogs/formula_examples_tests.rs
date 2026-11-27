@@ -384,3 +384,33 @@ fn paired_recipe_with_no_visible_partner_never_overwrites_the_draft() {
     tab.hidden_columns.remove(&0);
     assert_eq!(partner_source(tab, 2, Some(1)), Some(0));
 }
+
+#[test]
+fn calendar_period_examples_are_searchable_and_keep_date_cell_relative() {
+    let table = DataTable {
+        rows: vec![
+            vec![CellValue::Date("2024-01-31".into())],
+            vec![CellValue::Date("2021-01-03".into())],
+        ],
+        ..DataTable::empty()
+    };
+    for (search, german, expected, want) in [
+        ("EDATE", false, "=EDATE(A1,1)", 45_351.0),
+        ("edatum", true, "=EDATUM(A1;1)", 45_351.0),
+        ("eomonth", false, "=EOMONTH(A1,0)", 45_322.0),
+        ("monatsende", true, "=MONATSENDE(A1;0)", 45_322.0),
+        ("isoweeknum", false, "=ISOWEEKNUM(A1)", 5.0),
+        ("isokalenderwoche", true, "=ISOKALENDERWOCHE(A1)", 5.0),
+    ] {
+        let recipe = matching(search)[0];
+        let formula = recipe
+            .expression(0, None, table.row_count(), german)
+            .unwrap();
+        assert_eq!(formula, expected);
+        assert_eq!(evaluate_formula(&formula[1..], &table), Some(want));
+        if search == "isokalenderwoche" {
+            let shifted = formula.replace("A1", "A2");
+            assert_eq!(evaluate_formula(&shifted[1..], &table), Some(53.0));
+        }
+    }
+}

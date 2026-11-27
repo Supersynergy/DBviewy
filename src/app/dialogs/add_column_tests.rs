@@ -1948,3 +1948,117 @@ fn paired_statistics_use_the_same_fixed_sample_in_preview_and_fill() {
     tab.table.undo();
     assert_eq!(tab.table.col_count(), 2);
 }
+
+#[test]
+fn calendar_date32_preview_and_xlsx_values_agree_after_fill_and_one_undo() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = numeric_grid([
+        CellValue::Date("2024-01-31".into()),
+        CellValue::Date("2023-01-31".into()),
+        CellValue::Null,
+        CellValue::DateTime("2024-03-31T23:45:00-02:00".into()),
+    ]);
+    tab.new_col_name = "Next statement".into();
+    tab.new_col_formula = "=MONATSENDE(A1;1)".into();
+    tab.new_col_type = "Date32".into();
+    tab.insert_col_at = Some(0);
+    let preview = FormulaPreview::read(&tab.new_col_formula, &tab.table).unwrap();
+    assert_eq!(preview.values, [Some(45_351.0), Some(44_985.0), None]);
+    assert_eq!(
+        preview
+            .values
+            .iter()
+            .map(|n| preview_value(*n, "Date32"))
+            .collect::<Vec<_>>(),
+        [Some("2024-02-29".into()), Some("2023-02-28".into()), None],
+    );
+    assert_eq!(
+        preview_value(preview.values[0], "Float64").as_deref(),
+        Some("45351")
+    );
+    assert!(tab.table.undo_stack.is_empty());
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    assert_eq!(tab.table.columns[0].data_type, "Date32");
+    assert_eq!(
+        tab.table.get(0, 0),
+        Some(&CellValue::Date("2024-02-29".into()))
+    );
+    assert_eq!(tab.table.get(2, 0), Some(&CellValue::Null));
+    assert_eq!(
+        tab.table.get(3, 0),
+        Some(&CellValue::Date("2024-04-30".into()))
+    );
+    assert_eq!(
+        tab.table.get(0, 1),
+        Some(&CellValue::Date("2024-01-31".into()))
+    );
+    assert_eq!(tab.table.undo_stack.len(), 1);
+    let temp = tempfile::tempdir().unwrap();
+    let xlsx = temp.path().join("statement-dates.xlsx");
+    ExcelReader.write_file(&xlsx, &tab.table).unwrap();
+    let reopened = ExcelReader.read_file(&xlsx).unwrap();
+    for (row, iso) in [(0, "2024-02-29"), (1, "2023-02-28"), (3, "2024-04-30")] {
+        assert!(
+            matches!(reopened.get(row, 0), Some(CellValue::Date(s) | CellValue::DateTime(s))
+                       if s == iso || s == &format!("{iso} 00:00:00"))
+        );
+    }
+    assert_eq!(reopened.get(2, 0), Some(&CellValue::Null));
+    assert!(tab.table.undo());
+    assert_eq!(tab.table.col_count(), 1);
+    assert_eq!(
+        tab.table.get(0, 0),
+        Some(&CellValue::Date("2024-01-31".into()))
+    );
+}
+
+#[test]
+fn date32_conversion_distinguishes_invalid_serials_from_null_and_numeric_result() {
+    for (n, expected) in [
+        (1.0, "1900-01-01"),
+        (59.0, "1900-02-28"),
+        (61.0, "1900-03-01"),
+        (2_958_465.0, "9999-12-31"),
+    ] {
+        assert_eq!(
+            date_result(n),
+            Some(CellValue::Date(expected.into())),
+            "{n}"
+        );
+    }
+    for n in [0.0, -1.0, 60.0, 59.5, 2_958_466.0, f64::NAN, f64::INFINITY] {
+        assert_eq!(date_result(n), None, "{n}");
+    }
+    let mut app = workbook_app();
+    let tab = &mut app.tabs[0];
+    tab.table = numeric_grid([
+        CellValue::Int(60),
+        CellValue::Int(61),
+        CellValue::Float(61.1),
+    ]);
+    tab.new_col_name = "Date result".into();
+    tab.new_col_formula = "=A1".into();
+    tab.new_col_type = "Date32".into();
+    add_formula_column(&mut app);
+    let tab = &mut app.tabs[0];
+    assert_eq!(tab.table.get(0, 1), Some(&CellValue::Null));
+    assert_eq!(
+        tab.table.get(1, 1),
+        Some(&CellValue::Date("1900-03-01".into()))
+    );
+    assert_eq!(tab.table.get(2, 1), Some(&CellValue::Null));
+    assert!(
+        tab.parse_error_banner
+            .as_deref()
+            .is_some_and(|s| s.contains("2/3"))
+    );
+    assert!(tab.table.undo());
+    tab.new_col_type = "Float64".into();
+    add_formula_column(&mut app);
+    let tab = &app.tabs[0];
+    assert_eq!(tab.table.get(0, 1), Some(&CellValue::Int(60)));
+    assert_eq!(tab.table.get(2, 1), Some(&CellValue::Float(61.1)));
+}

@@ -819,6 +819,13 @@ to 31 March; `=WEEKDAY(A1,2)` numbers Monday as 1. Use a date cell,
 ISO date text or a numeric 1900 serial. DATE returns a serial number.
 The Gregorian calendar has no 29 February 1900; serial 60 is refused.
 German names: DATUM, JAHR, MONAT, TAG, TAGE and WOCHENTAG.
+`=EDATE(A1,1)` moves a month forward and keeps the day if it exists;
+`=EOMONTH(A1,0)` finds the end of the current month. Their German names
+are EDATUM and MONATSENDE. ISOWEEKNUM (ISOKALENDERWOCHE) returns an ISO
+week number, which can belong to the adjacent ISO year near New Year.
+Find all three in **Formula examples**. For date results from a new
+formula column, select Date32. Preview and exported XLSX then use dates
+rather than serial numbers. Non-integer or invalid serials stay empty.
 
 `=NETWORKDAYS(A1,B1,$D$1:$D$12)` counts working days including both
 endpoints. `=WORKDAY(A1,5,$D$1:$D$12)` returns the date serial five

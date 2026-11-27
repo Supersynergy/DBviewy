@@ -1,5 +1,5 @@
 //! Gregorian calendar functions for the numeric formula evaluator.
-use chrono::{DateTime, Datelike, Days, NaiveDate, NaiveDateTime, TimeDelta, Timelike};
+use chrono::{DateTime, Datelike, Days, Months, NaiveDate, NaiveDateTime, TimeDelta, Timelike};
 
 use super::control::{arguments, unparen};
 use super::{CellValue, Evaluation, FormulaBadCell, FormulaToken as Token, eval_complete, snippet};
@@ -17,6 +17,9 @@ pub(super) enum Calendar {
     Day,
     Days,
     Weekday,
+    MonthShift,
+    MonthEnd,
+    IsoWeek,
 }
 
 pub(super) fn evaluate(
@@ -37,6 +40,25 @@ pub(super) fn evaluate(
             let date = normalise_date(whole(year)?, whole(month)?, whole(day)?)?;
             (serial(date), end)
         }
+        Calendar::MonthShift | Calendar::MonthEnd => {
+            let ([date, months], end) = arguments(tokens, pos)?;
+            let date = date_argument(date?, context)?;
+            let months = eval_complete(months?, context)?;
+            if context.table.is_none() {
+                return Some((0.0, end));
+            }
+            let date = move_months(date, whole(months)?)?;
+            let result = if matches!(kind, Calendar::MonthEnd) {
+                date.with_day(1)?
+                    .checked_add_months(Months::new(1))?
+                    .pred_opt()?
+            } else {
+                date
+            };
+            return (FIRST..=LAST)
+                .contains(&result)
+                .then(|| (serial(result), end));
+        }
         Calendar::Days => {
             let ([end_date, start_date], end) = arguments(tokens, pos)?;
             let end_date = date_argument(end_date?, context)?;
@@ -50,6 +72,7 @@ pub(super) fn evaluate(
                 Calendar::Year if numbering.is_none() => f64::from(date.year()),
                 Calendar::Month if numbering.is_none() => f64::from(date.month()),
                 Calendar::Day if numbering.is_none() => f64::from(date.day()),
+                Calendar::IsoWeek if numbering.is_none() => f64::from(date.iso_week().week()),
                 Calendar::Weekday => {
                     let numbering = match numbering.filter(|arg| !arg.is_empty()) {
                         Some(arg) => eval_complete(arg, context)?,
@@ -75,6 +98,17 @@ pub(super) fn evaluate(
         }
     };
     Some((value, end))
+}
+
+fn move_months(date: NaiveDate, months: i64) -> Option<NaiveDate> {
+    let steps = Months::new(u32::try_from(months.unsigned_abs()).ok()?);
+    // Chrono keeps the original day, clamping it only if the target
+    // month is too short. This is a calendar offset, not a day count.
+    if months < 0 {
+        date.checked_sub_months(steps)
+    } else {
+        date.checked_add_months(steps)
+    }
 }
 
 pub(super) fn whole(value: f64) -> Option<i64> {

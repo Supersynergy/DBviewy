@@ -4119,3 +4119,115 @@ fn paired_statistics_remain_numeric_after_xlsx_reopen() {
         assert!((value - want).abs() < 1e-14, "{value}");
     }
 }
+
+#[test]
+fn month_formulas_clamp_signed_offsets_and_distinguish_the_last_day() {
+    let table = formula_table();
+    for (expr, expected) in [
+        (r#"EDATE("2024-01-31",1)"#, 45_351.0),
+        (r#"edatum("2023-01-31";1.9)"#, 44_985.0),
+        (r#"EDATE("2024-03-31",-1.9)"#, 45_351.0),
+        (r#"EDATUM("2024-12-15";-0.9)"#, 45_641.0),
+        (r#"EDATE("2024-12-31",1)"#, 45_688.0),
+        ("EDATE(DATE(2024,3,31),1)", 45_412.0),
+        (r#"EDATE("2023-06-18",1)"#, 45_125.0),
+        (r#"EOMONTH("2024-02-02",0)"#, 45_351.0),
+        (r#"MONATSENDE("2024-12-06";-1.2)"#, 45_626.0),
+        (r#"EOMONTH("2024-02-29",1)"#, 45_382.0),
+        ("EOMONTH(45354.8,0)", 45_382.0),
+        ("DAY(EDATE(45351,12))", 28.0),
+    ] {
+        assert_eq!(evaluate_formula(expr, &table), Some(expected), "{expr}");
+    }
+}
+
+#[test]
+fn month_formulas_follow_gregorian_bounds_and_lazy_branch_rules() {
+    let table = formula_table();
+    for (expr, expected) in [
+        ("EOMONTH(1,1)", Some(59.0)),
+        ("EDATE(59,1)", Some(88.0)),
+        ("EOMONTH(2958465,0)", Some(2_958_465.0)),
+        (r#"MONATSENDE("9999-11-01";1)"#, Some(2_958_465.0)),
+        ("EDATE(60,1)", None),
+        ("EOMONTH(60.9,1)", None),
+        ("EOMONTH(1,-1)", None),
+        ("EDATE(2958465,1)", None),
+        ("EDATE(1,4294967296)", None),
+        ("EOMONTH(1,1E80)", None),
+        ("EOMONTH(1)", None),
+        ("EDATE(1,2,3)", None),
+        ("IF(FALSE,EDATE(60,1E80),7)", Some(7.0)),
+        ("IF(FALSE,EOMONTH(1,2,),7)", None),
+        ("IFERROR(MONATSENDE(60,0),99)", Some(99.0)),
+    ] {
+        assert_eq!(evaluate_formula(expr, &table), expected, "{expr}");
+    }
+}
+
+#[test]
+fn iso_week_follows_the_week_year_across_january_and_december() {
+    let mut table = formula_table();
+    table.set(
+        0,
+        0,
+        CellValue::DateTime("2018-12-31T23:45:00-03:00".into()),
+    );
+    table.set(0, 1, CellValue::String("2021-01-03".into()));
+    for (expr, result) in [
+        ("ISOWEEKNUM(A1)", Some(1.0)),
+        ("ISOKALENDERWOCHE(B1)", Some(53.0)),
+        (r#"ISOWEEKNUM("2015-12-31")"#, Some(53.0)),
+        (r#"ISOWEEKNUM("2016-01-01")"#, Some(53.0)),
+        (r#"isokalenderwoche("2021-01-04")"#, Some(1.0)),
+        ("ISOWEEKNUM(DATE(2023,1,1))", Some(52.0)),
+        ("ISOWEEKNUM(1)", Some(1.0)),
+        ("ISOWEEKNUM(60)", None),
+        ("ISOWEEKNUM(1,2)", None),
+        ("ISOWEEKNUM(1,)", None),
+    ] {
+        assert_eq!(evaluate_formula(expr, &table), result, "{expr}");
+    }
+}
+
+#[test]
+fn month_formulas_accept_typed_xlsx_dates_and_keep_date_diagnostics() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::{ExcelDateTime, Format, Workbook};
+
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("statements.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet();
+    sheet.write_string(0, 0, "Date").unwrap();
+    sheet.write_string(0, 1, "Month").unwrap();
+    let date = ExcelDateTime::parse_from_str("2024-01-31").unwrap();
+    sheet
+        .write_datetime_with_format(1, 0, &date, &Format::new().set_num_format("yyyy-mm-dd"))
+        .unwrap();
+    sheet.write_string(2, 0, "31/01/2024").unwrap();
+    sheet.write_number(1, 1, 0).unwrap();
+    book.save(&source).unwrap();
+    let original = std::fs::read(&source).unwrap();
+    let mut table = ExcelReader.read_file(&source).unwrap();
+    assert!(matches!(table.get(0, 0), Some(CellValue::DateTime(_))));
+    assert_eq!(evaluate_formula("EDATE(A1,1)", &table), Some(45_351.0));
+    assert_eq!(evaluate_formula("EOMONTH(A1,1)", &table), Some(45_351.0));
+    let outcome = evaluate_formula_with_diagnostics("MONATSENDE(A2;1)", &table);
+    assert_eq!(outcome.value, None);
+    let bad = outcome.bad_cell.unwrap();
+    assert_eq!(
+        (bad.row, bad.col, bad.content.as_str()),
+        (1, 0, "31/01/2024")
+    );
+    assert!(commit_cell_text(
+        &mut table,
+        0,
+        1,
+        "=MONTH(EOMONTH(A1,1))".into(),
+        BinaryDisplayMode::default()
+    ));
+    assert_eq!(table.get(0, 1), Some(&CellValue::Int(2)));
+    assert_eq!(std::fs::read(source).unwrap(), original);
+}

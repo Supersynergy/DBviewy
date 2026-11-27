@@ -54,6 +54,8 @@
 - Give Find a command clearer rows with menu context and aligned shortcuts.
   Render only visible results, and match newly typed text before Enter runs
   a command.
+- Move dates by calendar months, calculate month ends and find ISO weeks.
+  Choose Date32 to preview and export a calculated column as dates.
 - Review bulk replacements before editing a table. See affected cells and
   old and new values. If the target changes, apply nothing.
 - Trace the active cell on wide tables with View > Focus cell guides.

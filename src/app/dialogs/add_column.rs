@@ -210,6 +210,14 @@ pub(crate) fn render_add_column_dialog(app: &mut OctaApp, ctx: &egui::Context) {
                 render_formula_examples_button(tab, ui, writable);
                 render_formula_preview(tab, ui);
             });
+            if tab.new_col_type == "Date32" && preview_expression(&tab.new_col_formula).is_some() {
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(octa::i18n::t("dialog.formula_date32_hint")).weak(),
+                    )
+                    .wrap(),
+                );
+            }
             ui.label(
                 RichText::new(octa::i18n::t("dialog.add_column_tip"))
                     .size(10.0)
@@ -354,6 +362,32 @@ impl FormulaPreview {
     }
 }
 
+fn valid_date_serial(n: f64) -> bool {
+    (1.0..=2_958_465.0).contains(&n) && n != 60.0 && n.fract() == 0.0
+}
+
+fn date_result(n: f64) -> Option<data::CellValue> {
+    if !valid_date_serial(n) {
+        return None;
+    }
+    // Same epoch as the formula evaluator. Let the workbook reader's
+    // Calamine type convert the serial rather than invent an offset.
+    let (year, month, day, ..) =
+        calamine::ExcelDateTime::new(n, calamine::ExcelDateTimeType::DateTime, false)
+            .to_ymd_hms_milli();
+    let day = chrono::NaiveDate::from_ymd_opt(i32::from(year), u32::from(month), u32::from(day))?;
+    Some(data::CellValue::Date(day.to_string()))
+}
+
+fn preview_value(value: Option<f64>, field_type: &str) -> Option<String> {
+    let value = value?;
+    if field_type == "Date32" {
+        date_result(value).map(|date| date.to_string())
+    } else {
+        Some(value.to_string())
+    }
+}
+
 fn render_formula_preview(tab: &mut TabState, ui: &mut Ui) {
     use octa::i18n::t;
     let enabled = preview_expression(&tab.new_col_formula).is_some() && tab.table.row_count() > 0;
@@ -390,11 +424,14 @@ fn render_formula_preview(tab: &mut TabState, ui: &mut Ui) {
             ui.set_max_width(310.0);
             ui.add(egui::Label::new(RichText::new(&hint).weak()).wrap());
             ui.separator();
+            let mut skipped = 0;
             for (row, value) in preview.values.iter().enumerate() {
-                let value = value.map_or_else(|| "-".to_owned(), |n| n.to_string());
+                let value = preview_value(*value, &tab.new_col_type).unwrap_or_else(|| {
+                    skipped += 1;
+                    "-".to_owned()
+                });
                 ui.label(format!("{} {}: {value}", t("dialog.formula_row"), row + 1));
             }
-            let skipped = preview.values.iter().filter(|v| v.is_none()).count();
             if skipped > 0 {
                 ui.separator();
                 ui.label(skipped_message(
@@ -894,6 +931,9 @@ fn add_formula_column(app: &mut OctaApp) {
             Some(values) => (values, None),
             None => fill_formula_template(formula, &tab.table),
         };
+        if tab.new_col_type == "Date32" {
+            results.retain(|(_, n)| valid_date_serial(*n));
+        }
         let skipped = row_count - results.len();
         if skipped > 0 {
             tab.parse_error_banner = Some(skipped_message(
@@ -907,7 +947,12 @@ fn add_formula_column(app: &mut OctaApp) {
     tab.table
         .insert_column(idx, tab.new_col_name.clone(), tab.new_col_type.clone());
     for (row, result) in results {
-        let value = if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
+        let value = if tab.new_col_type == "Date32" {
+            let Some(date) = date_result(result) else {
+                continue;
+            };
+            date
+        } else if result.fract() == 0.0 && result.abs() < i64::MAX as f64 {
             data::CellValue::Int(result as i64)
         } else {
             data::CellValue::Float(result)

@@ -24,6 +24,8 @@ enum Form {
     Paired,
     Slope,
     Workday,
+    MonthShift,
+    MonthEnd,
     NumberValue,
 }
 
@@ -151,6 +153,21 @@ const RECIPES: &[Recipe] = &[
         form: Form::NumberValue,
     },
     Recipe {
+        english: "EDATE",
+        german: "EDATUM",
+        form: Form::MonthShift,
+    },
+    Recipe {
+        english: "EOMONTH",
+        german: "MONATSENDE",
+        form: Form::MonthEnd,
+    },
+    Recipe {
+        english: "ISOWEEKNUM",
+        german: "ISOKALENDERWOCHE",
+        form: Form::Scalar,
+    },
+    Recipe {
         english: "WORKDAY",
         german: "ARBEITSTAG",
         form: Form::Workday,
@@ -210,6 +227,8 @@ impl Recipe {
             }
             Form::Percentile => format!("${c}$1:${c}${n}{sep}95%"),
             Form::Workday => format!("{c}1{sep}5"),
+            Form::MonthShift => format!("{c}1{sep}1"),
+            Form::MonthEnd => format!("{c}1{sep}0"),
             Form::NumberValue if german => format!(r#"{c}1;",";".""#),
             Form::NumberValue => format!(r#"{c}1,".",",""#),
         };
