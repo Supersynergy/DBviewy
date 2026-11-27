@@ -82,6 +82,9 @@
   in Insert Column.
 - Add a target line to a line chart without a helper column. The line
   also appears in SVG, PNG and PDF exports.
+- Align category labels with exported line and scatter points, even
+  when the first or last category has no numeric value. Keep long
+  endpoint tick labels inside the export.
 - Open the Value Frequency report as a separate, typed table. Whole-cell
   counts include their running percentage for Pareto analysis.
 - Read Value Frequency shares as proportionate bars without hiding the

@@ -373,6 +373,13 @@ fn plot_rect() -> (f64, f64, f64, f64) {
     )
 }
 
+/// Categorical points are anchored to slot centres. A half slot at either
+/// end leaves room for the first and last label, whether or not they have
+/// a numeric value.
+fn category_extent(categories: &[String]) -> Option<(f64, f64)> {
+    (!categories.is_empty()).then_some((-0.5, categories.len() as f64 - 0.5))
+}
+
 fn project(x: f64, y: f64, xr: (f64, f64), yr: (f64, f64)) -> (f64, f64) {
     let (px, py, pw, ph) = plot_rect();
     let nx = (x - xr.0) / (xr.1 - xr.0);
@@ -417,10 +424,9 @@ fn emit_bars(
     series: &[super::chart::ChartSeries],
     opts: &ExportOptions,
 ) {
-    if categories.is_empty() {
+    let Some(xr) = category_extent(categories) else {
         return;
-    }
-    let xr = (-0.5, categories.len() as f64 - 0.5);
+    };
     let max_y = series
         .iter()
         .flat_map(|s| s.points.iter().map(|p| p[1]))
@@ -517,10 +523,10 @@ fn emit_lines(
 ) {
     let xs = series.iter().flat_map(|s| s.points.iter().map(|p| p[0]));
     let ys = series.iter().flat_map(|s| s.points.iter().map(|p| p[1]));
-    let xr = match categories {
-        None => default_x_range(x_axis_kind).unwrap_or_else(|| extent(xs)),
-        Some(_) => extent(xs),
-    };
+    let xr = categories
+        .and_then(category_extent)
+        .or_else(|| default_x_range(x_axis_kind))
+        .unwrap_or_else(|| extent(xs));
     let yr = extent(ys);
     for (si, ser) in series.iter().enumerate() {
         let color = rgba_css(series_color(si, opts.series.get(si).and_then(|s| s.color)));
@@ -553,7 +559,7 @@ fn emit_lines(
         }
     }
     if let Some(cats) = categories {
-        emit_x_axis_category_ticks(out, cats);
+        emit_x_axis_category_ticks(out, cats, xr);
         emit_y_axis_ticks(out, yr, y_axis_kind);
     } else {
         emit_x_axis_ticks(out, xr, x_axis_kind);
@@ -561,20 +567,14 @@ fn emit_lines(
     }
 }
 
-/// Tick row for a categorical X axis (Line / Scatter / Bar). The renderer
-/// already emits its own bar / category labels for Bar; this one is reused
-/// by Line / Scatter when X is categorical and the bar emitter isn't in
-/// play.
-fn emit_x_axis_category_ticks(out: &mut String, categories: &[String]) {
-    if categories.is_empty() {
-        return;
-    }
-    let (_px, _py, pw, ph) = plot_rect();
+/// Project a Line or Scatter label through the same domain as its point.
+fn emit_x_axis_category_ticks(out: &mut String, categories: &[String], xr: (f64, f64)) {
+    let (_px, _py, _pw, ph) = plot_rect();
     for (i, name) in categories.iter().enumerate() {
-        let x = PAD_LEFT + (i as f64 + 0.5) * pw / categories.len() as f64;
+        let (x, _) = project(i as f64, 0.0, xr, (0.0, 1.0));
         let _ = writeln!(
             out,
-            r##"<text x="{x:.1}" y="{y:.1}" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#444">{label}</text>"##,
+            r##"<text x="{x:.2}" y="{y:.1}" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#444">{label}</text>"##,
             x = x,
             y = PAD_TOP + ph + 16.0,
             label = escape_xml(name),
@@ -670,9 +670,16 @@ fn emit_x_axis_ticks(out: &mut String, xr: (f64, f64), kind: XAxisKind) {
         let v = xr.0 + (xr.1 - xr.0) * t;
         let x = px + pw * t;
         let label = tick_label(kind, v, (xr.1 - xr.0) / 5.0);
+        // Inward anchors at the frame edges leave room for long timestamps
+        // without moving the tick positions or the data.
+        let anchor = match i {
+            0 => "start",
+            5 => "end",
+            _ => "middle",
+        };
         let _ = writeln!(
             out,
-            r##"<text x="{x:.1}" y="{y:.1}" font-family="sans-serif" font-size="10" text-anchor="middle" fill="#666">{label}</text>"##,
+            r##"<text x="{x:.1}" y="{y:.1}" font-family="sans-serif" font-size="10" text-anchor="{anchor}" fill="#666">{label}</text>"##,
             x = x,
             y = PAD_TOP + ph + 16.0,
             label = escape_xml(&label),

@@ -612,7 +612,9 @@ On a **Line** chart, enter a number in **Customise > Target line**.
 It draws a horizontal line across the data without adding a column.
 Use a linear Y axis and choose a value within any fixed Y bounds.
 The number is local to this chart tab; clear it to remove the line.
-The line appears in the exported SVG, PNG and PDF.
+The line appears in the exported SVG, PNG and PDF. For a categorical
+X axis, Line and Scatter exports keep each label on its own data slot,
+including slots without a numeric point.
 
 ## Sampling
 

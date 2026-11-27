@@ -228,3 +228,111 @@ fn a_pareto_export_draws_the_share_line_and_its_percent_scale() {
     let svg = to_svg(&prep, &blank_opts().with_pareto(true));
     assert!(svg.contains("<polyline") && svg.contains(">100%<"), "{svg}");
 }
+
+fn attribute_number(line: &str, key: &str) -> f64 {
+    line.split_once(&format!(" {key}=\""))
+        .unwrap()
+        .1
+        .split_once('"')
+        .unwrap()
+        .0
+        .parse()
+        .unwrap()
+}
+
+fn categorical_chart(scatter: bool, categories: &[&str], points: Vec<[f64; 2]>) -> ChartPrep {
+    let series = vec![ChartSeries {
+        name: "Measured".into(),
+        points,
+    }];
+    let categories = Some(categories.iter().map(|s| (*s).to_string()).collect());
+    let data = if scatter {
+        ChartData::Scatter { series, categories }
+    } else {
+        ChartData::Lines { series, categories }
+    };
+    ChartPrep {
+        data,
+        ..prep_lines()
+    }
+}
+
+#[test]
+fn exported_categorical_line_points_share_x_coordinates_with_their_labels() {
+    let prep = categorical_chart(
+        false,
+        &[
+            "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026", "Jun 2026",
+        ],
+        vec![
+            [0.0, 100.0],
+            [1.0, 115.0],
+            [2.0, 120.5],
+            [3.0, 130.0],
+            [4.0, 109.0],
+            [5.0, 140.0],
+        ],
+    );
+    let svg = to_svg(&prep, &blank_opts());
+    let actual: Vec<_> = svg
+        .lines()
+        .filter(|line| line.contains("<circle cx="))
+        .map(|line| attribute_number(line, "cx"))
+        .collect();
+    let labels: Vec<_> = svg
+        .lines()
+        .filter(|line| line.contains(" 2026</text>"))
+        .map(|line| attribute_number(line, "x"))
+        .collect();
+    assert_eq!(actual.len(), 6);
+    assert_eq!(actual, labels);
+    assert!(actual[0] > PAD_LEFT && actual[5] < SVG_W - PAD_RIGHT);
+}
+
+#[test]
+fn exported_scatter_preserves_empty_categorical_slots() {
+    let prep = categorical_chart(
+        true,
+        &["Empty first", "Pair A", "Gap", "Pair B", "Empty last"],
+        vec![[1.0, 10.0], [3.0, 20.0]],
+    );
+    let svg = to_svg(&prep, &blank_opts());
+    let label_x = |label: &str| {
+        let needle = format!(">{label}</text>");
+        attribute_number(
+            svg.lines().find(|line| line.contains(&needle)).unwrap(),
+            "x",
+        )
+    };
+    let actual: Vec<_> = svg
+        .lines()
+        .filter(|line| line.contains("<circle cx="))
+        .map(|line| attribute_number(line, "cx"))
+        .collect();
+    assert_eq!(actual, [label_x("Pair A"), label_x("Pair B")]);
+    assert!(label_x("Empty first") < actual[0] && actual[1] < label_x("Empty last"));
+    assert_eq!(label_x("Gap"), (actual[0] + actual[1]) / 2.0);
+    assert!(to_png(&svg, 0.5).unwrap().starts_with(b"\x89PNG\r\n\x1a\n"));
+}
+
+#[test]
+fn datetime_tick_endpoints_anchor_text_inward_without_moving_values() {
+    let mut svg = String::new();
+    // A span long enough to include literal times on the first and last tick.
+    emit_x_axis_ticks(
+        &mut svg,
+        (1_767_225_600.0, 1_780_272_000.0),
+        XAxisKind::DateTime,
+    );
+    let ticks: Vec<_> = svg.lines().collect();
+    assert_eq!(ticks.len(), 6);
+    assert_eq!(attribute_number(ticks[0], "x"), PAD_LEFT);
+    assert_eq!(attribute_number(ticks[5], "x"), SVG_W - PAD_RIGHT);
+    assert!(ticks[0].contains("text-anchor=\"start\"") && ticks[5].contains("text-anchor=\"end\""));
+    assert!(
+        ticks[1..5]
+            .iter()
+            .all(|tick| tick.contains("text-anchor=\"middle\""))
+    );
+    assert!(ticks[5].contains("00:00:00"), "{}", ticks[5]);
+}

@@ -116,6 +116,8 @@ There's a configurable cap on distinct categories
 default 200). Above it the chart refuses to draw and shows an
 inline error asking you to filter or aggregate the table first.
 The [Heatmap](#heatmap) shares this cap, applied to X and Rows each.
+Line and Scatter exports place category labels under their points,
+with slots kept for categories without a numeric value.
 
 For Line with categorical X, points sit at category indices in
 encounter order and the line connects them left-to-right. The
