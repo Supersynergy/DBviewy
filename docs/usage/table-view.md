@@ -73,6 +73,17 @@ or formulas. Undo the whole fill in one step.
 You can also find **Fill down values** through **Find a command** and assign a
 shortcut in Settings. The existing Duplicate row shortcut is unchanged.
 
+### Fill right
+
+Select at least two visible cells in a row, or select two column headers.
+Choose **Edit > Fill right values**. Each row copies its leftmost selected
+value to the other selected cells. A blank source clears them. Hidden
+rows, hidden columns and gaps in the selection stay untouched.
+
+This copies values, not formulas or formatting. One Undo restores the
+whole fill. Find the command by name or bind it in Settings. Reload keeps
+its existing shortcut.
+
 ### Copy as
 
 **Copy as** (under **Edit**, and in the cell / row right-click menu) copies

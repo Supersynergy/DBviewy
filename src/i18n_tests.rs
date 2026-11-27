@@ -436,6 +436,7 @@ const OPENS_SOMETHING: &[&str] = &[
 /// fill in. An ellipsis on these is a broken promise.
 const JUST_EXECUTES: &[&str] = &[
     "edit_menu.fill_down", // writes values to the existing selection
+    "edit_menu.fill_right",
     "tiles.tile",
     "tiles.side_by_side",
     "tiles.stacked",

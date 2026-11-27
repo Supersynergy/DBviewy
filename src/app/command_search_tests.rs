@@ -384,3 +384,34 @@ fn fill_down_is_discoverable_and_runs_on_an_editable_visible_selection() {
     assert!(SA::FillDown.default_combo().key.is_none());
     assert_eq!(SA::DuplicateRow.default_combo().key, Some(egui::Key::D));
 }
+
+#[test]
+fn fill_right_command_is_discoverable_and_keeps_reload_bound() {
+    let (mut app, ctx) = opened("fill right values");
+    let row = |app: &OctaApp| {
+        app.command_rows("fill right values")
+            .into_iter()
+            .find(|item| item.action == SA::FillRight)
+            .expect("Fill right values is findable")
+    };
+    assert!(row(&app).why.is_some());
+    app.open_new_table_tab(3, 1);
+    let tab = &mut app.tabs[app.active_tab];
+    let value = octa::data::CellValue::Int(42);
+    tab.table.rows[0][0] = value.clone();
+    tab.table_state.selected_cells.extend([(0, 0), (0, 2)]);
+    app.recompute_filter();
+    assert!(row(&app).why.is_none());
+    app.readonly_mode = true;
+    assert!(row(&app).why.is_some());
+    app.readonly_mode = false;
+    settle(&mut app, &ctx);
+    step(&mut app, &ctx, key(egui::Key::Enter));
+    settle(&mut app, &ctx);
+    let table = &app.tabs[app.active_tab].table;
+    assert_eq!(table.get(0, 1), Some(&octa::data::CellValue::Null));
+    assert_eq!(table.get(0, 2), Some(&value));
+    assert_eq!(table.undo_stack.len(), 1);
+    assert!(SA::FillRight.default_combo().key.is_none());
+    assert_eq!(SA::ReloadFile.default_combo().key, Some(egui::Key::R));
+}

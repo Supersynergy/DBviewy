@@ -133,6 +133,16 @@ pub(super) fn edit_menu(ui: &mut Ui, cx: ToolbarCtx<'_>, action: &mut ToolbarAct
                 action.fill_down = true;
                 ui.close();
             }
+            let why_right = base.clone().or_else(|| (cx.fill_right_block)().map(t));
+            if entry(
+                ui,
+                "edit_menu.fill_right",
+                "edit_menu.fill_right_hint",
+                why_right,
+            ) {
+                action.fill_right = true;
+                ui.close();
+            }
             ui.separator();
 
             // Row operations

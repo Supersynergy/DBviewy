@@ -8,6 +8,28 @@ use octa::ui::table_view::TableViewState;
 
 use super::state::{OctaApp, TabState};
 
+#[derive(Clone, Copy)]
+pub(crate) enum Direction {
+    Down,
+    Right,
+}
+
+impl Direction {
+    fn coordinate(self, line: usize, offset: usize) -> (usize, usize) {
+        match self {
+            Self::Down => (offset, line),
+            Self::Right => (line, offset),
+        }
+    }
+
+    fn need_cells_key(self) -> &'static str {
+        match self {
+            Self::Down => "greyed.need_two_cells",
+            Self::Right => "greyed.need_two_cells_in_row",
+        }
+    }
+}
+
 enum Selection<'a> {
     Columns(&'a [usize], Vec<usize>),
     Cells(BTreeMap<usize, Vec<usize>>),
@@ -15,14 +37,18 @@ enum Selection<'a> {
 
 impl<'a> Selection<'a> {
     fn new(
+        direction: Direction,
         st: &TableViewState,
         rows: &'a [usize],
         hidden: &HashSet<usize>,
         table: &DataTable,
     ) -> Option<Self> {
-        // Entire rows have their own shortcuts. Do not turn a row-header
-        // selection into an unannounced write to every column.
-        if !st.selected_rows.is_empty() || st.editing_cell.is_some() || rows.len() < 2 {
+        // A row-header selection is not permission to write to every column.
+        let (min_rows, min_cols) = match direction {
+            Direction::Down => (2, 1),
+            Direction::Right => (1, 2),
+        };
+        if !st.selected_rows.is_empty() || st.editing_cell.is_some() || rows.len() < min_rows {
             return None;
         }
         let visible_column = |&col: &usize| col < table.col_count() && !hidden.contains(&col);
@@ -34,9 +60,8 @@ impl<'a> Selection<'a> {
                 .filter(visible_column)
                 .collect();
             cols.sort_unstable();
-            // Borrow one ordered row vector rather than making a copy per
-            // column, especially when the headers select many loaded rows.
-            return (!cols.is_empty()).then_some(Self::Columns(rows, cols));
+            // A header selection uses one borrowed visible-row list.
+            return (cols.len() >= min_cols).then_some(Self::Columns(rows, cols));
         }
         if st.selected_cells.len() < 2 {
             return None;
@@ -47,32 +72,47 @@ impl<'a> Selection<'a> {
                 picks.entry(row).or_default().push(col);
             }
         }
-        let mut cols = BTreeMap::<_, Vec<_>>::new();
+        let mut lines = BTreeMap::<_, Vec<_>>::new();
         for &row in rows {
             if picks.is_empty() {
                 break;
             }
-            if let Some(cells) = picks.remove(&row) {
-                for col in cells {
-                    cols.entry(col).or_default().push(row);
+            let Some(mut cols) = picks.remove(&row) else {
+                continue;
+            };
+            match direction {
+                Direction::Down => {
+                    for col in cols {
+                        lines.entry(col).or_default().push(row);
+                    }
                 }
+                Direction::Right if cols.len() >= 2 => {
+                    cols.sort_unstable();
+                    lines.insert(row, cols);
+                }
+                Direction::Right => {}
             }
         }
-        cols.retain(|_, rows| rows.len() >= 2);
-        (!cols.is_empty()).then_some(Self::Cells(cols))
+        lines.retain(|_, offsets| offsets.len() >= 2);
+        (!lines.is_empty()).then_some(Self::Cells(lines))
     }
 
-    fn apply(self, table: &mut DataTable) -> bool {
+    fn apply(self, table: &mut DataTable, direction: Direction) -> bool {
         let undo_start = table.undo_stack.len();
-        match self {
-            Self::Columns(rows, cols) => {
+        match (self, direction) {
+            (Self::Columns(rows, cols), Direction::Down) => {
                 for col in cols {
-                    copy_column(table, col, rows);
+                    copy_line(table, direction, col, rows);
                 }
             }
-            Self::Cells(cols) => {
-                for (col, rows) in cols {
-                    copy_column(table, col, &rows);
+            (Self::Columns(rows, cols), Direction::Right) => {
+                for &row in rows {
+                    copy_line(table, direction, row, &cols);
+                }
+            }
+            (Self::Cells(lines), _) => {
+                for (line, offsets) in lines {
+                    copy_line(table, direction, line, &offsets);
                 }
             }
         }
@@ -81,12 +121,14 @@ impl<'a> Selection<'a> {
     }
 }
 
-fn copy_column(table: &mut DataTable, col: usize, rows: &[usize]) {
-    let Some((&first, below)) = rows.split_first() else {
+fn copy_line(table: &mut DataTable, direction: Direction, line: usize, offsets: &[usize]) {
+    let Some((&first, rest)) = offsets.split_first() else {
         return;
     };
-    let value = table.get(first, col).cloned().unwrap_or(CellValue::Null);
-    for &row in below {
+    let (row, col) = direction.coordinate(line, first);
+    let value = table.get(row, col).cloned().unwrap_or(CellValue::Null);
+    for &offset in rest {
+        let (row, col) = direction.coordinate(line, offset);
         if table.get(row, col).unwrap_or(&CellValue::Null) != &value {
             table.set(row, col, value.clone());
         }
@@ -95,7 +137,8 @@ fn copy_column(table: &mut DataTable, col: usize, rows: &[usize]) {
 
 // The toolbar retains a lazy, field-scoped borrow while its search box
 // owns other mutable fields of the same tab.
-pub(crate) fn fill_down_block(
+pub(crate) fn fill_block(
+    direction: Direction,
     view: ViewMode,
     state: &TableViewState,
     rows: &[usize],
@@ -105,15 +148,16 @@ pub(crate) fn fill_down_block(
     if view != ViewMode::Table {
         Some("greyed.need_table_view")
     } else {
-        Selection::new(state, rows, hidden, table)
+        Selection::new(direction, state, rows, hidden, table)
             .is_none()
-            .then_some("greyed.need_two_cells")
+            .then_some(direction.need_cells_key())
     }
 }
 
 impl TabState {
-    pub(crate) fn fill_down_block(&self) -> Option<&'static str> {
-        fill_down_block(
+    pub(crate) fn fill_block(&self, direction: Direction) -> Option<&'static str> {
+        fill_block(
+            direction,
             self.view_mode,
             &self.table_state,
             &self.filtered_rows,
@@ -125,6 +169,14 @@ impl TabState {
 
 impl OctaApp {
     pub(crate) fn fill_down(&mut self) {
+        self.fill_values(Direction::Down);
+    }
+
+    pub(crate) fn fill_right(&mut self) {
+        self.fill_values(Direction::Right);
+    }
+
+    fn fill_values(&mut self, direction: Direction) {
         if self.is_readonly() {
             return;
         }
@@ -136,15 +188,17 @@ impl OctaApp {
             return;
         }
         let Some(selection) = Selection::new(
+            direction,
             &tab.table_state,
             &tab.filtered_rows,
             &tab.hidden_columns,
             &tab.table,
         ) else {
-            self.status_message = Some((t("greyed.need_two_cells"), std::time::Instant::now()));
+            self.status_message = Some((t(direction.need_cells_key()), std::time::Instant::now()));
             return;
         };
-        if selection.apply(&mut tab.table) {
+        if selection.apply(&mut tab.table, direction) {
+            tab.table_state.invalidate_row_heights();
             tab.filter_dirty = true;
         }
     }

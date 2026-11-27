@@ -3,7 +3,7 @@ use octa::data::{CellValue, ViewMode};
 use octa::formats::{FormatReader, excel_reader::ExcelReader};
 use octa::ui::settings::{AppSettings, IconVariant};
 
-use super::OctaApp;
+use super::{Direction, OctaApp};
 
 fn app(rows: usize, cols: usize) -> OctaApp {
     let mut app = OctaApp::new(vec![], AppSettings::default(), IconVariant::Rose);
@@ -94,15 +94,15 @@ fn rejects_unavailable_scopes_and_leaves_undo_empty_for_identical_values() {
     let mut app = app(3, 2);
     let tab = &mut app.tabs[app.active_tab];
     tab.table_state.selected_rows.extend([0, 1]);
-    assert!(tab.fill_down_block().is_some());
+    assert!(tab.fill_block(Direction::Down).is_some());
     tab.table_state.selected_rows.clear();
     tab.table_state.selected_cells.extend([(0, 0), (1, 1)]);
     assert!(
-        tab.fill_down_block().is_some(),
+        tab.fill_block(Direction::Down).is_some(),
         "two cells in different columns"
     );
     tab.table_state.selected_cells.insert((1, 0));
-    assert!(tab.fill_down_block().is_none());
+    assert!(tab.fill_block(Direction::Down).is_none());
     app.fill_down();
     let tab = &mut app.tabs[app.active_tab];
     assert!(!tab.filter_dirty);
@@ -190,12 +190,6 @@ fn edit_menu_dispatches_the_fill_without_needing_a_clipboard() {
         }
     }
 
-    let mut app = app(3, 1);
-    let ctx = egui::Context::default();
-    let tab = &mut app.tabs[app.active_tab];
-    let source = CellValue::String("=literal text\nsecond line".into());
-    tab.table.rows[0][0] = source.clone();
-    tab.table_state.selected_cells.extend([(0, 0), (2, 0)]);
     let position = |items: &[(String, egui::Pos2)], key| {
         let label = octa::i18n::t(key);
         items
@@ -204,14 +198,196 @@ fn edit_menu_dispatches_the_fill_without_needing_a_clipboard() {
             .unwrap_or_else(|| panic!("{label:?} not in {items:?}"))
             .1
     };
-    frame(&mut app, &ctx, vec![]);
-    let items = frame(&mut app, &ctx, vec![]);
-    click(&mut app, &ctx, position(&items, "menu.edit"));
-    frame(&mut app, &ctx, vec![]);
-    let items = frame(&mut app, &ctx, vec![]);
-    click(&mut app, &ctx, position(&items, "edit_menu.fill_down"));
-    let tab = &app.tabs[app.active_tab];
-    assert_eq!(tab.table.get(1, 0), Some(&CellValue::Null));
-    assert_eq!(tab.table.get(2, 0), Some(&source));
+    for (rows, cols, gap, end, command) in [
+        (3, 1, (1, 0), (2, 0), "edit_menu.fill_down"),
+        (1, 3, (0, 1), (0, 2), "edit_menu.fill_right"),
+    ] {
+        let mut app = app(rows, cols);
+        let ctx = egui::Context::default();
+        let tab = &mut app.tabs[app.active_tab];
+        let source = CellValue::String("=literal text\nsecond line".into());
+        tab.table.rows[0][0] = source.clone();
+        tab.table_state.selected_cells.extend([(0, 0), end]);
+        frame(&mut app, &ctx, vec![]);
+        let items = frame(&mut app, &ctx, vec![]);
+        click(&mut app, &ctx, position(&items, "menu.edit"));
+        frame(&mut app, &ctx, vec![]);
+        let items = frame(&mut app, &ctx, vec![]);
+        click(&mut app, &ctx, position(&items, command));
+        let tab = &app.tabs[app.active_tab];
+        assert_eq!(
+            tab.table.get(gap.0, gap.1),
+            Some(&CellValue::Null),
+            "{command}"
+        );
+        assert_eq!(tab.table.get(end.0, end.1), Some(&source), "{command}");
+        assert_eq!(tab.table.undo_stack.len(), 1, "{command}");
+    }
+}
+
+#[test]
+fn fill_right_uses_each_rows_leftmost_visible_source_and_keeps_gaps() {
+    use CellValue::{Duration, Int, Null, String as Text};
+    let mut app = app(4, 6);
+    let tab = &mut app.tabs[app.active_tab];
+    let elapsed = Duration(27 * 3_600_000_000_000 + 500_000_000);
+    tab.table.rows = vec![
+        vec![
+            Int(90),
+            elapsed.clone(),
+            Text("gap".into()),
+            Int(60),
+            Int(4),
+            Int(5),
+        ],
+        vec![Int(91), Null, Int(1), Int(2), Text("clear".into()), Int(5)],
+        vec![Int(92), Int(7), Int(2), Int(3), Int(4), Int(5)],
+        vec![Int(93), Int(8), Int(2), Int(3), Int(4), Int(5)],
+    ];
+    tab.hidden_columns.extend([0, 3]);
+    tab.table.hide_rows([2]);
+    tab.filter_dirty = true;
+    tab.table_state.selected_cells.extend([
+        (0, 5),
+        (0, 4),
+        (0, 3),
+        (0, 1),
+        (0, 0),
+        (1, 4),
+        (1, 1),
+        (1, 999),
+        (2, 5),
+        (2, 1),
+        (3, 0),
+        (3, 4),
+        (999, 3),
+    ]);
+    let before = tab.table.rows.clone();
+    let changes = [(0, 4, elapsed.clone()), (0, 5, elapsed), (1, 4, Null)];
+    app.fill_right();
+    let tab = &mut app.tabs[app.active_tab];
+    assert_eq!(tab.table.edits.len(), 3);
+    for (r, previous) in before.iter().enumerate() {
+        for (c, value) in previous.iter().enumerate() {
+            let expected = changes
+                .iter()
+                .find_map(|(a, b, v)| ((*a, *b) == (r, c)).then_some(v))
+                .unwrap_or(value);
+            assert_eq!(tab.table.get(r, c), Some(expected), "{r}:{c}");
+        }
+    }
     assert_eq!(tab.table.undo_stack.len(), 1);
+    assert!(tab.table.undo());
+    for (r, row) in before.iter().enumerate() {
+        for (c, value) in row.iter().enumerate() {
+            assert_eq!(tab.table.get(r, c), Some(value), "{r}:{c}");
+        }
+    }
+    assert!(tab.table.redo());
+    assert_eq!(tab.table.get(1, 4), Some(&Null));
+    assert_eq!(tab.filtered_rows, [0, 1, 3]);
+}
+
+#[test]
+fn fill_right_on_column_headers_can_fill_one_visible_row() {
+    use CellValue::{Bool, Int, Null};
+    let mut app = app(3, 5);
+    let tab = &mut app.tabs[app.active_tab];
+    tab.filtered_rows = vec![1];
+    tab.table.rows[0][4] = Int(99);
+    tab.table.rows[1][0] = Int(100);
+    tab.table.rows[1][1] = Bool(true);
+    tab.table.rows[2][4] = Int(101);
+    tab.hidden_columns.insert(0);
+    tab.table_state.selected_cols.extend([4, 0, 1]);
+    assert!(tab.fill_block(Direction::Right).is_none());
+    assert!(tab.fill_block(Direction::Down).is_some());
+    app.fill_right();
+    let tab = &app.tabs[app.active_tab];
+    assert_eq!(tab.table.get(1, 4), Some(&Bool(true)));
+    assert_eq!(tab.table.get(1, 2), Some(&Null));
+    assert_eq!(tab.table.get(1, 0), Some(&Int(100)));
+    assert_eq!(tab.table.get(0, 4), Some(&Int(99)));
+    assert_eq!(tab.table.get(2, 4), Some(&Int(101)));
+    assert_eq!(tab.table.undo_stack.len(), 1);
+}
+
+#[test]
+fn fill_right_does_not_expand_row_headers_or_edit_locked_views() {
+    let mut app = app(3, 3);
+    let tab = &mut app.tabs[app.active_tab];
+    tab.table.rows[0][0] = CellValue::Int(42);
+    tab.table_state.selected_rows.insert(0);
+    assert_eq!(
+        tab.fill_block(Direction::Right),
+        Some("greyed.need_two_cells_in_row")
+    );
+    tab.table_state.selected_rows.clear();
+    tab.table_state.selected_cells.extend([(0, 0), (1, 1)]);
+    assert!(tab.fill_block(Direction::Right).is_some());
+    tab.table_state.selected_cells.insert((0, 2));
+    tab.table_state.editing_cell = Some((0, 0, "typing".into()));
+    assert!(tab.fill_block(Direction::Right).is_some());
+    app.fill_right();
+    let tab = &mut app.tabs[app.active_tab];
+    assert!(tab.table.edits.is_empty());
+    tab.table_state.editing_cell = None;
+    tab.view_mode = ViewMode::Raw;
+    assert_eq!(
+        tab.fill_block(Direction::Right),
+        Some("greyed.need_table_view")
+    );
+    app.fill_right();
+    app.tabs[app.active_tab].view_mode = ViewMode::Table;
+    app.readonly_mode = true;
+    app.fill_right();
+    let table = &app.tabs[app.active_tab].table;
+    assert!(table.edits.is_empty());
+    assert!(table.undo_stack.is_empty());
+}
+
+#[test]
+fn fill_right_preserves_typed_time_values_in_a_real_workbook() {
+    let mut app = app(2, 3);
+    let tab = &mut app.tabs[app.active_tab];
+    let values = [
+        CellValue::Time(22 * 3_600_000_000_000 + 45 * 60_000_000_000),
+        CellValue::Duration(27 * 3_600_000_000_000 + 500_000_000),
+    ];
+    for (r, value) in values.iter().enumerate() {
+        tab.table.rows[r][0] = value.clone();
+    }
+    tab.table_state.selected_cols.extend([0, 2]);
+    app.fill_right();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("fill-right.xlsx");
+    ExcelReader
+        .write_file(&path, &app.tabs[app.active_tab].table)
+        .unwrap();
+    use calamine::{Data, Reader, open_workbook_auto};
+    let mut raw_book = open_workbook_auto(&path).unwrap();
+    let raw = raw_book.worksheet_range_at(0).unwrap().unwrap();
+    let result = ExcelReader.read_file(&path).unwrap();
+    let table = &app.tabs[app.active_tab].table;
+    for (r, value) in values.iter().enumerate() {
+        let (nanos, is_duration) = match value {
+            CellValue::Time(n) => (*n, false),
+            CellValue::Duration(n) => (*n, true),
+            _ => unreachable!(),
+        };
+        for c in [0, 2] {
+            assert_eq!(table.get(r, c), Some(value), "typed fill at {r}:{c}");
+            let Data::DateTime(serial) = raw[r + 1][c] else {
+                panic!("expected an XLSX clock or elapsed format at {r}:{c}");
+            };
+            assert_eq!(serial.is_duration(), is_duration, "XLSX style at {r}:{c}");
+            let exported_nanos =
+                (serial.as_f64() * octa::data::times::NANOS_PER_DAY as f64).round() as i64;
+            assert_eq!(exported_nanos, nanos, "XLSX value at {r}:{c}");
+            // Reopening a column that mixes clocks and durations promotes
+            // both to Duration. The stored cell styles above remain distinct.
+            assert_eq!(result.get(r, c), Some(&CellValue::Duration(nanos)));
+        }
+        assert_eq!(result.get(r, 1), Some(&CellValue::Null));
+    }
 }

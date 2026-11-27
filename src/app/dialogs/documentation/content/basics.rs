@@ -289,6 +289,17 @@ Hidden rows, hidden columns and unselected cells stay as they are.
 Only values are copied, not formulas or formatting. Undo restores the
 whole fill in one step. Find the command by name or bind it in Settings.
 
+## Fill right
+
+Select at least two visible cells in a row, or select two column headers.
+Choose **Edit > Fill right values**. Each row copies its leftmost selected
+value to the other selected cells. A blank source clears them. Hidden
+rows, hidden columns and gaps in the selection stay untouched.
+
+This copies values, not formulas or formatting. One Undo restores the
+whole fill. Find the command by name or bind it in Settings. Reload keeps
+its existing shortcut.
+
 ## Zoom
 
 The zoom level always shows at the right end of the status bar, 100%

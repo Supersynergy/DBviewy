@@ -94,6 +94,9 @@ impl OctaApp {
         if action.fill_down {
             self.fill_down();
         }
+        if action.fill_right {
+            self.fill_right();
+        }
         if action.open_fill_series {
             self.open_fill_series();
         }

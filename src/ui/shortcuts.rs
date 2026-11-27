@@ -606,6 +606,8 @@ pub enum ShortcutAction {
     CopyAsInsert,
     /// Edit -> Fill down. Repeat selected values without touching the clipboard.
     FillDown,
+    /// Edit -> Fill right. Repeat typed values within the selected rows.
+    FillRight,
     /// Edit -> Fill series...
     FillSeries,
     /// Search -> Find a command... (Ctrl+K)
@@ -870,6 +872,7 @@ impl ShortcutAction {
             Self::CopyAsJson => "Copy as JSON",
             Self::CopyAsInsert => "Copy as SQL INSERT statements",
             Self::FillDown => "Fill down values",
+            Self::FillRight => "Fill right values",
             Self::FillSeries => "Fill series...",
             Self::FindCommand => "Find a command...",
             Self::OpenCohorts => "Cohorts...",
@@ -1090,6 +1093,7 @@ impl ShortcutAction {
             | Self::CopyAsJson
             | Self::CopyAsInsert
             | Self::FillDown
+            | Self::FillRight
             | Self::FillSeries
             | Self::OpenCohorts
             | Self::OpenFunnel
@@ -1290,6 +1294,7 @@ impl ShortcutAction {
             | Self::CopyAsJson
             | Self::CopyAsInsert
             | Self::FillDown
+            | Self::FillRight
             | Self::FillSeries => G::Editing,
             Self::OpenDocumentation
             | Self::OpenSettings
@@ -1551,6 +1556,7 @@ impl ShortcutAction {
             Self::CopyAsJson => "command.copy_as_json",
             Self::CopyAsInsert => "command.copy_as_insert",
             Self::FillDown => "edit_menu.fill_down",
+            Self::FillRight => "edit_menu.fill_right",
             Self::FillSeries => "edit_menu.fill_series",
             Self::FindCommand => "help_menu.find_command",
             Self::ToggleColumnNavigator => "view_menu.column_navigator",
@@ -1614,6 +1620,7 @@ impl ShortcutAction {
             | Self::CopyAsJson
             | Self::CopyAsInsert
             | Self::FillDown
+            | Self::FillRight
             | Self::FillSeries
             | Self::ToggleEditAudit
             | Self::ToggleRecipePanel

@@ -603,6 +603,9 @@ impl OctaApp {
             if action_fired(SA::FillDown) {
                 self.fill_down();
             }
+            if action_fired(SA::FillRight) {
+                self.fill_right();
+            }
             if action_fired(SA::FillSeries) {
                 self.open_fill_series();
             }
