@@ -690,6 +690,12 @@ Esc keeps the old draft. The table changes only when you choose Add.
 - **`TRUNC(A1)`** drops the fractional part, so -8.9 becomes -8.
   Give it a second argument to keep a specific number of places.
   In German use KÜRZEN. Find all three in **Examples** in **Insert Column**.
+- **`LEN(A1)`** counts characters including spaces. **`EXACT(A1,"SKU-01")`**
+  returns 1 for an exact, case-sensitive match or 0 otherwise.
+- **`IFERROR(FIND("-",A1),0)`** locates the first hyphen, counting
+  from 1. A third FIND argument starts at a later character. No match
+  gives no result unless you supply a fallback such as 0. In German
+  search for LÄNGE, IDENTISCH or FINDEN in **Examples**.
 
 **Conditional aggregates**: `=COUNTIF(A1:A20,"West")` counts West,
 `=SUMIF(A1:A20,"West",B1:B20)` adds the matching amounts, and

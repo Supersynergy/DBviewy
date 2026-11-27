@@ -978,6 +978,203 @@ fn round_handles_float_limits_without_intermediate_overflow() {
 }
 
 #[test]
+fn text_length_preserves_spaces_escaped_quotes_and_unicode_characters() {
+    let mut table = formula_table();
+    table.rows[0][2] = CellValue::String(" 001\t".into());
+    table.rows[1][2] = CellValue::String("ä😀e\u{301}✈\u{fe0f}".into());
+    table.rows[2][0] = CellValue::Bool(false);
+    for (formula, expected) in [
+        ("LEN(C1)", 5.0),
+        ("länge(C2)", 6.0),
+        ("LEN(C3)", 0.0),
+        (r#"LEN("a""b ")"#, 4.0),
+        ("LEN(A3)", 5.0),
+        ("LEN(B2)", 1.0),
+        ("LEN(-0.0)", 1.0),
+        ("LÄNGE((A1+B2))", 2.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn text_exact_is_case_sensitive_and_keeps_text_numbers_and_null_distinct() {
+    let mut table = formula_table();
+    table.rows[0][2] = CellValue::String("0007".into());
+    table.rows[0][0] = CellValue::Int(9_007_199_254_740_993);
+    for (formula, expected) in [
+        (r#"IDENTISCH(C1;"0007")"#, 1.0),
+        ("EXACT(C1,7)", 0.0),
+        (r#"EXACT(7.0,"7")"#, 1.0),
+        (r#"EXACT(A1,"9007199254740993")"#, 1.0),
+        (r#"EXACT(A1,"9007199254740992")"#, 0.0),
+        (r#"EXACT("Sku","SKU")"#, 0.0),
+        (r#"EXACT("Sku ","Sku")"#, 0.0),
+        (r#"EXACT("é","é")"#, 0.0),
+        (r#"EXACT(C3,"")"#, 1.0),
+        ("EXACT(C3,0)", 0.0),
+        (r#"EXACT(WAHR,"TRUE")"#, 1.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+}
+
+#[test]
+fn text_find_reports_original_one_based_offsets_and_literal_wildcards() {
+    let table = formula_table();
+    for (formula, expected) in [
+        (r#"FIND("M","Miriam McGovern")"#, 1.0),
+        (r#"FIND("M","Miriam McGovern",3)"#, 8.0),
+        (r#"FINDEN("-";"ü😀-A-B";4)"#, 5.0),
+        (r#"FIND("😀","a😀a",2)"#, 2.0),
+        (r#"FIND("?","a*b?c")"#, 4.0),
+        (r#"FIND("*","a*b?c")"#, 2.0),
+        (r#"FIND("","äbc",2)"#, 2.0),
+        (r#"FIND("","")"#, 1.0),
+        (r#"FIND("d","äbcdef",1+2)"#, 4.0),
+        (r#"FIND("/","ID"&"/"&A2)"#, 3.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+    for formula in [
+        r#"FIND("a","ABC")"#,
+        r#"FIND("a","abc",0)"#,
+        r#"FIND("a","abc",-1)"#,
+        r#"FIND("a","abc",1.25)"#,
+        r#"FIND("a","abc",1e300)"#,
+        r#"FIND("a","😀a",3)"#,
+        r#"FIND("","abc",4)"#,
+        r#"FIND("a","")"#,
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}
+
+#[test]
+fn text_checks_validate_arity_and_support_lazy_branches_and_concatenation() {
+    let table = formula_table();
+    for (formula, expected) in [
+        (r#"LEN(C1&("/"&(A1+1)))"#, 8.0),
+        (r#"EXACT("ID"&A2,"ID20")"#, 1.0),
+        (r#"IF(EXACT(C1,"hello"),LEN(C1),100)"#, 5.0),
+        (r#"IFERROR(FIND("/",C1),0)"#, 0.0),
+        (r#"IF(1,7,FIND("x",Z99,0))"#, 7.0),
+        (r#"IF(1,7,LEN("left"&Z99))"#, 7.0),
+    ] {
+        assert_eq!(
+            evaluate_formula(formula, &table),
+            Some(expected),
+            "{formula}"
+        );
+    }
+    for formula in [
+        "LEN()",
+        "LEN(A1,B1)",
+        "LEN(A1:A2)",
+        "LEN(A0)",
+        "LEN(1/0)",
+        "LEN(Z99)",
+        "LEN(A1&)",
+        "LEN(&A1)",
+        "EXACT(A1,)",
+        "EXACT(A1,B1,A2)",
+        "FIND(A1)",
+        "FIND(A1,B1,)",
+        "FIND(A1,B1,A2,B2)",
+        "IF(1,7,LEN(A1&))",
+    ] {
+        assert_eq!(evaluate_formula(formula, &table), None, "{formula}");
+    }
+}
+
+#[test]
+fn text_checks_report_non_scalar_cells_without_expanding_binary_contents() {
+    let mut table = formula_table();
+    table.rows[0][2] = CellValue::Binary(vec![0xff; 4_096]);
+    table.rows[1][2] = CellValue::Nested("{\"order\":7}".into());
+    table.rows[2][2] = CellValue::Float(f64::INFINITY);
+    for (r, expected) in [(0, "binary"), (1, "structured data"), (2, "inf")] {
+        let out = evaluate_formula_with_diagnostics(&format!("LEN(C{})", r + 1), &table);
+        assert!(out.value.is_none());
+        let cell = out.bad_cell.unwrap();
+        assert_eq!(
+            (cell.row, cell.col, cell.content.as_str()),
+            (r, 2, expected)
+        );
+    }
+    let out = evaluate_formula_with_diagnostics("IFERROR(LEN(C1),0)", &table);
+    assert_eq!(out.value, Some(0.0));
+    assert!(out.bad_cell.is_none());
+}
+
+#[test]
+fn text_checks_save_numeric_results_and_preserve_text_ids_in_xlsx() {
+    use octa::formats::{FormatReader, excel_reader::ExcelReader};
+    use octa::ui::table_view::commit_cell_text;
+    use rust_xlsxwriter::Workbook;
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("imported-codes.xlsx");
+    let mut book = Workbook::new();
+    let sheet = book.add_worksheet();
+    let pairs = [("SKU-01", "SKU-01"), ("0007", "7"), ("é-09 ", "É-09")];
+    for (c, label) in ["Printed code", "Expected code", "Length", "Exact", "Hyphen"]
+        .into_iter()
+        .enumerate()
+    {
+        sheet.write_string(0, c as u16, label).unwrap();
+    }
+    for (r, (code, expected)) in pairs.into_iter().enumerate() {
+        sheet.write_string(r as u32 + 1, 0, code).unwrap();
+        sheet.write_string(r as u32 + 1, 1, expected).unwrap();
+        for c in 2..5 {
+            sheet.write_number(r as u32 + 1, c, 0).unwrap();
+        }
+    }
+    book.save(&source).unwrap();
+    let mut table = ExcelReader.read_file(&source).unwrap();
+    for r in 0..3 {
+        let n = r + 1;
+        let formulae = [
+            format!("=LÄNGE(A{n})"),
+            format!("=IDENTISCH(A{n};B{n})"),
+            format!(r#"=WENNFEHLER(FINDEN("-";A{n});0)"#),
+        ];
+        for (c, formula) in formulae.into_iter().enumerate() {
+            assert!(commit_cell_text(
+                &mut table,
+                r,
+                c + 2,
+                formula,
+                BinaryDisplayMode::default()
+            ));
+        }
+    }
+    let output = dir.path().join("checked-codes.xlsx");
+    ExcelReader.write_file(&output, &table).unwrap();
+    let table = ExcelReader.read_file(&output).unwrap();
+    let expected = [[6.0, 1.0, 4.0], [4.0, 0.0, 0.0], [5.0, 0.0, 2.0]];
+    for (r, pair) in pairs.into_iter().enumerate() {
+        assert_eq!(table.get(r, 0), Some(&CellValue::String(pair.0.into())));
+        assert_eq!(table.get(r, 1), Some(&CellValue::String(pair.1.into())));
+        for (c, v) in expected[r].into_iter().enumerate() {
+            assert_eq!(table.get(r, c + 2), Some(&CellValue::Float(v)));
+        }
+    }
+}
+
+#[test]
 fn directed_rounding_distinguishes_away_from_and_towards_zero() {
     let table = formula_table();
     for (formula, expected) in [

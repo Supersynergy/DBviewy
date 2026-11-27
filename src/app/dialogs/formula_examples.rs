@@ -15,7 +15,9 @@ enum Form {
     Running,
     Whole,
     Round,
-    Truncate,
+    Scalar,
+    Exact,
+    Find,
     Percentile,
     Workday,
     NumberValue,
@@ -67,7 +69,22 @@ const RECIPES: &[Recipe] = &[
     Recipe {
         english: "TRUNC",
         german: "KÜRZEN",
-        form: Form::Truncate,
+        form: Form::Scalar,
+    },
+    Recipe {
+        english: "LEN",
+        german: "LÄNGE",
+        form: Form::Scalar,
+    },
+    Recipe {
+        english: "EXACT",
+        german: "IDENTISCH",
+        form: Form::Exact,
+    },
+    Recipe {
+        english: "FIND",
+        german: "FINDEN",
+        form: Form::Find,
     },
     Recipe {
         english: "PERCENTILE.INC",
@@ -117,7 +134,12 @@ impl Recipe {
             Form::Running => format!("{c}$1:{c}1"),
             Form::Whole => format!("${c}$1:${c}${n}"),
             Form::Round => format!("{c}1{sep}2"),
-            Form::Truncate => format!("{c}1"),
+            Form::Scalar => format!("{c}1"),
+            Form::Exact => format!(r#"{c}1{sep}"SKU-01""#),
+            Form::Find => {
+                let fallback = if german { "WENNFEHLER" } else { "IFERROR" };
+                return format!(r#"={fallback}({name}("-"{sep}{c}1){sep}0)"#);
+            }
             Form::Percentile => format!("${c}$1:${c}${n}{sep}95%"),
             Form::Workday => format!("{c}1{sep}5"),
             Form::NumberValue if german => format!(r#"{c}1;",";".""#),

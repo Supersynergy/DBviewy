@@ -286,6 +286,28 @@ These functions change the calculated value, not just its display.
 They accept whole numbers for `places`, including negative values.
 Open **Examples** in **Insert Column** and search by either function name.
 
+## Check imported text and codes
+
+Suppose A1 holds the code `SKU-01`. These functions return numbers, so
+their results can be filtered, compared or used in other formulas.
+
+| Formula | Result | Use |
+| --- | ---: | --- |
+| `=LEN(A1)` | 6 | Check an ID's length, including spaces. |
+| `=EXACT(A1,"SKU-01")` | 1 | Check spelling and case. A difference gives 0. |
+| `=IFERROR(FIND("-",A1),0)` | 4 | Locate a delimiter. Return 0 when it is missing. |
+
+The German names are `LÄNGE`, `IDENTISCH` and `FINDEN`. Find all three
+in the formula examples. Text cells retain their leading zeroes and
+spaces. Numeric arguments use their unformatted value, and blank cells
+act as empty text. Combine pieces with `&`, for example `LEN(A1&"/"&B1)`.
+
+`FIND` is case-sensitive, treats wildcard characters literally and takes
+an optional starting position, counted from 1. Use a whole number.
+`LEN` counts Unicode characters, not UTF-8 bytes. A combining accent or
+emoji variation selector still counts separately. `FIND` uses the same
+positions. `EXACT` does not change case or normalise accents.
+
 ## Calculate shift hours across midnight
 
 With a start time in A1 and a finish time in B1, use:

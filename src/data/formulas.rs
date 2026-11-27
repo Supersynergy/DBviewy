@@ -30,6 +30,8 @@ mod presence;
 mod product;
 #[path = "formulas_quantiles.rs"]
 mod quantiles;
+#[path = "formulas_text.rs"]
+mod text;
 #[path = "formulas_time.rs"]
 mod time;
 #[path = "formulas_workdays.rs"]
@@ -200,6 +202,7 @@ enum Function {
     Workdays(workdays::Kind, bool),
     SumProduct,
     NumberValue,
+    Text(text::Kind),
     Power,
 }
 
@@ -261,6 +264,12 @@ fn function_named(name: &str) -> Option<Function> {
         ("MEDIAN", Function::Aggregate(Median)),
         ("NUMBERVALUE", Function::NumberValue),
         ("ZAHLENWERT", Function::NumberValue),
+        ("LEN", Function::Text(text::Kind::Length)),
+        ("LÄNGE", Function::Text(text::Kind::Length)),
+        ("EXACT", Function::Text(text::Kind::Exact)),
+        ("IDENTISCH", Function::Text(text::Kind::Exact)),
+        ("FIND", Function::Text(text::Kind::Find)),
+        ("FINDEN", Function::Text(text::Kind::Find)),
         ("PERCENTILE.INC", Quantile(PercentileInc)),
         ("PERCENTILE.EXC", Quantile(PercentileExc)),
         ("QUANTIL.INKL", Quantile(PercentileInc)),
@@ -756,6 +765,7 @@ fn eval_function(
         }
         Function::SumProduct => return product::evaluate(tokens, pos, context),
         Function::NumberValue => return numbervalue::evaluate(tokens, pos, context),
+        Function::Text(kind) => return text::evaluate(kind, tokens, pos, context),
         Function::If => return control::evaluate_if(tokens, pos, context),
         Function::IfError => return control::evaluate_if_error(tokens, pos, context),
         Function::Ifs => return control::evaluate_ifs(tokens, pos, context),

@@ -59,6 +59,39 @@ fn search_accepts_english_german_and_formula_punctuation() {
 }
 
 #[test]
+fn text_checks_are_searchable_and_examples_evaluate_in_both_languages() {
+    let table = DataTable {
+        rows: vec![vec![CellValue::String("SKU-01".into())]],
+        ..DataTable::empty()
+    };
+    for (query, german, english, draft, value) in [
+        ("len", false, "LEN", "=LEN(A1)", 6.0),
+        ("länge", true, "LEN", "=LÄNGE(A1)", 6.0),
+        ("exact", false, "EXACT", r#"=EXACT(A1,"SKU-01")"#, 1.0),
+        (
+            "identisch",
+            true,
+            "EXACT",
+            r#"=IDENTISCH(A1;"SKU-01")"#,
+            1.0,
+        ),
+        ("find", false, "FIND", r#"=IFERROR(FIND("-",A1),0)"#, 4.0),
+        (
+            "finden",
+            true,
+            "FIND",
+            r#"=WENNFEHLER(FINDEN("-";A1);0)"#,
+            4.0,
+        ),
+    ] {
+        let got = matching(query);
+        assert_eq!(got[0].english, english, "{query}");
+        assert_eq!(got[0].expression(0, 1, german), draft);
+        assert_eq!(evaluate_formula(&draft[1..], &table), Some(value));
+    }
+}
+
+#[test]
 fn directed_rounding_recipes_find_both_names_and_set_correct_arity() {
     let table = DataTable {
         columns: vec![ColumnInfo {
