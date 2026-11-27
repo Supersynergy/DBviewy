@@ -133,6 +133,202 @@ fn a_paste_stops_at_the_edge_while_rows_are_still_coming_or_on_a_database_tab() 
     assert_eq!(shape(&database), (1, 2));
 }
 
+fn clipboard_text(action: impl FnOnce(&eframe::egui::Context)) -> Option<String> {
+    use eframe::egui::{Context, OutputCommand, RawInput};
+    let mut action = Some(action);
+    let ctx = Context::default();
+    let mut out = ctx.run_ui(RawInput::default(), |ui| {
+        if let Some(action) = action.take() {
+            action(ui.ctx());
+        }
+    });
+    out.textures_delta.clear();
+    out.platform_output.commands.into_iter().find_map(|cmd| {
+        if let OutputCommand::CopyText(text) = cmd {
+            Some(text)
+        } else {
+            None
+        }
+    })
+}
+
+fn visible_clipboard_app() -> OctaApp {
+    use octa::data::{CellValue, SearchResultMode};
+    let mut app = app(100);
+    app.open_new_table_tab(3, 5);
+    app.search_result_mode = SearchResultMode::Filter;
+    let tab = &mut app.tabs[app.active_tab];
+    tab.table.rows = [
+        ("VISIBLE-A", "PRIVATE-COLUMN-A", 10),
+        ("FILTERED-ROW", "PRIVATE-COLUMN-B", 20),
+        ("VISIBLE-C", "PRIVATE-COLUMN-C", 30),
+        ("VISIBLE-MANUALLY-HIDDEN", "PRIVATE-COLUMN-D", 40),
+        ("VISIBLE-E", "PRIVATE-COLUMN-E", 50),
+    ]
+    .map(|(label, private, number)| {
+        vec![
+            CellValue::String(label.into()),
+            CellValue::String(private.into()),
+            CellValue::Int(number),
+        ]
+    })
+    .to_vec();
+    tab.table.hide_rows([3]);
+    tab.hidden_columns.insert(1);
+    tab.search_text = "VISIBLE".into();
+    tab.filter_dirty = true;
+    app
+}
+
+#[test]
+fn visible_clipboard_formats_agree_on_rows_columns_and_numeric_values() {
+    use octa::data::copy_formats::CopyAs;
+    let mut app = visible_clipboard_app();
+    app.readonly_mode = true;
+    app.tabs[app.active_tab]
+        .table_state
+        .selected_cols
+        .extend([2, 1, 0]);
+    assert_eq!(
+        clipboard_text(|ctx| app.do_copy(ctx)).as_deref(),
+        Some("VISIBLE-A\t10\nVISIBLE-C\t30\nVISIBLE-E\t50")
+    );
+    assert_eq!(app.tabs[app.active_tab].filtered_rows, [0, 2, 4]);
+
+    let markdown = clipboard_text(|ctx| app.do_copy_as(ctx, CopyAs::Markdown)).unwrap();
+    assert_eq!(
+        markdown,
+        "| col1 | col3 |\n| --- | --- |\n| VISIBLE-A | 10 |\n| VISIBLE-C | 30 |\n| VISIBLE-E | 50 |\n"
+    );
+    let json = clipboard_text(|ctx| app.do_copy_as(ctx, CopyAs::Json)).unwrap();
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&json).unwrap(),
+        serde_json::json!([
+            {"col1": "VISIBLE-A", "col3": 10},
+            {"col1": "VISIBLE-C", "col3": 30},
+            {"col1": "VISIBLE-E", "col3": 50}
+        ])
+    );
+    let insert = clipboard_text(|ctx| app.do_copy_as(ctx, CopyAs::Insert)).unwrap();
+    assert_eq!(
+        insert,
+        concat!(
+            "INSERT INTO \"data\" (\"col1\", \"col3\") VALUES ('VISIBLE-A', 10);\n",
+            "INSERT INTO \"data\" (\"col1\", \"col3\") VALUES ('VISIBLE-C', 30);\n",
+            "INSERT INTO \"data\" (\"col1\", \"col3\") VALUES ('VISIBLE-E', 50);\n",
+        )
+    );
+    assert_eq!(
+        clipboard_text(|ctx| app.do_copy_as(ctx, CopyAs::InList)).as_deref(),
+        Some("('VISIBLE-A', '10', 'VISIBLE-C', '30', 'VISIBLE-E', '50')")
+    );
+}
+
+#[test]
+fn visible_clipboard_sparse_gap_is_blank_and_hidden_only_never_writes() {
+    use octa::data::copy_formats::CopyAs;
+    let mut app = visible_clipboard_app();
+    let tab = &mut app.tabs[app.active_tab];
+    tab.table_state.selected_cell = Some((2, 0));
+    tab.table_state
+        .selected_cells
+        .extend([(0, 0), (1, 2), (3, 0), (2, 1), (4, 2)]);
+    assert_eq!(
+        app.copy_selection_to_string().as_deref(),
+        Some("VISIBLE-A\t\n\t\n\t50")
+    );
+    assert_eq!(
+        clipboard_text(|ctx| app.do_copy_as(ctx, CopyAs::InList)).as_deref(),
+        Some("('VISIBLE-A', '50')")
+    );
+    let old = app.tabs[app.active_tab].table_state.selected_cells.len();
+    assert_eq!(old, 5);
+    app.tabs[app.active_tab]
+        .table_state
+        .selected_cells
+        .retain(|&(r, c)| matches!((r, c), (1, 2) | (3, 0) | (2, 1)));
+    assert!(clipboard_text(|ctx| app.do_copy(ctx)).is_none());
+    for format in CopyAs::ALL {
+        assert!(clipboard_text(|ctx| app.do_copy_as(ctx, format)).is_none());
+    }
+    assert!(clipboard_text(|ctx| app.do_cut(ctx)).is_none());
+    assert_eq!(cell(&app, 1, 2), "20");
+    assert_eq!(cell(&app, 3, 0), "VISIBLE-MANUALLY-HIDDEN");
+}
+
+#[test]
+fn visible_clipboard_treats_highlighting_as_visible_and_respects_single_cell_hiding() {
+    use octa::data::SearchResultMode;
+    let mut app = visible_clipboard_app();
+    app.search_result_mode = SearchResultMode::Highlight;
+    let tab = &mut app.tabs[app.active_tab];
+    tab.table_state.selected_cell = Some((1, 0));
+    assert_eq!(
+        app.copy_selection_to_string().as_deref(),
+        Some("FILTERED-ROW")
+    );
+    app.tabs[app.active_tab].table_state.selected_cell = Some((3, 0));
+    assert!(app.copy_selection_to_string().is_none());
+    app.tabs[app.active_tab].table_state.selected_cell = Some((0, 1));
+    assert!(app.copy_selection_to_string().is_none());
+}
+
+#[test]
+fn visible_clipboard_cut_clears_only_exported_cells_with_one_undo() {
+    use octa::data::CellValue::Null;
+    let mut app = visible_clipboard_app();
+    app.tabs[app.active_tab]
+        .table_state
+        .selected_rows
+        .extend([4, 1, 2, 3, 0]);
+    app.tabs[app.active_tab].table_state.selected_cols.insert(0);
+    app.readonly_mode = true;
+    assert!(clipboard_text(|ctx| app.do_cut(ctx)).is_none());
+    assert_eq!(cell(&app, 0, 0), "VISIBLE-A");
+    app.readonly_mode = false;
+    let i = app.active_tab;
+    let undo_before = app.tabs[i].table.undo_stack.len();
+    assert_eq!(
+        clipboard_text(|ctx| app.do_cut(ctx)).as_deref(),
+        Some("VISIBLE-A\t10\nVISIBLE-C\t30\nVISIBLE-E\t50")
+    );
+    for row in [0, 2, 4] {
+        for col in [0, 2] {
+            assert_eq!(app.tabs[i].table.get(row, col), Some(&Null));
+        }
+        assert!(cell(&app, row, 1).starts_with("PRIVATE-COLUMN"));
+    }
+    assert_eq!(cell(&app, 1, 0), "FILTERED-ROW");
+    assert_eq!(cell(&app, 3, 0), "VISIBLE-MANUALLY-HIDDEN");
+    assert_eq!(app.tabs[i].table.undo_stack.len(), undo_before + 1);
+    assert!(app.tabs[i].table.undo());
+    assert_eq!(app.tabs[i].table.undo_stack.len(), undo_before);
+    assert_eq!(cell(&app, 0, 0), "VISIBLE-A");
+    assert_eq!(cell(&app, 4, 2), "50");
+}
+
+#[test]
+fn visible_clipboard_cut_sparse_selection_does_not_clear_its_blanks() {
+    let mut app = visible_clipboard_app();
+    let i = app.active_tab;
+    app.tabs[i]
+        .table_state
+        .selected_cells
+        .extend([(0, 0), (2, 1), (4, 2)]);
+    assert_eq!(
+        clipboard_text(|ctx| app.do_cut(ctx)).as_deref(),
+        Some("VISIBLE-A\t\n\t\n\t50")
+    );
+    assert_eq!(cell(&app, 0, 0), "");
+    assert_eq!(cell(&app, 4, 2), "");
+    assert_eq!(cell(&app, 0, 2), "10");
+    assert_eq!(cell(&app, 2, 0), "VISIBLE-C");
+    assert_eq!(cell(&app, 2, 1), "PRIVATE-COLUMN-C");
+    assert!(app.tabs[i].table.undo());
+    assert_eq!(cell(&app, 0, 0), "VISIBLE-A");
+    assert_eq!(cell(&app, 4, 2), "50");
+}
+
 #[test]
 fn grid_copy_and_paste_keep_multiline_cells_in_their_columns() {
     use octa::data::CellValue;

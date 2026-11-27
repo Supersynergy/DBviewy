@@ -84,6 +84,14 @@ This copies values, not formulas or formatting. One Undo restores the
 whole fill. Find the command by name or bind it in Settings. Reload keeps
 its existing shortcut.
 
+### Copy what the table shows
+
+**Copy** and **Copy as** leave out filtered or hidden rows and hidden
+columns. Hidden rows and columns close up in the output. Within a free
+selection, visible cells that were not selected stay blank. **Cut** clears
+only the cells it copied. One **Undo** restores the whole cut. Paste still
+starts at the destination cell; it does not skip hidden destination cells.
+
 ### Copy as
 
 **Copy as** (under **Edit**, and in the cell / row right-click menu) copies
@@ -102,8 +110,7 @@ the same selection in another format. Pick one of four:
   Empty cells are left out and a value that appears twice is listed once.
   Text is quoted, with any `'` inside it doubled. Numbers stay bare, but only
   when every value is a number: one text value quotes them all, so a code
-  column holding `007` keeps its leading zero. When a whole column is
-  selected, only the rows the current filter shows are copied.
+  column holding `007` keeps its leading zero.
 - **JSON**: an array with one object per row, keyed by column name. Numbers
   and true or false stay typed, empty cells become `null`, and a repeated
   column name gets `_2`, `_3` and so on. A struct or list cell stays a

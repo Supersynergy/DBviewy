@@ -49,6 +49,8 @@
   negative rounding precision and decimal ties away from zero.
 - Add ROUNDUP, ROUNDDOWN and TRUNC with German names and searchable examples
   for whole quantities, decimal amounts and reporting to tens or hundreds.
+- Leave filtered and hidden cells out of all table clipboard formats. Cut
+  clears only the copied cells and takes one Undo.
 - Keep fixed Excel-style references such as `$B$1` when filling a calculated
   column. Evaluate against the original table regardless of insertion position.
 - Fill single-column running sums such as `SUM(A$1:A1)` in one pass instead

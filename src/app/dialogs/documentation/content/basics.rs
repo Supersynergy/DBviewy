@@ -447,6 +447,11 @@ block, or free multi-cell selection) as tab-separated values. A tab
 or line break inside a cell stays in that cell when copied and pasted.
 A single-line cell copied on its own stays plain text.
 
+Copy and Copy as leave out filtered or hidden rows and hidden columns.
+A visible gap in a free selection stays blank. **Ctrl+X** cuts only
+the cells it copies. One Ctrl+Z restores the whole cut. Paste does not
+skip hidden cells at the destination.
+
 **Ctrl+V** pastes tab-separated text starting at the selected cell, and one
 Ctrl+Z takes the whole paste back. When the block has more rows or columns
 than the table, the table grows to fit it, as a spreadsheet does: new rows
@@ -464,8 +469,7 @@ selection in another format:
 - **IN list**: a SQL list such as `('A-17', 'B-22')`, ready to paste after
   `WHERE id IN`. Empty cells and repeats are left out. Text is quoted with
   inner `'` doubled; numbers stay bare only when every value is a number, so
-  a code column holding `007` keeps its leading zero. A whole selected column
-  copies only the rows the current filter shows.
+  a code column holding `007` keeps its leading zero.
 - **JSON**: an array with one object per row, keyed by column name. Numbers
   and true or false stay typed, empty cells become `null`, and a repeated
   column name gets `_2`, `_3` and so on.

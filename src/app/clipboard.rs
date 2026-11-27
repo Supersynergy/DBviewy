@@ -6,17 +6,93 @@ use eframe::egui;
 use octa::data;
 use octa::ui;
 
-use super::state::OctaApp;
+use super::state::{OctaApp, TabState};
 
 #[path = "clipboard_tsv.rs"]
 mod tsv;
 
-impl OctaApp {
-    /// Build a tab-separated string from the current selection.
-    /// Priority: selected_rows > selected_cols > selected_cells > selected_cell.
-    pub(crate) fn copy_selection_to_string(&self) -> Option<String> {
-        let (cols, rows, mask) = self.selection_block()?;
-        let tab = &self.tabs[self.active_tab];
+struct VisibleSelection {
+    cols: Vec<usize>,
+    rows: Vec<usize>,
+    masked: bool,
+}
+
+impl VisibleSelection {
+    fn new(tab: &TabState) -> Option<Self> {
+        let state = &tab.table_state;
+        let table = &tab.table;
+        let visible_col = |col| col < table.col_count() && !tab.hidden_columns.contains(&col);
+        // The filter emits loaded row indices in grid order (the underlying
+        // table itself is reordered by Sort). It is safe to look up a lone
+        // cell without walking every row in a large table.
+        let visible_rows = &tab.filtered_rows;
+        let visible_row = |row| {
+            row < table.row_count()
+                && visible_rows.binary_search(&row).is_ok()
+                && !table.hidden_rows.contains(&row)
+        };
+        let rows_between = |lo, hi| {
+            let start = visible_rows.partition_point(|&row| row < lo);
+            let end = visible_rows.partition_point(|&row| row <= hi);
+            visible_rows[start..end]
+                .iter()
+                .copied()
+                .filter(|row| *row < table.row_count() && !table.hidden_rows.contains(row))
+                .collect()
+        };
+        let mut masked = false;
+        let (cols, rows): (Vec<_>, Vec<_>) = if !state.selected_rows.is_empty() {
+            let mut rows: Vec<_> = state
+                .selected_rows
+                .iter()
+                .copied()
+                .filter(|&row| visible_row(row))
+                .collect();
+            rows.sort_unstable();
+            (
+                (0..table.col_count())
+                    .filter(|&col| visible_col(col))
+                    .collect(),
+                rows,
+            )
+        } else if !state.selected_cols.is_empty() {
+            let mut cols: Vec<_> = state
+                .selected_cols
+                .iter()
+                .copied()
+                .filter(|&col| visible_col(col))
+                .collect();
+            cols.sort_unstable();
+            (cols, rows_between(0, table.row_count().saturating_sub(1)))
+        } else if !state.selected_cells.is_empty() {
+            let mut picks = state
+                .selected_cells
+                .iter()
+                .copied()
+                .filter(|&(r, c)| visible_col(c) && visible_row(r));
+            let (first_row, first_col) = picks.next()?;
+            let (r0, r1, c0, c1) = picks.fold(
+                (first_row, first_row, first_col, first_col),
+                |(r0, r1, c0, c1), (r, c)| (r0.min(r), r1.max(r), c0.min(c), c1.max(c)),
+            );
+            masked = true;
+            (
+                (c0..=c1).filter(|&col| visible_col(col)).collect(),
+                rows_between(r0, r1),
+            )
+        } else if let Some((row, col)) = state.selected_cell
+            && visible_col(col)
+            && visible_row(row)
+        {
+            (vec![col], vec![row])
+        } else {
+            return None;
+        };
+        (!cols.is_empty() && !rows.is_empty()).then_some(Self { cols, rows, masked })
+    }
+
+    fn to_tsv(&self, tab: &TabState) -> String {
+        let Self { cols, rows, masked } = self;
         let single_cell = rows.len() == 1 && cols.len() == 1;
         let mut text = String::new();
         for (i, &row) in rows.iter().enumerate() {
@@ -27,7 +103,7 @@ impl OctaApp {
                 if j != 0 {
                     text.push('\t');
                 }
-                let cell = if !mask || tab.table_state.selected_cells.contains(&(row, col)) {
+                let cell = if !masked || tab.table_state.selected_cells.contains(&(row, col)) {
                     tab.table
                         .get(row, col)
                         .map(ToString::to_string)
@@ -38,60 +114,38 @@ impl OctaApp {
                 if single_cell && !cell.contains(['\t', '\r', '\n']) {
                     // Keep single-line cell text ready to paste into editors,
                     // including surrounding quotes in identifiers.
-                    return Some(cell);
+                    return cell;
                 }
                 tsv::write_field(&mut text, &cell, cols.len() == 1);
             }
         }
-        Some(text)
+        text
     }
+}
 
-    /// The columns and rows the current selection covers, and whether it is a
-    /// disjoint cell selection (cells outside it count as empty). The rule
-    /// Copy as Markdown table always used: rows > columns > cells > cell.
-    pub(crate) fn selection_block(&self) -> Option<(Vec<usize>, Vec<usize>, bool)> {
-        let tab = &self.tabs[self.active_tab];
-        let state = &tab.table_state;
-        let table = &tab.table;
-        let (cols, rows): (Vec<usize>, Vec<usize>) = if !state.selected_rows.is_empty() {
-            let mut rows: Vec<usize> = state.selected_rows.iter().copied().collect();
-            rows.sort();
-            ((0..table.col_count()).collect(), rows)
-        } else if !state.selected_cols.is_empty() {
-            let mut cols: Vec<usize> = state.selected_cols.iter().copied().collect();
-            cols.sort();
-            (cols, (0..table.row_count()).collect())
-        } else if !state.selected_cells.is_empty() {
-            let cells = &state.selected_cells;
-            let min_row = cells.iter().map(|(r, _)| *r).min()?;
-            let max_row = cells.iter().map(|(r, _)| *r).max()?;
-            let min_col = cells.iter().map(|(_, c)| *c).min()?;
-            let max_col = cells.iter().map(|(_, c)| *c).max()?;
-            ((min_col..=max_col).collect(), (min_row..=max_row).collect())
-        } else if let Some((row, col)) = state.selected_cell {
-            (vec![col], vec![row])
-        } else {
-            return None;
-        };
-        if cols.is_empty() || rows.is_empty() {
-            return None;
+impl OctaApp {
+    fn clipboard_tab(&mut self) -> &mut TabState {
+        if self.tabs[self.active_tab].filter_dirty {
+            self.recompute_filter();
         }
-        let mask = state.selected_rows.is_empty()
-            && state.selected_cols.is_empty()
-            && !state.selected_cells.is_empty();
-        Some((cols, rows, mask))
+        &mut self.tabs[self.active_tab]
     }
 
-    pub(crate) fn copy_selection_as_markdown(&self) -> Option<String> {
-        let (cols, rows, mask) = self.selection_block()?;
-        let tab = &self.tabs[self.active_tab];
+    fn copy_selection_to_string(&mut self) -> Option<String> {
+        let tab = self.clipboard_tab();
+        Some(VisibleSelection::new(tab)?.to_tsv(tab))
+    }
+
+    fn copy_selection_as_markdown(&mut self) -> Option<String> {
+        let tab = self.clipboard_tab();
+        let VisibleSelection { cols, rows, masked } = VisibleSelection::new(tab)?;
         let state = &tab.table_state;
         let table = &tab.table;
 
         // Only with a disjoint multi-cell selection do out-of-set cells render
         // blank; otherwise every cell in the rectangle is included.
         let cell = |r: usize, c: usize| -> String {
-            if mask && !state.selected_cells.contains(&(r, c)) {
+            if masked && !state.selected_cells.contains(&(r, c)) {
                 return String::new();
             }
             md_escape(&table.get(r, c).map(|v| v.to_string()).unwrap_or_default())
@@ -129,7 +183,7 @@ impl OctaApp {
     }
 
     /// Copy the current selection to the OS clipboard as a Markdown table.
-    pub(crate) fn do_copy_markdown(&self, ctx: &egui::Context) {
+    pub(crate) fn do_copy_markdown(&mut self, ctx: &egui::Context) {
         if let Some(text) = self.copy_selection_as_markdown() {
             ctx.copy_text(text);
         }
@@ -142,10 +196,11 @@ impl OctaApp {
             CopyAs::Markdown => self.do_copy_markdown(ctx),
             CopyAs::InList => self.do_copy_in_list(ctx),
             CopyAs::Json | CopyAs::Insert => {
-                let Some((cols, rows, masked)) = self.selection_block() else {
+                let tab = self.clipboard_tab();
+                let Some(VisibleSelection { cols, rows, masked }) = VisibleSelection::new(tab)
+                else {
                     return;
                 };
-                let tab = &self.tabs[self.active_tab];
                 let block = Block {
                     table: &tab.table,
                     cols,
@@ -175,36 +230,38 @@ impl OctaApp {
         }
     }
 
-    /// Copy the selected cells as a SQL `IN` list. A whole column counts the
-    /// rows the current filter shows, not the hidden ones, since those are
-    /// what the user is looking at when they pick it.
+    /// Copy the visible selected values as a SQL `IN` list.
     pub(crate) fn do_copy_in_list(&mut self, ctx: &egui::Context) {
-        let tab = &self.tabs[self.active_tab];
-        let state = &tab.table_state;
-        let table = &tab.table;
-        let cells: Vec<(usize, usize)> = if !state.selected_rows.is_empty() {
-            let mut rows: Vec<usize> = state.selected_rows.iter().copied().collect();
-            rows.sort();
-            rows.iter()
-                .flat_map(|&r| (0..table.col_count()).map(move |c| (r, c)))
-                .collect()
-        } else if !state.selected_cols.is_empty() {
-            let mut cols: Vec<usize> = state.selected_cols.iter().copied().collect();
-            cols.sort();
-            tab.filtered_rows
-                .iter()
-                .flat_map(|&r| cols.iter().map(move |&c| (r, c)))
-                .collect()
-        } else if !state.selected_cells.is_empty() {
-            let mut cells: Vec<(usize, usize)> = state.selected_cells.iter().copied().collect();
-            cells.sort();
-            cells
-        } else if let Some(cell) = state.selected_cell {
-            vec![cell]
-        } else {
+        let tab = self.clipboard_tab();
+        let Some(VisibleSelection { cols, rows, masked }) = VisibleSelection::new(tab) else {
             return;
         };
-        match data::in_list::sql_in_list(cells.iter().filter_map(|&(r, c)| table.get(r, c))) {
+        let table = &tab.table;
+        let text = if masked {
+            // A sparse selection can span a huge block. Walk only the
+            // picked cells for a format that does not preserve blank gaps.
+            let mut picks: Vec<_> = tab
+                .table_state
+                .selected_cells
+                .iter()
+                .copied()
+                .filter(|(row, col)| {
+                    rows.binary_search(row).is_ok() && cols.binary_search(col).is_ok()
+                })
+                .collect();
+            picks.sort_unstable();
+            data::in_list::sql_in_list(
+                picks
+                    .into_iter()
+                    .filter_map(|(row, col)| table.get(row, col)),
+            )
+        } else {
+            data::in_list::sql_in_list(
+                rows.into_iter()
+                    .flat_map(|r| cols.iter().filter_map(move |&c| table.get(r, c))),
+            )
+        };
+        match text {
             Some(text) => {
                 ctx.copy_text(text);
                 self.status_message = Some((
@@ -274,35 +331,40 @@ impl OctaApp {
         if self.is_readonly() {
             return;
         }
-        self.do_copy(ctx);
-        let tab = &mut self.tabs[self.active_tab];
-        let row_count = tab.table.row_count();
-        let col_count = tab.table.col_count();
-        let state = &tab.table_state;
-        let mut targets: Vec<(usize, usize)> = Vec::new();
-        if !state.selected_rows.is_empty() {
-            for &row in &state.selected_rows {
-                for col in 0..col_count {
-                    targets.push((row, col));
+        let tab = self.clipboard_tab();
+        let Some(selection) = VisibleSelection::new(tab) else {
+            return;
+        };
+        ctx.copy_text(selection.to_tsv(tab));
+        let undo_from = tab.table.undo_stack.len();
+        let clear = |table: &mut data::DataTable, row, col| {
+            if table
+                .get(row, col)
+                .is_some_and(|value| *value != data::CellValue::Null)
+            {
+                table.set(row, col, data::CellValue::Null);
+            }
+        };
+        if selection.masked {
+            for &(row, col) in &tab.table_state.selected_cells {
+                if selection.rows.binary_search(&row).is_ok()
+                    && selection.cols.binary_search(&col).is_ok()
+                {
+                    clear(&mut tab.table, row, col);
                 }
             }
-        } else if !state.selected_cols.is_empty() {
-            for &col in &state.selected_cols {
-                for row in 0..row_count {
-                    targets.push((row, col));
+        } else {
+            for row in selection.rows {
+                for &col in &selection.cols {
+                    clear(&mut tab.table, row, col);
                 }
             }
-        } else if !state.selected_cells.is_empty() {
-            for &(row, col) in &state.selected_cells {
-                targets.push((row, col));
-            }
-        } else if let Some((row, col)) = state.selected_cell {
-            targets.push((row, col));
         }
-        for (row, col) in targets {
-            tab.table.set(row, col, data::CellValue::Null);
+        if tab.table.undo_stack.len() > undo_from {
+            tab.table.coalesce_undo_since(undo_from);
+            tab.table_state.invalidate_row_heights();
+            tab.filter_dirty = true;
         }
-        tab.filter_dirty = true;
     }
 
     /// Copy the selection to the OS clipboard.
@@ -313,7 +375,7 @@ impl OctaApp {
     /// pastes from. A separate `arboard` handle used to write the X11
     /// clipboard even on Wayland, so a copied cell never reached the SQL
     /// editor.
-    pub(crate) fn do_copy(&self, ctx: &egui::Context) {
+    pub(crate) fn do_copy(&mut self, ctx: &egui::Context) {
         if let Some(text) = self.copy_selection_to_string() {
             ctx.copy_text(text);
         }
